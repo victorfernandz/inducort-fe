@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\victor\\OneDrive\\Documents\\proyecto-sap-sifen\\src\\src.csproj": {}
+    "c:\\Users\\victor\\OneDrive\\Documents\\proyecto-sap-sifen\\src\\src.csproj": {}
   },
   "projects": {
-    "C:\\Users\\victor\\OneDrive\\Documents\\proyecto-sap-sifen\\src\\src.csproj": {
+    "c:\\Users\\victor\\OneDrive\\Documents\\proyecto-sap-sifen\\src\\src.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\victor\\OneDrive\\Documents\\proyecto-sap-sifen\\src\\src.csproj",
+        "projectUniqueName": "c:\\Users\\victor\\OneDrive\\Documents\\proyecto-sap-sifen\\src\\src.csproj",
         "projectName": "src",
-        "projectPath": "C:\\Users\\victor\\OneDrive\\Documents\\proyecto-sap-sifen\\src\\src.csproj",
+        "projectPath": "c:\\Users\\victor\\OneDrive\\Documents\\proyecto-sap-sifen\\src\\src.csproj",
         "packagesPath": "C:\\Users\\victor\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\victor\\OneDrive\\Documents\\proyecto-sap-sifen\\src\\obj\\",
+        "outputPath": "c:\\Users\\victor\\OneDrive\\Documents\\proyecto-sap-sifen\\src\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -50,6 +50,14 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "Microsoft.Extensions.Hosting": {
+              "target": "Package",
+              "version": "[9.0.2, )"
+            },
+            "Microsoft.Extensions.Hosting.WindowsServices": {
+              "target": "Package",
+              "version": "[9.0.2, )"
+            },
             "Newtonsoft.Json": {
               "target": "Package",
               "version": "[13.0.3, )"

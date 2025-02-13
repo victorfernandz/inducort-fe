@@ -1,0 +1,20 @@
+# Ignorar configuraciones de VS Code
+.vscode/
+*.code-workspace
+
+# Archivos de compilación de C#
+bin/
+obj/
+
+# Configuración de usuario y archivos sensibles
+config.json
+*.pfx
+
+# Archivos de Python/Django
+web/__pycache__/
+web/db.sqlite3
+.env
+
+# Archivos innecesarios de Git
+*.log
+.DS_Store
