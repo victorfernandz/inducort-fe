@@ -22,9 +22,9 @@ public class DocumentoElectronico
     public DEContent DE { get; set; }
 
     public DocumentoElectronico(string cdc, int dv, int dSisFact, string dCodSeg, string iTiDE, 
-        int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT)
+        int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE)
     {
-        DE = new DEContent(cdc, dv, dSisFact, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT);
+        DE = new DEContent(cdc, dv, dSisFact, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE);
     }
 }
 
@@ -45,16 +45,21 @@ public class DEContent
     [XmlElement("gTimb")]
     public GTimb GrupoTimbrado { get; set; }
 
+    [XmlElement("gDatGralOpe")]
+
+    public GDatGralOpe CamposGenerales { get; set; }
+
     public DEContent() {}
 
     public DEContent(string cdc, int dv, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, 
-        string dNumDoc, DateTime dFeIniT)
+        string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE)
     {
         Id = cdc;
         DigitoVerificador = dv;
         SistemaFacturacion = dSisFact;
         GrupoOperacion = new GOpeDE(dCodSeg);
         GrupoTimbrado = new GTimb(iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT);
+        CamposGenerales = new GDatGralOpe(dFeEmiDE);
     }
 }
 
@@ -135,3 +140,23 @@ public class GTimb
         };
     }
 }
+
+public class GDatGralOpe 
+{
+    [XmlIgnore] // Evita serializar el DateTime directamente
+    public DateTime FechaHoraEmision { get; set; }
+
+    [XmlElement("dFeEmiDE")]
+    public string FechaHoraEmisionString
+    {
+        get => FechaHoraEmision.ToString("yyyy-MM-ddTHH:mm:ss");
+        set => FechaHoraEmision = DateTime.ParseExact(value, "yyyy-MM-ddTHH:mm:ss", null);
+    }
+
+    public GDatGralOpe(){}
+
+    public GDatGralOpe(DateTime dFeEmiDE)
+    {
+        FechaHoraEmision = dFeEmiDE;
+    }
+};

@@ -48,6 +48,7 @@ public class SAPCDCService : BackgroundService
                     DateTime dFeIniT = DateTime.ParseExact(factura.U_FITE, "yyyy-MM-dd", null);
                     int dNumTim = factura.U_TIM;
                     int iTipEmi = 1; // Siempre fijo en 1
+                    DateTime dFeEmiDE = DateTime.Now;
 
                     // Se genera el Código de Control (CDC)
                     string dCodSeg = GenerarCodigoSeguridad();
@@ -65,7 +66,8 @@ public class SAPCDCService : BackgroundService
 
                         // Generar XML
                         string rutaXml = $"XML/Documento_{cdc}.xml"; 
-                        GenerarXML.SerializarDocumentoElectronico(cdc, dv, rutaXml, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT);
+                        GenerarXML.SerializarDocumentoElectronico(cdc, dv, rutaXml, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc
+                            , dFeIniT, dFeEmiDE);
                     }
                     else
                     {

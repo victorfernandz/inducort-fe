@@ -7,12 +7,12 @@ using System.Xml.Serialization;
 public class GenerarXML
 {
     public static void SerializarDocumentoElectronico(string cdc, int dv, string rutaArchivo, string dCodSeg, string iTiDE,
-        int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT)
+        int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE)
     {
         try
         {
             // Crear el documento
-            DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT);
+            DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE);
             
             // Serializar primero a un StringWriter
             var stringWriter = new StringWriter();

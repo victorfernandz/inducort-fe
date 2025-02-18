@@ -104,6 +104,9 @@ public class SAPServiceLayer
             return new List<Factura>();
         }
 
+        // Asignamos la hora de generación del xml para enviar como fecha y hora del documento
+        string fechaConHora = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
+
         // Convertir FacturaResponse a Factura con validaciones de nulos
         var facturasList = facturasResponse
             .Where(f => f.Invoices != null && f.BusinessPartners != null) // Evitar NullReferenceException
@@ -125,14 +128,15 @@ public class SAPServiceLayer
                     FederalTaxID = f.BusinessPartners.FederalTaxID ?? "00000000",
                     U_TIPCONT = f.BusinessPartners.U_TIPCONT ?? "0"
                 },
-                dFecha = f.Invoices.DocDate ?? "",
-                iTipEmi = 1 // Siempre fijo en 1
+                //dFecha = f.Invoices.DocDate ?? "",
+                iTipEmi = 1, // Siempre fijo en 1
+                dFecha = fechaConHora
             }).ToList();
 
         return facturasList;
     }
 
-    public async Task<bool> ActualizarCDC(int docEntry, string cdc)
+        public async Task<bool> ActualizarCDC(int docEntry, string cdc)
     {
         var requestBody = new { U_EXX_FE_CDC = cdc };
 

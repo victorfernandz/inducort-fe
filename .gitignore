@@ -3,8 +3,8 @@
 *.code-workspace
 
 # Archivos de compilación de C#
-bin/
-obj/
+**/bin/
+**/obj/
 
 # Configuración de usuario y archivos sensibles
 config.json
@@ -16,5 +16,5 @@ web/db.sqlite3
 .env
 
 # Archivos innecesarios de Git
-*.log
+**.log
 .DS_Store
