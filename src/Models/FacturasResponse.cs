@@ -14,6 +14,8 @@ public class InvoiceData
     public string U_PDE { get; set; }
     public string FolioNumber { get; set; }
     public string DocDate { get; set; }
+    public string U_FITE { get; set; }
+    public int U_TIM { get; set; }
 }
 
 public class BusinessPartnerData

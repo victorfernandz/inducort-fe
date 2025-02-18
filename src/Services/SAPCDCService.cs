@@ -39,32 +39,44 @@ public class SAPCDCService : BackgroundService
                     string[] rucPartes = rucCompleto.Split('-');
                     string dRucEm = rucPartes.Length > 0 ? rucPartes[0].PadLeft(8, '0') : "00000000";
                     string dDVEmi = rucPartes.Length > 1 ? rucPartes[1] : "0";
-
                     string iTiDE = factura.U_CDOC.PadLeft(2, '0');
                     string dEst = factura.U_EST;
                     string dPunExp = factura.U_PDE;
                     string dNumDoc = factura.FolioNum.PadLeft(7, '0');
                     string dTipCont = factura.BusinessPartner.U_TIPCONT;
                     string dFecha = factura.DocDate.Replace("-", "");
-                    string iTipEmi = "1"; // Siempre fijo en 1
+                    DateTime dFeIniT = DateTime.ParseExact(factura.U_FITE, "yyyy-MM-dd", null);
+                    int dNumTim = factura.U_TIM;
+                    int iTipEmi = 1; // Siempre fijo en 1
 
+                    // Se genera el Código de Control (CDC)
                     string dCodSeg = GenerarCodigoSeguridad();
-                    string cdc = GenerarCDC.GenerarCodigoCDC(
-                        iTiDE, dRucEm, dDVEmi, dEst, dPunExp, dNumDoc, dTipCont, dFecha, iTipEmi, dCodSeg);
+                    string cdc = GenerarCDC.GenerarCodigoCDC(iTiDE, dRucEm, dDVEmi, dEst, dPunExp, dNumDoc, 
+                        dTipCont, dFecha, iTipEmi.ToString(), dCodSeg);
+
+                    // Se extraer el Dígito Verificador (dv)
+                    int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
 
                     bool actualizado = await _sapServiceLayer.ActualizarCDC(factura.DocEntry, cdc);
 
-                    if (actualizado)
+                   if (actualizado)
+                    {
                         _logger.LogInformation($"CDC generado y actualizado: {cdc}");
+
+                        // Generar XML
+                        string rutaXml = $"XML/Documento_{cdc}.xml"; 
+                        GenerarXML.SerializarDocumentoElectronico(cdc, dv, rutaXml, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT);
+                    }
                     else
+                    {
                         _logger.LogWarning($"No se pudo actualizar el CDC para la factura {factura.DocEntry}");
+                    } 
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error en SAPCDCService: {ex.Message}");
             }
-
             await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
         }
     }
