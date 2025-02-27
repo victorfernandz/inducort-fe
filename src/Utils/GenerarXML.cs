@@ -6,14 +6,41 @@ using System.Xml.Serialization;
 
 public class GenerarXML
 {
-    public static void SerializarDocumentoElectronico(string cdc, int dv, string rutaArchivo, string dCodSeg, string iTiDE,
-        int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE)
+    public static void SerializarDocumentoElectronico(string cdc, int dv, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, 
+        string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, 
+        string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE, 
+        List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones = null)
     {
         try
         {
-            // Crear el documento
-            DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE);
+            // Usar la primera actividad económica para inicializar el documento (si existe)
+            var actividadPrincipal = actividades.FirstOrDefault() ?? new ActividadEconomica { Codigo = "0", Descripcion = "No especificada" };
+
+             // Crear el documento con la primera actividad
+            DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe,
+                dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, actividadPrincipal.Codigo, 
+                actividadPrincipal.Descripcion);
             
+            // Si hay más de una actividad, añadir las adicionales
+            if (actividades.Count > 1)
+            {
+                for (int i = 1; i < actividades.Count; i++)
+                {
+                    documento.DE.CamposGenerales.ActividadesEconomicas.Add(
+                        new GActEco(actividades[i].Codigo, actividades[i].Descripcion));
+                }
+            }
+
+            // Agregar obligaciones afectadas si hay
+            if (obligaciones != null && obligaciones.Any())
+            {
+                foreach (var obligacion in obligaciones)
+                {
+                    documento.DE.CamposGenerales.OperacionComercial.ObligacionesAfectadas.Add(
+                        new GOblAfe(obligacion.Codigo, obligacion.Descripcion));
+                }
+            }
+
             // Serializar primero a un StringWriter
             var stringWriter = new StringWriter();
             var serializer = new XmlSerializer(typeof(DocumentoElectronico));
@@ -37,7 +64,7 @@ public class GenerarXML
             // Agregar los atributos en el orden correcto
             var xmlns = xmlDoc.CreateAttribute("xmlns");
             xmlns.Value = "http://ekuatia.set.gov.py/sifen/xsd";
-            root.Attributes.Append(xmlns);
+            root.Attributes.Append(xmlns);  
 
             var xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
             xmlnsXsi.Value = "http://www.w3.org/2001/XMLSchema-instance";

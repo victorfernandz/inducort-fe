@@ -1,10 +1,6 @@
 using System;
 using System.Net;
-using System.Security.Cryptography.X509Certificates;
-using System.Net.Security;
 using System.Text;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Newtonsoft.Json;
 
 public class SAPServiceLayer
@@ -28,7 +24,7 @@ public class SAPServiceLayer
         ServicePointManager.ServerCertificateValidationCallback += (sender, cert, chain, sslPolicyErrors) => true;
         ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
 
-        HttpClientHandler handler = new HttpClientHandler
+        var handler = new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
         };
@@ -69,80 +65,41 @@ public class SAPServiceLayer
         return false;
     }
 
-    public async Task<List<Factura>> GetFacturasSinCDC()
+    public async Task Logout()
     {
-        string queryDocumento = "$crossjoin(Invoices,BusinessPartners)?" +
-                    "$expand=Invoices($select=DocEntry,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate)," +
-                    "BusinessPartners($select=CardCode,FederalTaxID,U_TIPCONT)" +
-                    "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and" +
-                    "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and Invoices/DocDate eq '20250123'";
+        if (string.IsNullOrEmpty(_sessionId))
+            return;
 
-        var response = await _httpClient.GetAsync(queryDocumento);
-
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            Console.WriteLine($"Error en la consulta a SAP: {response.StatusCode}");
-            return new List<Factura>();
-        }
-
-        var jsonResponse = await response.Content.ReadAsStringAsync();
-
-        var rawJson = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
-        if (rawJson == null || !rawJson.ContainsKey("value"))
-        {
-            Console.WriteLine("No se encontraron datos en la respuesta de SAP.");
-            return new List<Factura>();
-        }
-
-        // Obtener la lista de facturas y deserializar
-        var facturasJson = rawJson["value"].ToString();
-        var facturasResponse = JsonConvert.DeserializeObject<List<FacturaResponse>>(facturasJson);
-
-        if (facturasResponse == null)
-        {
-            Console.WriteLine("No se pudieron deserializar las facturas.");
-            return new List<Factura>();
-        }
-
-        // Asignamos la hora de generación del xml para enviar como fecha y hora del documento
-        string fechaConHora = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
-
-        // Convertir FacturaResponse a Factura con validaciones de nulos
-        var facturasList = facturasResponse
-            .Where(f => f.Invoices != null && f.BusinessPartners != null) // Evitar NullReferenceException
-            .Select(f => new Factura
+            var response = await _httpClient.PostAsync("Logout", null);
+            if (response.IsSuccessStatusCode)
             {
-                DocEntry = f.Invoices.DocEntry,
-                U_EXX_FE_CDC = f.Invoices.U_EXX_FE_CDC ?? "",
-                U_CDOC = f.Invoices.U_CDOC ?? "",
-                CardCode = f.Invoices.CardCode ?? "",
-                U_EST = f.Invoices.U_EST ?? "",
-                U_PDE = f.Invoices.U_PDE ?? "",
-                FolioNum = (f.Invoices.FolioNumber ?? "").PadLeft(7, '0'), 
-                DocDate = f.Invoices.DocDate,
-                U_TIM = f.Invoices.U_TIM,
-                U_FITE = f.Invoices.U_FITE,
-                BusinessPartner = new BusinessPartner
-                {
-                    CardCode = f.BusinessPartners.CardCode ?? "",
-                    FederalTaxID = f.BusinessPartners.FederalTaxID ?? "00000000",
-                    U_TIPCONT = f.BusinessPartners.U_TIPCONT ?? "0"
-                },
-                //dFecha = f.Invoices.DocDate ?? "",
-                iTipEmi = 1, // Siempre fijo en 1
-                dFecha = fechaConHora
-            }).ToList();
-
-        return facturasList;
+                Console.WriteLine("Sesión cerrada correctamente en SAP.");
+            }
+            else
+            {
+                Console.WriteLine($"Error al cerrar sesión en SAP: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción en Logout: {ex.Message}");
+        }
+        finally
+        {
+            _sessionId = null;
+            _routeId = null;
+            
+            // Eliminar encabezados de sesión
+            _httpClient.DefaultRequestHeaders.Remove("B1SESSION");
+            _httpClient.DefaultRequestHeaders.Remove("RouteID");
+        }
     }
 
-        public async Task<bool> ActualizarCDC(int docEntry, string cdc)
+    // Método protegido para que los servicios derivados puedan usar el HttpClient
+    public HttpClient GetHttpClient()
     {
-        var requestBody = new { U_EXX_FE_CDC = cdc };
-
-        var content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
-        var response = await _httpClient.PatchAsync($"Invoices({docEntry})", content);
-
-        return response.IsSuccessStatusCode;
+        return _httpClient;
     }
 }
