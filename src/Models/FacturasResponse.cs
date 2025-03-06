@@ -1,3 +1,4 @@
+using System.Security;
 using Newtonsoft.Json;
 
 public class FacturaResponse
@@ -20,13 +21,16 @@ public class InvoiceData
     public string U_FITE { get; set; }
     public int U_TIM { get; set; }
     public string U_EXX_FE_TipoTran { get; set; }
+    public int U_EXX_FE_IndPresencia { get; set; }
+    public int PaymentGroupCode { get; set; }
+    public int NumberOfInstallments { get; set; }
 }
 
 public class BusinessPartnerData
 {
     public string CardCode { get; set; }    
     public string CardName { get; set; }
-    public string FederalTaxID { get; set; }
+    public string FederalTaxID { get; set; } 
     public int U_TIPCONT { get; set; } // Tipo Contribuyente
     public string U_CRSI { get; set; }  // Naturaleza del SN
     public int U_EXX_FE_TipoOperacion { get; set; }
@@ -77,4 +81,12 @@ public class BPAddressesWrapper
 {
     [JsonProperty("BPAddresses")]
     public List<BPAddressDetalle> BPAddresses { get; set; }
+}
+
+public class CuotaResponse
+{
+    public decimal Total { get; set; }
+    public decimal TotalFC { get; set; }
+    public string U_FECHAV { get; set; }
+    public int InstallmentId { get; set; }
 }

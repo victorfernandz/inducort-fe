@@ -16,6 +16,10 @@ public class Factura
     public string U_FITE { get; set; }
     public string iTiDE { get; set; }
     public string iTipTra { get; set; }
+    public int iIndPres { get; set; }
+    public int iCondOpe { get; set; }
+    public int iCondCred { get; set; }
     public BusinessPartner BusinessPartner { get; set; }
     public Currencies Currencies { get; set; }
+    public GPagCred OperacionCredito { get; set; }
 }
