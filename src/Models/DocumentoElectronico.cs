@@ -8,7 +8,9 @@ using System.Diagnostics.Contracts;
 using System.Net.NetworkInformation;
 
 [XmlRoot("rDE", Namespace = "http://ekuatia.set.gov.py/sifen/xsd")]
-public class DocumentoElectronico // (AA001-AA009)
+
+// Campos que identifican el formato electrónico XML (AA001-AA009)
+public class DocumentoElectronico // Nodo Padre AA001
 {
     public DocumentoElectronico()
     {
@@ -28,14 +30,17 @@ public class DocumentoElectronico // (AA001-AA009)
 
     public DocumentoElectronico(string cdc, int dv, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe,
         string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
-        string dEmailE, string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, int iIndPres, int iCondOpe, int iCondCred)         
+        string dEmailE, string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred) 
+    //    string dCodInt, string dDescItem, string cUniMed, int dCantProSer)         
     {
         DE = new DEContent(cdc, dv, dSisFact, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, 
-            cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, iIndPres, iCondOpe, iCondCred);
+            cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iIndPres, iCondOpe, iCondCred);
+            //, dCodInt, dDescItem, cUniMed, dCantProSer);
     }
 }
 
-public class DEContent // (A001-A099) - Nodo padre AA001
+// Campos firmados del Documento Electrónico (A001-A099)
+public class DEContent // Nodo padre AA001
 {
     [XmlAttribute("Id")]
     public string Id { get; set; } // El Id es el CDC según el manual técnico
@@ -63,7 +68,8 @@ public class DEContent // (A001-A099) - Nodo padre AA001
 
     public DEContent(string cdc, int dv, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe, string dDesMoneOpe,
         string dRucEm,int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE,
-        string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, int iIndPres, int iCondOpe, int iCondCred) 
+        string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred)
+        //, string dCodInt, string dDescItem, string cUniMed, int dCantProSer)
     {
         Id = cdc;
         DigitoVerificador = dv;
@@ -73,7 +79,7 @@ public class DEContent // (A001-A099) - Nodo padre AA001
     //    CamposGenerales = new GDatGralOpe(dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, null, null);
             
         CamposGenerales = new GDatGralOpe(dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE,
-            iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec);
+            iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam);
             
         // Agregar la actividad económica si se proporcionó
         if (!string.IsNullOrEmpty(cActEco))
@@ -85,7 +91,8 @@ public class DEContent // (A001-A099) - Nodo padre AA001
     }
 }
 
-public class GOpeDE // (B001-B099) - Nodo padre A001
+// Campos inherentes a la operación de Documentos Electrónicos (B001-B099)
+public class GOpeDE // Nodo padre A001
 {
     [XmlElement("iTipEmi")]
     public int TipoEmision { get; set; } = 1;
@@ -104,7 +111,8 @@ public class GOpeDE // (B001-B099) - Nodo padre A001
     }
 }
 
-public class GTimb // (C001-C099) - Nodo padre A001
+// Campos de datos del Timbrado (C001-C099)
+public class GTimb //  Nodo padre A001
 {
     [XmlElement("iTiDE")]
     public string TipoDocumento { get; set; }
@@ -163,7 +171,8 @@ public class GTimb // (C001-C099) - Nodo padre A001
     }
 }
 
-public class GDatGralOpe //(D001-D299) - Nodo padre A001
+// Campos Generales del Documento Electrónico DE (D001-D299)
+public class GDatGralOpe // Nodo padre A001
 {
     [XmlIgnore] // Evita serializar el DateTime directamente
     public DateTime FechaHoraEmision { get; set; }
@@ -192,11 +201,11 @@ public class GDatGralOpe //(D001-D299) - Nodo padre A001
 
     // Constructor para una sola actividad económica
     public GDatGralOpe(DateTime dFeEmiDE, string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi,
-        string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec,
+        string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam,
         List<ActividadEconomica> actividades = null, List<ObligacionAfectada> obligaciones = null)
     {
         FechaHoraEmision = dFeEmiDE;
-        OperacionComercial = new GOpeCom(iTipTra, cMoneOpe, dDesMoneOpe, obligaciones);
+        OperacionComercial = new GOpeCom(iTipTra, cMoneOpe, dDesMoneOpe, dTiCam, obligaciones);
         GrupoCamposEmisor = new GEmis(dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE);
         
         if (actividades != null && actividades.Any())
@@ -211,7 +220,8 @@ public class GDatGralOpe //(D001-D299) - Nodo padre A001
     }
 }
 
-public class GOpeCom // (D010-D099) - Nodo padre D001
+// Campos inherentes a la operación comercial (D010-D099)
+public class GOpeCom // Nodo padre D001
 {
     [XmlElement("iTipTra", Order = 1)]
     public string TipoTransaccion { get; set; }
@@ -234,18 +244,21 @@ public class GOpeCom // (D010-D099) - Nodo padre D001
     [XmlElement("dCondTiCam", Order = 7)]
     public int CondicionTipoCambio { get; set; } = 1;
 
-    [XmlElement("gOblAfe", Order = 8)]
+    [XmlElement("dTiCam", Order = 8)]
+    public decimal TipoCambio { get; set; }
+
+    [XmlElement("gOblAfe", Order = 9)]
     public List<GOblAfe> ObligacionesAfectadas { get; set; } = new List<GOblAfe>();
 
     public GOpeCom(){}
 
-    public GOpeCom(string iTipTra, string cMoneOpe, string dDesMoneOpe, List<ObligacionAfectada> obligaciones = null)
+    public GOpeCom(string iTipTra, string cMoneOpe, string dDesMoneOpe, decimal dCondTiCam, List<ObligacionAfectada> obligaciones = null)
     {
         TipoTransaccion = iTipTra;
         DescripcionTipoTransaccion = ObtenerDescripTipoTran(iTipTra);
-    //    MonedaOperacion = cMoneOpe;
         MonedaOperacion = cMoneOpe;
         DescripcionMoneda = dDesMoneOpe;
+        TipoCambio = dCondTiCam;
 
         // Agregar obligaciones afectadas solo si la lista no es nula y tiene elementos
         if (obligaciones != null && obligaciones.Any())
@@ -255,6 +268,11 @@ public class GOpeCom // (D010-D099) - Nodo padre D001
                 ObligacionesAfectadas.Add(new GOblAfe(obligacion.Codigo, obligacion.Descripcion));
             }
         }
+    }
+
+    public bool ShouldSerializeTipoCambio()
+    {
+        return TipoCambio > 1;
     }
 
     public bool ShouldSerializeCondicionTipoCambio()
@@ -282,7 +300,8 @@ public class GOpeCom // (D010-D099) - Nodo padre D001
     }
 };
 
-public class GEmis //(D100-D129) - Nodo padre D001
+// Campos que identifican al emisor del Documento Electrónico DE (D100-D129)
+public class GEmis // Nodo padre D001
 {
     [XmlElement("dRucEm", Order = 1)]
     public string RucEmisor { get; set; }
@@ -348,7 +367,8 @@ public class GEmis //(D100-D129) - Nodo padre D001
     }
 }
 
-public class GActEco // (D130-D139) - Nodo padre D100
+// Campos que describen la actividad económica del emisor (D130-D139)
+public class GActEco // Nodo padre D100
 {
     [XmlElement("cActEco")]
     public string CodActiEconomica { get; set; }
@@ -365,7 +385,8 @@ public class GActEco // (D130-D139) - Nodo padre D100
     }
 }
 
-public class GDatRec // (D200-D299) - Nodo padre D001
+// Campos que identifican al receptor del Documento Electrónico DE (D200-D299)
+public class GDatRec // Nodo padre D001
 {
     [XmlElement("iNatRec")]
     public int NaturalezaReceptor { get; set; }
@@ -423,7 +444,8 @@ public class GOblAfe // (D030-D040) - Nodo padre D010
     }
 }
 
-public class GDtipDE // (E001-E009) - Nodo padre A001
+// Campos específicos por tipo de Documento Electrónico (E001-E009)
+public class GDtipDE // Nodo padre A001
 {
     [XmlElement("gCamFE")]
     public GCamFE CamposFacturaElectronica { get; set; }
@@ -431,16 +453,21 @@ public class GDtipDE // (E001-E009) - Nodo padre A001
     [XmlElement("gCamCond")]
     public GCamCond CondicionOperacion { get; set; }
 
+    [XmlElement("gCamItem")]
+    public List<GCamItem> Items { get; set; } = new List<GCamItem>();
+
     public GDtipDE() {}
 
     public GDtipDE(int iIndPres, int iCondOpe, int iCondCred) 
     {
         CamposFacturaElectronica = new GCamFE(iIndPres);
         CondicionOperacion = new GCamCond(iCondOpe, iCondCred);
+        Items = new List<GCamItem>();
     }
 }
 
-public class GCamFE // (E010-E099) - Nodo padre E001
+// Campos que componen la Factura Electrónica FE (E010-E099)
+public class GCamFE // Nodo padre E001
 {
     [XmlElement("iIndPres")]
     public int IndicadorPresencia { get; set; }
@@ -471,7 +498,8 @@ public class GCamFE // (E010-E099) - Nodo padre E001
     }
 }
 
-public class GCamCond // (E600-E699) - Nodo padre E001
+// Campos que describen la condición de la operación (E600-E699)
+public class GCamCond // Nodo padre E001
 {
     [XmlElement("iCondOpe")]
     public int CondicionOperacion { get; set; }
@@ -519,7 +547,8 @@ public class GCamCond // (E600-E699) - Nodo padre E001
     }
 }
 
-public class GPagCred // (E640-E649) - Nodo padre E600
+// Campos que describen la operación a crédito (E640-E649)
+public class GPagCred // Nodo padre E600
 {
     [XmlElement("iCondCred")]
     public int CondicionCredito { get; set; }
@@ -584,7 +613,8 @@ public class GPagCred // (E640-E649) - Nodo padre E600
     }
 }
 
-public class GCuotas // (E650-E659) - Nodo padre E640
+// Campos que describen las cuotas (E650-E659)
+public class GCuotas // Nodo padre E640
 {
     [XmlElement("cMoneCuo")]
     public string MonedaCuota { get; set; }
@@ -607,4 +637,193 @@ public class GCuotas // (E650-E659) - Nodo padre E640
         MontoCuota = dMonCuota;
         FechaVencimientoCuota = dVencCuo.ToString("yyyy-MM-dd");
     }
+}
+
+// Campos que describen los ítems de la operación (E700-E899)
+public class GCamItem // Nodo Padre E001
+{
+    [XmlElement("dCodInt")]
+    public string CodigoItem { get; set; }
+
+    [XmlElement("dDescItem")]
+    public string DescripcionItem { get; set; }
+
+/*    [XmlElement("dCantProSer")]
+    public int CantidadProducto { get; set; } */
+
+    [XmlIgnore]
+    public decimal CantidadProducto { get; set; }
+
+    [XmlElement("dCantProSer")]
+    public string CantidadProductoString
+    {
+        get
+        {
+            if (CantidadProducto == Math.Floor(CantidadProducto))
+                return CantidadProducto.ToString("0");
+            else
+                return CantidadProducto.ToString("0.00");
+        }
+        set
+        {
+            if (decimal.TryParse(value, out decimal result))
+                CantidadProducto = result;
+        }
+    }
+
+    [XmlElement("gValorItem")]
+    public GValorItem ValorItem { get; set; }
+
+    public GCamItem()
+    {
+        ValorItem = new GValorItem();
+    }
+
+}
+
+// Campos que describen el precio, tipo de cambio y valor total de la operación por ítem (E720-E729)
+public class GValorItem // Nodo Padre E700
+{
+    [XmlIgnore]
+    public decimal PrecioUnitario { get; set; }
+
+    [XmlElement("dPUniProSer")]
+    public string PrecioUnitarioString
+    {
+        get 
+        {
+            // Si no tiene decimales (es un número entero), mostrar sin decimales
+            if (PrecioUnitario == Math.Floor(PrecioUnitario))
+                return PrecioUnitario.ToString("0");
+            else
+                return PrecioUnitario.ToString("0.00");
+        }
+        set 
+        {
+            if (decimal.TryParse(value, out decimal result))
+                PrecioUnitario = result;
+        }
+    }
+
+    [XmlElement("dTiCamIt")]
+    public decimal? TipoCambio { get; set; }
+    
+    [XmlIgnore]
+    public decimal TotalBrutoItem { get; set; }
+
+    [XmlElement("dTotBruOpeItem")]
+    public string TotalBrutoItemString
+    {
+        get 
+        {
+            // Si no tiene decimales (es un número entero), mostrar sin decimales
+            if (TotalBrutoItem == Math.Floor(TotalBrutoItem))
+                return TotalBrutoItem.ToString("0");
+            else
+                return TotalBrutoItem.ToString("0.00");
+        }
+        set 
+        {
+            if (decimal.TryParse(value, out decimal result))
+                TotalBrutoItem = result;
+        }
+    }
+
+    [XmlElement("gValorRestaItem")]
+    public GValorRestaItem ValorRestaItem { get; set; }
+    
+    public GValorItem()
+    {
+        ValorRestaItem = new GValorRestaItem();
+    }
+
+    public GValorItem(decimal dPUniProSer, decimal dTiCamIt, decimal dTotBruOpeItem) 
+    {
+        PrecioUnitario = dPUniProSer;
+        TipoCambio = dTiCamIt;
+        TotalBrutoItem = dTotBruOpeItem;
+    }
+
+    public bool ShouldSerializeTipoCambio()
+    {
+        return TipoCambio != null || TipoCambio > 0;
+    }
+}
+
+// E8.1.1 Campos que describen los descuentos, anticipos y valor total por ítem (EA001-EA050)
+public class GValorRestaItem // Nodo Padre E720
+{
+    [XmlElement("dDescItem")]
+    public decimal DescuentoItem { get; set; } = 0;
+    
+    [XmlElement("dPorcDesIt")]
+    public decimal PorcentajeDescuentoItem { get; set; } = 0;
+    
+    [XmlElement("dDescGloItem")]
+    public decimal DescuentoGlobalItem { get; set; } = 0;
+    
+    [XmlElement("dAntPreUniIt")] 
+    public decimal AnticipoPreUnitarioItem { get; set; } = 0;
+    
+    [XmlElement("dAntGloPreUniIt")]
+    public decimal AnticipoGlobalPreUnitarioItem { get; set; } = 0;
+    
+    [XmlIgnore]
+    public decimal TotalOperacionItem { get; set; }
+
+    [XmlElement("dTotOpeItem")]
+    public string TotalOperacionItemStr
+    {
+        get 
+        {
+            if (TotalOperacionItem == Math.Floor(TotalOperacionItem))
+                return TotalOperacionItem.ToString("0");
+            else
+                return TotalOperacionItem.ToString("0.00");
+        }
+        set 
+        {
+            if (decimal.TryParse(value, out decimal result))
+                TotalOperacionItem = result;
+        }
+    }
+
+    [XmlIgnore]
+    public decimal? TotalOperacionGs { get; set; }
+
+    [XmlElement("dTotOpeGs")]
+    public string TotalOperacionGsStr
+    {
+        get 
+        {
+            if (!TotalOperacionGs.HasValue)
+                return null;
+                
+            if (TotalOperacionGs.Value == Math.Floor(TotalOperacionGs.Value))
+                return TotalOperacionGs.Value.ToString("0");
+            else
+                return TotalOperacionGs.Value.ToString("0.00");
+        }
+        set 
+        {
+            if (decimal.TryParse(value, out decimal result))
+                TotalOperacionGs = result;
+        }
+    }
+
+    public GValorRestaItem(){}
+
+    public GValorRestaItem(decimal dTotOpeItem, decimal? dTotOpeGs = null)
+    {
+        TotalOperacionItem = dTotOpeItem;
+        TotalOperacionGs = dTotOpeGs;
+    }
+
+    // Métodos para controlar qué campos opcionales se serializan
+  /*  public bool ShouldSerializeDescuentoItem() => DescuentoItem.HasValue; // && DescuentoItem.Value > 0
+    public bool ShouldSerializePorcentajeDescuentoItem() => PorcentajeDescuentoItem.HasValue && PorcentajeDescuentoItem.Value > 0;
+    public bool ShouldSerializeDescuentoGlobalItem() => DescuentoGlobalItem.HasValue && DescuentoGlobalItem.Value > 0;
+    public bool ShouldSerializeAnticipoPreUnitarioItem() => AnticipoPreUnitarioItem.HasValue && AnticipoPreUnitarioItem.Value > 0;
+    public bool ShouldSerializeAnticipoGlobalPreUnitarioItem() => AnticipoGlobalPreUnitarioItem.HasValue && AnticipoGlobalPreUnitarioItem.Value > 0; */
+    public bool ShouldSerializeTotalOperacionGsStr() => TotalOperacionGs.HasValue;
 }

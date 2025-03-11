@@ -104,6 +104,7 @@ public class SAPCDCService : BackgroundService
                     string rucCompleto = factura.BusinessPartner.FederalTaxID;
                     string cMoneOpe = factura.Currencies.cMoneOpe;
                     string dDesMoneOpe = factura.Currencies.dDesMoneOpe;
+                    decimal dTiCam = factura.dTiCam;
                     string CardName = factura.BusinessPartner.dNomRec;
                     string[] rucPartes = rucCompleto.Split('-');
                     string dRucReceptor = rucPartes.Length > 0 ? rucPartes[0].PadLeft(8, '0') : "00000000";
@@ -134,6 +135,23 @@ public class SAPCDCService : BackgroundService
                         cuotasList = factura.OperacionCredito.Cuotas;
                     }
 
+                    // Procesamiento de líneas de items
+                    List<Item> itemsList = new List<Item>();
+                    if (factura.Items != null && factura.Items.Any())
+                    {
+                        foreach (var item in factura.Items)
+                        {
+                            itemsList.Add(new Item
+                            {
+                                dCodInt = item.dCodInt,
+                                dDescItem = item.dDescItem,
+                                dCantProSer = item.dCantProSer,
+                                dPUniProSer = item.dPUniProSer,
+                                dTiCamIt = item.dTiCamIt
+                            });
+                        }
+                    }
+
                     // Se genera el Código de Control (CDC)     
                     string dCodSeg = GenerarCodigoSeguridad();
                     string cdc = GenerarCDC.GenerarCodigoCDC(iTiDE, _empresaInfo.Ruc, _empresaInfo.Dv.ToString(), dEst, dPunExp, dNumDoc, 
@@ -155,7 +173,7 @@ public class SAPCDCService : BackgroundService
                         GenerarXML.SerializarDocumentoElectronico(cdc, dv, rutaXml, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
                             _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento, 
                             _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, 
-                            U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, iIndPres, iCondOpe, iCondCred, _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList);
+                            U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList);
                 /*    }
                     else
                     {

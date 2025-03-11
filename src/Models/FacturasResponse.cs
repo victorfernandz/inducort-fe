@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 public class FacturaResponse
 {
     public InvoiceData Invoices { get; set; }
+    public DocumentLineData DocumentLines { get; set; }
     public BusinessPartnerData BusinessPartners { get; set; }
     public CurrenciesData Currencies { get; set; }
 }
@@ -24,6 +25,16 @@ public class InvoiceData
     public int U_EXX_FE_IndPresencia { get; set; }
     public int PaymentGroupCode { get; set; }
     public int NumberOfInstallments { get; set; }
+    public decimal DocRate { get; set; }
+}
+
+public class DocumentLineData
+{
+    public string ItemCode { get; set; }
+    public string ItemDescription { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal PriceAfterVAT { get; set; }
+    public decimal Rate { get; set; } 
 }
 
 public class BusinessPartnerData

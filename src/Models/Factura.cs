@@ -19,7 +19,9 @@ public class Factura
     public int iIndPres { get; set; }
     public int iCondOpe { get; set; }
     public int iCondCred { get; set; }
+    public decimal dTiCam { get; set; }
     public BusinessPartner BusinessPartner { get; set; }
     public Currencies Currencies { get; set; }
     public GPagCred OperacionCredito { get; set; }
+    public List<Item> Items { get; set; } = new List<Item>();
 }

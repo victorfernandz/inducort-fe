@@ -8,18 +8,18 @@ public class GenerarXML
 {
     public static void SerializarDocumentoElectronico(string cdc, int dv, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
         string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, 
-        string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int dDVReceptor, int iIndPres, int iCondOpe, int iCondCred,
-        List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones = null, List<GCuotas> cuotas = null)
+        string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int dDVReceptor, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred,
+        List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones = null, List<GCuotas> cuotas = null, List<Item> items = null)
     {
-        try
+         try
         {
-            // Usar la primera actividad económica para inicializar el documento (si existe)
-            var actividadPrincipal = actividades.FirstOrDefault() ?? new ActividadEconomica { Codigo = "0", Descripcion = "No especificada" };
+            // Usar la primera actividad económica 
+            var actividadPrincipal = actividades.First();
 
-             // Crear el documento con la primera actividad
+            // Crear el documento con la primera actividad
             DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, 
-                dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, actividadPrincipal.Codigo, actividadPrincipal.Descripcion, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucReceptor
-                , dDVReceptor, iIndPres, iCondOpe, iCondCred);
+                dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, actividadPrincipal.Codigo, actividadPrincipal.Descripcion, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucReceptor,
+                dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred);
             
             // Si hay más de una actividad, añadir las adicionales
             if (actividades.Count > 1)
@@ -94,6 +94,49 @@ public class GenerarXML
                             documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito.Cuotas.Add(cuota);
                         }
                     }
+                }
+            }
+
+            // Procesar ítems adicionales (si se proporcionó más de uno)
+            if (items != null && items.Any())
+            {
+                // Limpiar cualquier ítem que se haya creado por defecto
+                documento.DE.CamposEspecificosTipoDocumento.Items.Clear();
+            
+                // Agregar cada ítem a la lista
+                foreach (var item in items)
+                {
+                    // Calcular el total bruto (precio unitario * cantidad)
+                    decimal precioUnitario = item.dPUniProSer;
+                    decimal cantidadProducto = item.dCantProSer;
+                    decimal? tipoCambio = item.dTiCamIt;
+                    decimal totalBruto = precioUnitario * cantidadProducto;
+                    decimal? totalGs = null;
+
+                    if (tipoCambio.HasValue && tipoCambio.Value > 0)
+                    {
+                        totalGs = totalBruto * tipoCambio.Value;
+                    }
+                    
+                    var valorItem = new GValorItem
+                    {
+                        PrecioUnitario = precioUnitario,
+                        TipoCambio = tipoCambio,
+                        TotalBrutoItem = totalBruto,
+                        ValorRestaItem = new GValorRestaItem
+                        {
+                            TotalOperacionItem = totalBruto,
+                            TotalOperacionGs = totalGs
+                        }
+                    };
+                    
+                    documento.DE.CamposEspecificosTipoDocumento.Items.Add(new GCamItem
+                    {
+                        CodigoItem = item.dCodInt,
+                        DescripcionItem = item.dDescItem,
+                        CantidadProducto = cantidadProducto,
+                        ValorItem = valorItem
+                    });
                 }
             }
 
