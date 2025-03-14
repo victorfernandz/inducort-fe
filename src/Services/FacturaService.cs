@@ -23,7 +23,7 @@ public class FacturaService
             "Currencies($select=Code,Name,DocumentsCode) " + 
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and (Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
-            "Invoices/DocDate eq '20250123'";
+            "Invoices/DocDate eq '20250127'";
 
         var response = await _httpClient.GetAsync(queryDocumento);
 
@@ -110,11 +110,11 @@ public class FacturaService
             {
                 DocEntry = primeraEntrada.Invoices.DocEntry,
                 U_EXX_FE_CDC = primeraEntrada.Invoices.U_EXX_FE_CDC ?? "",
-                U_CDOC = primeraEntrada.Invoices.U_CDOC ?? "",
+                U_CDOC = primeraEntrada.Invoices.U_CDOC,
                 CardCode = primeraEntrada.Invoices.CardCode ?? "",
                 U_EST = primeraEntrada.Invoices.U_EST ?? "",
                 U_PDE = primeraEntrada.Invoices.U_PDE ?? "",
-                FolioNum = (primeraEntrada.Invoices.FolioNumber ?? "").PadLeft(7, '0'), 
+                FolioNum = primeraEntrada.Invoices.FolioNumber ?? "", 
                 DocDate = primeraEntrada.Invoices.DocDate,
                 U_TIM = primeraEntrada.Invoices.U_TIM,
                 U_FITE = primeraEntrada.Invoices.U_FITE,
@@ -127,12 +127,10 @@ public class FacturaService
                 {
                     CardCode = primeraEntrada.BusinessPartners.CardCode ?? "",
                     dNomRec = primeraEntrada.BusinessPartners.CardName ?? "",
-                    FederalTaxID = primeraEntrada.BusinessPartners.FederalTaxID ?? "00000000",
+                    FederalTaxID = primeraEntrada.BusinessPartners.FederalTaxID ?? "",
                     iTiContRec = primeraEntrada.BusinessPartners.U_TIPCONT,
                     iTiOpe = primeraEntrada.BusinessPartners.U_EXX_FE_TipoOperacion,
                     iNatRec = primeraEntrada.BusinessPartners.U_CRSI ?? "",
-                    
-                    // Mapeo de direcciones desde la consulta separada
                     cPaisRec = codigoReportePais ?? "",
                     dDesPaisRe = descripcionPais,
                 },
@@ -141,9 +139,7 @@ public class FacturaService
                     cMoneOpe = primeraEntrada.Currencies.DocumentsCode ?? "",
                     dDesMoneOpe = primeraEntrada.Currencies.Name ?? ""
                 },
-                iTipEmi = 1,
-                dFecha = fechaConHora,
-                Items = new List<Item>() // Inicializar lista vacía de ítems
+                Items = new List<Item>()
             };
 
             // Segunda consulta: Obtener las líneas para este DocEntry específico
@@ -155,39 +151,52 @@ public class FacturaService
                 try
                 {
                     var jsonResponseLineas = await responseLineas.Content.ReadAsStringAsync();                    
-                    List<DocumentLineData> lineasResponse = new List<DocumentLineData>();
                     var responseObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponseLineas);
 
-                    lineasResponse = JsonConvert.DeserializeObject<List<DocumentLineData>>(responseObj["DocumentLines"].ToString());
-
-                    foreach (var linea in lineasResponse)
+                    if (responseObj != null && responseObj.ContainsKey("DocumentLines"))
                     {
-                        // Manejar posibles valores nulos
-                        string itemCode = linea.ItemCode ?? "";
-                        string itemDescription = linea.ItemDescription ?? "";
-                        decimal quantity = linea.Quantity;
-                        decimal priceAfterVAT = linea.PriceAfterVAT;
-                        decimal rate = linea.Rate;
-                                
-                        factura.Items.Add(new Item
+                        var lineasResponse = JsonConvert.DeserializeObject<List<DocumentLineData>>(responseObj["DocumentLines"].ToString());
+                        
+                        if (lineasResponse != null)
                         {
-                            dCodInt = itemCode,
-                            dDescItem = itemDescription,
-                            dCantProSer = quantity,
-                            dPUniProSer = priceAfterVAT,
-                            dTiCamIt = rate
-                        });
+                            foreach (var linea in lineasResponse)
+                            {
+                                factura.Items.Add(new Item
+                                {
+                                    dCodInt = linea.ItemCode,
+                                    dDescItem = linea.ItemDescription,
+                                    dCantProSer = linea.Quantity,
+                                    dPUniProSer = linea.PriceAfterVAT,
+                                    dTiCamIt = linea.Rate,
+                                    taxCode = linea.TaxCode,
+                                    dTasaIVA = (int)linea.TaxPercentagePerRow
+                                });
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"No se pudieron deserializar las líneas de la factura {docEntry}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"No se encontraron líneas para la factura {docEntry}");
                     }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error al procesar las líneas para la factura {docEntry}: {ex.Message}");
+                    if (ex.InnerException != null)
+                    {
+                        Console.WriteLine($"Error interno: {ex.InnerException.Message}");
+                    }
                 }
             }
             else
             {
                 var errorContent = await responseLineas.Content.ReadAsStringAsync();
                 Console.WriteLine($"Error al obtener líneas para la factura {docEntry}: {responseLineas.StatusCode}");
+                Console.WriteLine($"Detalles: {errorContent}");
             }
             facturasList.Add(factura);
         }

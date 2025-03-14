@@ -114,11 +114,11 @@ public class SAPCDCService : BackgroundService
                     int U_EXX_FE_TipoOperacion = factura.BusinessPartner.iTiOpe;
                     string Country = factura.BusinessPartner.cPaisRec;
                     string DescPais = factura.BusinessPartner.dDesPaisRe;
-                    string iTiDE = factura.U_CDOC.PadLeft(2, '0');
+                    int iTiDE = factura.U_CDOC;
                     string dEst = factura.U_EST;
                     string dPunExp = factura.U_PDE;
                     string dNumDoc = factura.FolioNum.PadLeft(7, '0');
-                    string dFecha = factura.DocDate.Replace("-", "");
+                    string dFecha = factura.DocDate.Replace("-", ""); // Fecha del documento para usar en el CDC
                     string iTipTra = factura.iTipTra;
                     int iIndPres = factura.iIndPres;
                     int iCondOpe = factura.iCondOpe == -1 ? 1 : 2;
@@ -127,6 +127,7 @@ public class SAPCDCService : BackgroundService
                     int dNumTim = factura.U_TIM;
                     int iTipEmi = 1; // Siempre fijo en 1
                     DateTime dFeEmiDE = DateTime.Now;
+                    DateTime dFecFirma = DateTime.Now;
 
                     //Agregamos las cuotas para las facturas a plazos
                     List<GCuotas> cuotasList = new List<GCuotas>();
@@ -140,14 +141,48 @@ public class SAPCDCService : BackgroundService
                     if (factura.Items != null && factura.Items.Any())
                     {
                         foreach (var item in factura.Items)
-                        {
+                        {                           
+                            // Calculate the total for this line
+                            decimal totalBruto = item.dCantProSer * item.dPUniProSer;
+                            
+                            // Default values for IVA related fields
+                            string descAfectacionIVA = "Gravado IVA";
+                            int afectacionIVA = 1;
+                            int proporcionIVA = 100;
+                            
+                            if (item.taxCode != null && item.taxCode.Equals("IVA_EXE", StringComparison.OrdinalIgnoreCase))
+                            {
+                                afectacionIVA = 3;
+                                descAfectacionIVA = "Exento";
+                                proporcionIVA = 0;
+                            }
+                            else if (item.taxCode != null && item.taxCode.Equals("IVA_IMP", StringComparison.OrdinalIgnoreCase))
+                            {
+                                afectacionIVA = 4;
+                                descAfectacionIVA = "Gravado parcial (Grav- Exento)";
+                                proporcionIVA = 30;
+                            }
+                            else if (item.taxCode?.Contains("IVA_5", StringComparison.OrdinalIgnoreCase) == true ||
+                                (item.taxCode != null && item.taxCode.Equals("IVA_10", StringComparison.OrdinalIgnoreCase)))                                
+                            {
+                                afectacionIVA = 1;
+                                descAfectacionIVA = "Gravado IVA";
+                                proporcionIVA = 100;
+                            }
+                            
+                            // Create transformed item
                             itemsList.Add(new Item
                             {
                                 dCodInt = item.dCodInt,
                                 dDescItem = item.dDescItem,
                                 dCantProSer = item.dCantProSer,
                                 dPUniProSer = item.dPUniProSer,
-                                dTiCamIt = item.dTiCamIt
+                                dTiCamIt = item.dTiCamIt,
+                                dTotBruOpeItem = totalBruto,
+                                iAfecIVA = afectacionIVA,
+                                dDesAfecIVA = descAfectacionIVA,
+                                dPropIVA = proporcionIVA,
+                                dTasaIVA = item.dTasaIVA
                             });
                         }
                     }
@@ -170,7 +205,7 @@ public class SAPCDCService : BackgroundService
                         string rutaXml = $"XML/Documento_{cdc}.xml"; 
                         
                         // Usar un solo método para generar el XML
-                        GenerarXML.SerializarDocumentoElectronico(cdc, dv, rutaXml, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
+                        GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
                             _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento, 
                             _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, 
                             U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList);

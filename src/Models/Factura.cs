@@ -4,7 +4,7 @@ public class Factura
 {
     public int DocEntry { get; set; }
     public string U_EXX_FE_CDC { get; set; }
-    public string U_CDOC { get; set; }
+    public int U_CDOC { get; set; }
     public string CardCode { get; set; }
     public string U_EST { get; set; }
     public string U_PDE { get; set; }
@@ -24,4 +24,5 @@ public class Factura
     public Currencies Currencies { get; set; }
     public GPagCred OperacionCredito { get; set; }
     public List<Item> Items { get; set; } = new List<Item>();
+    public List<CuotaResponse> CuotasRaw { get; set; } = new List<CuotaResponse>();
 }

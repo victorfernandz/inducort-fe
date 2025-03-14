@@ -13,7 +13,7 @@ public class InvoiceData
 {
     public int DocEntry { get; set; }
     public string U_EXX_FE_CDC { get; set; }
-    public string U_CDOC { get; set; }
+    public int U_CDOC { get; set; }
     public string CardCode { get; set; }
     public string U_EST { get; set; }
     public string U_PDE { get; set; }
@@ -34,7 +34,9 @@ public class DocumentLineData
     public string ItemDescription { get; set; }
     public decimal Quantity { get; set; }
     public decimal PriceAfterVAT { get; set; }
-    public decimal Rate { get; set; } 
+    public decimal Rate { get; set; }
+    public string TaxCode { get; set; }
+    public decimal TaxPercentagePerRow { get; set; }
 }
 
 public class BusinessPartnerData

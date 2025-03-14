@@ -1,11 +1,6 @@
 using System;
 using System.Xml.Serialization;
 using System.Xml;
-using System.Runtime.Serialization;
-using System.Text.Json.Serialization;
-using System.Security;
-using System.Diagnostics.Contracts;
-using System.Net.NetworkInformation;
 
 [XmlRoot("rDE", Namespace = "http://ekuatia.set.gov.py/sifen/xsd")]
 
@@ -28,14 +23,14 @@ public class DocumentoElectronico // Nodo Padre AA001
     [XmlElement("DE")]
     public DEContent DE { get; set; }
 
-    public DocumentoElectronico(string cdc, int dv, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe,
+    public DocumentoElectronico(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe,
         string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
         string dEmailE, string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred) 
-    //    string dCodInt, string dDescItem, string cUniMed, int dCantProSer)         
+   
     {
-        DE = new DEContent(cdc, dv, dSisFact, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, 
+        DE = new DEContent(cdc, dv, dFecFirma, dSisFact, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, 
             cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iIndPres, iCondOpe, iCondCred);
-            //, dCodInt, dDescItem, cUniMed, dCantProSer);
+
     }
 }
 
@@ -47,6 +42,16 @@ public class DEContent // Nodo padre AA001
 
     [XmlElement("dDVId")]
     public int DigitoVerificador { get; set; }
+
+    [XmlIgnore]
+    public DateTime FechaFirma { get; set; }
+
+    [XmlElement("dFecFirma")]
+    public string FechaFirmaString
+    {
+        get => FechaFirma.ToString("yyyy-MM-ddTHH:mm:ss"); // Formato correcto para XML
+        set => FechaFirma = DateTime.ParseExact(value, "yyyy-MM-ddTHH:mm:ss", null);
+    }
 
     [XmlElement("dSisFact")]
     public int SistemaFacturacion { get; set; } 
@@ -66,17 +71,17 @@ public class DEContent // Nodo padre AA001
 
     public DEContent() {}
 
-    public DEContent(string cdc, int dv, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe, string dDesMoneOpe,
+    public DEContent(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe, string dDesMoneOpe,
         string dRucEm,int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE,
         string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred)
-        //, string dCodInt, string dDescItem, string cUniMed, int dCantProSer)
+
     {
         Id = cdc;
         DigitoVerificador = dv;
+        FechaFirma = dFecFirma;
         SistemaFacturacion = dSisFact;
         GrupoOperacion = new GOpeDE(dCodSeg);
         GrupoTimbrado = new GTimb(iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT);
-    //    CamposGenerales = new GDatGralOpe(dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, null, null);
             
         CamposGenerales = new GDatGralOpe(dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE,
             iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam);
@@ -115,7 +120,7 @@ public class GOpeDE // Nodo padre A001
 public class GTimb //  Nodo padre A001
 {
     [XmlElement("iTiDE")]
-    public string TipoDocumento { get; set; }
+    public int TipoDocumento { get; set; }
 
     [XmlElement("dDesTiDE")]
     public string DescripcionTipoDocumento { get; set; }
@@ -144,7 +149,7 @@ public class GTimb //  Nodo padre A001
 
     public GTimb() {}
 
-    public GTimb(string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT)
+    public GTimb(int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT)
     {
         TipoDocumento = iTiDE;
         DescripcionTipoDocumento = ObtenerDescripcionTipoDocumento(iTiDE);
@@ -155,18 +160,18 @@ public class GTimb //  Nodo padre A001
         FechaInicioTimbrado = dFeIniT;
     }
 
-    private string ObtenerDescripcionTipoDocumento(string iTiDE)
+    private string ObtenerDescripcionTipoDocumento(int iTiDE)
     {
         return iTiDE switch
         {
-            "01" => "Factura electrónica",
-            "02" => "Factura electrónica de exportación",
-            "03" => "Factura electrónica de importación",
-            "04" => "Autofactura electrónica",
-            "05" => "Nota de crédito electrónica",
-            "06" => "Nota de débito electrónica",
-            "07" => "Nota de remisión electrónica",
-            "08" => "Comprobante de retención electrónica"
+            1 => "Factura electrónica",
+            2 => "Factura electrónica de exportación",
+            3 => "Factura electrónica de importación",
+            4 => "Autofactura electrónica",
+            5 => "Nota de crédito electrónica",
+            6 => "Nota de débito electrónica",
+            7 => "Nota de remisión electrónica",
+            8 => "Comprobante de retención electrónica"
         };
     }
 }
@@ -648,9 +653,6 @@ public class GCamItem // Nodo Padre E001
     [XmlElement("dDescItem")]
     public string DescripcionItem { get; set; }
 
-/*    [XmlElement("dCantProSer")]
-    public int CantidadProducto { get; set; } */
-
     [XmlIgnore]
     public decimal CantidadProducto { get; set; }
 
@@ -674,11 +676,14 @@ public class GCamItem // Nodo Padre E001
     [XmlElement("gValorItem")]
     public GValorItem ValorItem { get; set; }
 
+    [XmlElement("gCamIVA")]
+    public GCamIVA CamposIVA { get; set; }
+
     public GCamItem()
     {
         ValorItem = new GValorItem();
+        CamposIVA = new GCamIVA();
     }
-
 }
 
 // Campos que describen el precio, tipo de cambio y valor total de la operación por ítem (E720-E729)
@@ -735,13 +740,6 @@ public class GValorItem // Nodo Padre E700
     public GValorItem()
     {
         ValorRestaItem = new GValorRestaItem();
-    }
-
-    public GValorItem(decimal dPUniProSer, decimal dTiCamIt, decimal dTotBruOpeItem) 
-    {
-        PrecioUnitario = dPUniProSer;
-        TipoCambio = dTiCamIt;
-        TotalBrutoItem = dTotBruOpeItem;
     }
 
     public bool ShouldSerializeTipoCambio()
@@ -813,12 +811,6 @@ public class GValorRestaItem // Nodo Padre E720
 
     public GValorRestaItem(){}
 
-    public GValorRestaItem(decimal dTotOpeItem, decimal? dTotOpeGs = null)
-    {
-        TotalOperacionItem = dTotOpeItem;
-        TotalOperacionGs = dTotOpeGs;
-    }
-
     // Métodos para controlar qué campos opcionales se serializan
   /*  public bool ShouldSerializeDescuentoItem() => DescuentoItem.HasValue; // && DescuentoItem.Value > 0
     public bool ShouldSerializePorcentajeDescuentoItem() => PorcentajeDescuentoItem.HasValue && PorcentajeDescuentoItem.Value > 0;
@@ -826,4 +818,27 @@ public class GValorRestaItem // Nodo Padre E720
     public bool ShouldSerializeAnticipoPreUnitarioItem() => AnticipoPreUnitarioItem.HasValue && AnticipoPreUnitarioItem.Value > 0;
     public bool ShouldSerializeAnticipoGlobalPreUnitarioItem() => AnticipoGlobalPreUnitarioItem.HasValue && AnticipoGlobalPreUnitarioItem.Value > 0; */
     public bool ShouldSerializeTotalOperacionGsStr() => TotalOperacionGs.HasValue;
+}
+
+public class GCamIVA
+{
+    [XmlElement("iAfecIVA")]
+    public int AfectacionIVA { get; set; }
+
+    [XmlElement("dDesAfecIVA")]
+    public string DescripcionAfectacionIVA {get; set; }
+
+    [XmlElement("dPropIVA")]
+    public int ProporcionIVA { get; set; }
+
+    [XmlElement("dTasaIVA")]
+    public int TasaIVA { get; set; }
+
+    [XmlElement("dBasGravIVA")]
+    public int BaseGravadaIVA { get; set; }
+
+    [XmlElement("dLiqIVAItem")]
+    public int LiquidacionIVA { get; set; }
+
+    public GCamIVA(){}
 }

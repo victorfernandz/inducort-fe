@@ -6,7 +6,7 @@ using System.Xml.Serialization;
 
 public class GenerarXML
 {
-    public static void SerializarDocumentoElectronico(string cdc, int dv, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
+    public static void SerializarDocumentoElectronico(string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
         string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, 
         string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int dDVReceptor, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred,
         List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones = null, List<GCuotas> cuotas = null, List<Item> items = null)
@@ -17,7 +17,7 @@ public class GenerarXML
             var actividadPrincipal = actividades.First();
 
             // Crear el documento con la primera actividad
-            DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, 
+            DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, dFecFirma, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, 
                 dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, actividadPrincipal.Codigo, actividadPrincipal.Descripcion, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucReceptor,
                 dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred);
             
@@ -106,36 +106,40 @@ public class GenerarXML
                 // Agregar cada ítem a la lista
                 foreach (var item in items)
                 {
-                    // Calcular el total bruto (precio unitario * cantidad)
-                    decimal precioUnitario = item.dPUniProSer;
-                    decimal cantidadProducto = item.dCantProSer;
-                    decimal? tipoCambio = item.dTiCamIt;
-                    decimal totalBruto = precioUnitario * cantidadProducto;
+                    // Calcular totalGs solo si es necesario
                     decimal? totalGs = null;
-
-                    if (tipoCambio.HasValue && tipoCambio.Value > 0)
+                    if (item.dTiCamIt > 0)
                     {
-                        totalGs = totalBruto * tipoCambio.Value;
+                        totalGs = item.dTotBruOpeItem * item.dTiCamIt;
                     }
                     
                     var valorItem = new GValorItem
                     {
-                        PrecioUnitario = precioUnitario,
-                        TipoCambio = tipoCambio,
-                        TotalBrutoItem = totalBruto,
+                        PrecioUnitario = item.dPUniProSer,
+                        TipoCambio = item.dTiCamIt,
+                        TotalBrutoItem = item.dTotBruOpeItem,
                         ValorRestaItem = new GValorRestaItem
                         {
-                            TotalOperacionItem = totalBruto,
+                            TotalOperacionItem = item.dTotBruOpeItem,
                             TotalOperacionGs = totalGs
                         }
+                    };
+
+                    var camposIVA = new GCamIVA
+                    {
+                        AfectacionIVA = item.iAfecIVA,
+                        DescripcionAfectacionIVA = item.dDesAfecIVA,
+                        ProporcionIVA = item.dPropIVA,
+                        TasaIVA = item.dTasaIVA
                     };
                     
                     documento.DE.CamposEspecificosTipoDocumento.Items.Add(new GCamItem
                     {
                         CodigoItem = item.dCodInt,
                         DescripcionItem = item.dDescItem,
-                        CantidadProducto = cantidadProducto,
-                        ValorItem = valorItem
+                        CantidadProducto = item.dCantProSer,
+                        ValorItem = valorItem,
+                        CamposIVA = camposIVA
                     });
                 }
             }

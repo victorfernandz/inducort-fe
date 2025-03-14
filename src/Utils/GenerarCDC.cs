@@ -3,7 +3,7 @@ using System;
 public class GenerarCDC
 {
     public static string GenerarCodigoCDC(
-        string iTiDE, string dRucEm, string dDVEmi, 
+        int iTiDE, string dRucEm, string dDVEmi, 
         string dEst, string dPunExp, string dNumDoc, 
         string dTipCont, string dFecha, string iTipEmi, 
         string dCodSeg)
