@@ -3,36 +3,39 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 public class EmpresaService
 {
     private readonly SAPServiceLayer _sapServiceLayer;
     private readonly HttpClient _httpClient;
+    private readonly ILogger<EmpresaService> _logger;
     
-    public EmpresaService(SAPServiceLayer sapServiceLayer)
+    public EmpresaService(SAPServiceLayer sapServiceLayer, ILogger<EmpresaService> logger)
     {
         _sapServiceLayer = sapServiceLayer;
         _httpClient = sapServiceLayer.GetHttpClient();
+        _logger = logger;
     }
 
     public async Task<EmpresaInfo> GetEmpresaInfo()
     {
         string query = "EPY_PLPY?$select=Code,EPY_DEMPCollection";
-        var response = await _httpClient.GetAsync(query);
-
-        if (!response.IsSuccessStatusCode)
+        var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, "Error en la consulta a SAP EPY_PLPY");
+        
+        if (string.IsNullOrEmpty(jsonResponse))
         {
-            Console.WriteLine($"Error en la consulta a SAP EPY_PLPY: {response.StatusCode}");
             return null;
         }
 
-        var jsonResponse = await response.Content.ReadAsStringAsync();
+        _logger.LogInformation($"Respuesta JSON: {jsonResponse}");
         Console.WriteLine($"Respuesta JSON: {jsonResponse}");
         
         var rawJson = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
         if (rawJson == null || !rawJson.ContainsKey("value"))
         {
+            _logger.LogWarning("No se encontraron datos en la respuesta de EPY_PLPY.");
             Console.WriteLine("No se encontraron datos en la respuesta de EPY_PLPY.");
             return null;
         }
@@ -42,6 +45,7 @@ public class EmpresaService
         
         if (plpyResponse?.value == null || !plpyResponse.value.Any())
         {
+            _logger.LogWarning("No se encontraron registros en EPY_PLPY.");
             Console.WriteLine("No se encontraron registros en EPY_PLPY.");
             return null;
         }
@@ -52,6 +56,7 @@ public class EmpresaService
         // Buscamos los datos en EPY_DEMP
         if (primerRegistro.EPY_DEMPCollection == null || !primerRegistro.EPY_DEMPCollection.Any())
         {
+            _logger.LogWarning("No se encontraron datos en EPY_DEMP.");
             Console.WriteLine("No se encontraron datos en EPY_DEMP.");
             return null;
         }
@@ -74,46 +79,82 @@ public class EmpresaService
             EmailEmisor = datosEmpresa.U_EMAIL,
         };
 
-        // Obtener descripción del departamento
-        string queryDpto = $"EPY_DPTO?$select=Code,U_NDEP&$filter=Code eq '{datosEmpresa.U_DEPT}'";
-        var responseDpto = await _httpClient.GetAsync(queryDpto);
-        if (responseDpto.IsSuccessStatusCode)
-        {
-            var dptoJsonResponse = await responseDpto.Content.ReadAsStringAsync();
-            var dptoResponse = JsonConvert.DeserializeObject<DptoResponse>(dptoJsonResponse);
-            if (dptoResponse?.value != null && dptoResponse.value.Any())
-            {
-                empresaInfo.DescDepartamento = dptoResponse.value.First().U_NDEP;
-            }
-        }
-
-        // Obtener descripción del distrito
-        string queryDist = $"EPY_DIST?$select=Code,U_NCIU&$filter=Code eq '{datosEmpresa.U_DIST}'";
-        var responseDist = await _httpClient.GetAsync(queryDist);
-        if (responseDist.IsSuccessStatusCode)
-        {
-            var distJsonResponse = await responseDist.Content.ReadAsStringAsync();
-            var distResponse = JsonConvert.DeserializeObject<DistResponse>(distJsonResponse);
-            if (distResponse?.value != null && distResponse.value.Any())
-            {
-                empresaInfo.DescDistrito = distResponse.value.First().U_NCIU;
-            }
-        }
-
-        // Obtener descripción de la localidad
-        string queryBalo = $"EPY_BALO?$select=Code,U_NLOC&$filter=Code eq '{datosEmpresa.U_BALO}'";
-        var responseBalo = await _httpClient.GetAsync(queryBalo);
-        if (responseBalo.IsSuccessStatusCode)
-        {
-            var baloJsonResponse = await responseBalo.Content.ReadAsStringAsync();
-            var baloResponse = JsonConvert.DeserializeObject<BaloResponse>(baloJsonResponse);
-            if (baloResponse?.value != null && baloResponse.value.Any())
-            {
-                empresaInfo.DescLocalidad = baloResponse.value.First().U_NLOC;
-            }
-        }
+        // Obtener las descripciones geográficas
+        await ObtenerDescripcionesGeograficas(empresaInfo, datosEmpresa);
 
         return empresaInfo;
+    }
+
+    private async Task ObtenerDescripcionesGeograficas(EmpresaInfo empresaInfo, dynamic datosEmpresa)
+    {
+        try
+        {
+            // Convertir explícitamente a string para evitar errores de tipos
+            string deptCode = Convert.ToString(datosEmpresa.U_DEPT);
+            string distCode = Convert.ToString(datosEmpresa.U_DIST);
+            string baloCode = Convert.ToString(datosEmpresa.U_BALO);
+
+            // Obtener descripción del departamento
+            empresaInfo.DescDepartamento = await ObtenerDescripcionGeografica(
+                "EPY_DPTO", 
+                deptCode, 
+                "U_NDEP", 
+                "departamento");
+
+            // Obtener descripción del distrito
+            empresaInfo.DescDistrito = await ObtenerDescripcionGeografica(
+                "EPY_DIST", 
+                distCode, 
+                "U_NCIU", 
+                "distrito");
+
+            // Obtener descripción de la localidad
+            empresaInfo.DescLocalidad = await ObtenerDescripcionGeografica(
+                "EPY_BALO", 
+                baloCode, 
+                "U_NLOC", 
+                "localidad");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error al obtener descripciones geográficas: {ex.Message}");
+            Console.WriteLine($"Error al obtener descripciones geográficas: {ex.Message}");
+        }
+    }
+
+    private async Task<string> ObtenerDescripcionGeografica(string entidad, string codigo, string campoDescripcion, string tipo)
+    {
+        if (string.IsNullOrEmpty(codigo))
+        {
+            _logger.LogWarning($"Código de {tipo} no especificado.");
+            return "";
+        }
+
+        string query = $"{entidad}?$select=Code,{campoDescripcion}&$filter=Code eq '{codigo}'";
+        
+        var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, $"Error al consultar {tipo}");
+        
+        if (string.IsNullOrEmpty(jsonResponse))
+        {
+            return "";
+        }
+
+        try
+        {
+            dynamic respuesta = JsonConvert.DeserializeObject(jsonResponse);
+            
+            if (respuesta?.value != null && respuesta.value.Count > 0)
+            {
+                return Convert.ToString(respuesta.value[0][campoDescripcion]);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error al procesar la respuesta de {tipo}: {ex.Message}");
+            Console.WriteLine($"Error al procesar la respuesta de {tipo}: {ex.Message}");
+        }
+        
+        return "";
     }
 
     public async Task<List<ActividadEconomica>> GetActividadesEconomicas()
@@ -121,15 +162,14 @@ public class EmpresaService
         try
         {
             string query = "EPY_ACG?$select=Code,EPY_ACEGRACollection";
-            var response = await _httpClient.GetAsync(query);
-
-            if (!response.IsSuccessStatusCode)
+            var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, "Error en la consulta a SAP EPY_ACG");
+            
+            if (string.IsNullOrEmpty(jsonResponse))
             {
-                Console.WriteLine($"Error en la consulta a SAP EPY_ACG: {response.StatusCode}");
                 return new List<ActividadEconomica>();
             }
 
-            var jsonResponse = await response.Content.ReadAsStringAsync();
+            _logger.LogInformation($"Respuesta JSON de actividades económicas: {jsonResponse}");
             Console.WriteLine($"Respuesta JSON de actividades económicas: {jsonResponse}");
             
             // Deserializar a un objeto dinámico para mayor flexibilidad
@@ -139,6 +179,7 @@ public class EmpresaService
             
             if (responseObj?.value == null || responseObj.value.Count == 0)
             {
+                _logger.LogWarning("No se encontraron registros de actividades económicas.");
                 Console.WriteLine("No se encontraron registros de actividades económicas.");
                 return actividades;
             }
@@ -152,8 +193,8 @@ public class EmpresaService
                     {
                         actividades.Add(new ActividadEconomica
                         {
-                            Codigo = (string)actividad.U_CACT,
-                            Descripcion = (string)actividad.U_NACTECO
+                            Codigo = Convert.ToString(actividad.U_CACT),
+                            Descripcion = Convert.ToString(actividad.U_NACTECO)
                         });
                     }
                 }
@@ -163,6 +204,7 @@ public class EmpresaService
         }
         catch (Exception ex)
         {
+            _logger.LogError($"Error al obtener actividades económicas: {ex.Message}");
             Console.WriteLine($"Error al obtener actividades económicas: {ex.Message}");
             return new List<ActividadEconomica>();
         }
@@ -173,15 +215,14 @@ public class EmpresaService
         try
         {
             string query = "EPY_OCG?$select=Code,EPY_OBLICollection";
-            var response = await _httpClient.GetAsync(query);
-
-            if (!response.IsSuccessStatusCode)
+            var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, "Error en la consulta a SAP EPY_OCG");
+            
+            if (string.IsNullOrEmpty(jsonResponse))
             {
-                Console.WriteLine($"Error en la consulta a SAP EPY_OCG: {response.StatusCode}");
                 return new List<ObligacionAfectada>();
             }
 
-            var jsonResponse = await response.Content.ReadAsStringAsync();
+            _logger.LogInformation($"Respuesta JSON de obligaciones afectadas: {jsonResponse}");
             Console.WriteLine($"Respuesta JSON de obligaciones afectadas: {jsonResponse}");
             
             // Deserializar la respuesta
@@ -191,6 +232,7 @@ public class EmpresaService
             
             if (obligacionesResponse?.value == null || !obligacionesResponse.value.Any())
             {
+                _logger.LogWarning("No se encontraron registros de obligaciones afectadas.");
                 Console.WriteLine("No se encontraron registros de obligaciones afectadas.");
                 return obligaciones;
             }
@@ -216,6 +258,7 @@ public class EmpresaService
         }
         catch (Exception ex)
         {
+            _logger.LogError($"Error al obtener obligaciones afectadas: {ex.Message}");
             Console.WriteLine($"Error al obtener obligaciones afectadas: {ex.Message}");
             return new List<ObligacionAfectada>();
         }

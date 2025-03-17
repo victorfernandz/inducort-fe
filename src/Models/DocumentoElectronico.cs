@@ -32,6 +32,7 @@ public class DocumentoElectronico // Nodo Padre AA001
             cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iIndPres, iCondOpe, iCondCred);
 
     }
+
 }
 
 // Campos firmados del Documento Electrónico (A001-A099)
@@ -68,6 +69,9 @@ public class DEContent // Nodo padre AA001
 
     [XmlElement("gDtipDE")]
     public GDtipDE CamposEspecificosTipoDocumento { get; set; }
+
+    [XmlElement("gTotSub")]
+    public GTotSub CamposTotalesSubtotales { get; set; }
 
     public DEContent() {}
 
@@ -820,7 +824,8 @@ public class GValorRestaItem // Nodo Padre E720
     public bool ShouldSerializeTotalOperacionGsStr() => TotalOperacionGs.HasValue;
 }
 
-public class GCamIVA
+// Campos que describen el IVA de la operación por ítem (E730-E739)
+public class GCamIVA // Nodo Padre E730
 {
     [XmlElement("iAfecIVA")]
     public int AfectacionIVA { get; set; }
@@ -835,10 +840,91 @@ public class GCamIVA
     public int TasaIVA { get; set; }
 
     [XmlElement("dBasGravIVA")]
-    public int BaseGravadaIVA { get; set; }
+    public decimal BaseGravadaIVA { get; set; }
 
     [XmlElement("dLiqIVAItem")]
-    public int LiquidacionIVA { get; set; }
+    public decimal LiquidacionIVA { get; set; }
+
+    [XmlElement("dBasExe")]
+    public decimal BaseExenta { get; set; }
 
     public GCamIVA(){}
+}
+
+// Campos que describen los subtotales y totales de la transacción documentada (F001-F099)
+public class GTotSub
+{
+    [XmlElement("dSubExe")]
+    public decimal SubtotalExenta { get; set; }
+
+    [XmlElement("dSub5")]
+    public decimal SubtotalTasa5 { get; set; }
+
+    [XmlElement("dSub10")]
+    public decimal SubtotalTasa10 { get; set; }
+
+    [XmlElement("dTotOpe")]
+    public decimal TotalBrutoOperacion { get; set; }
+
+    [XmlElement("dTotDesc")]
+    public decimal TotalDescuentoItem { get; set; }
+
+    [XmlElement("dTotDescGlotem")]
+    public decimal TotalDescuentoGlobal { get; set; }
+
+    [XmlElement("dTotAntItem")]
+    public decimal TotalAnticipoItem { get; set; }
+
+    [XmlElement("dTotAnt")]
+    public decimal TotalAnticipoGlobal { get; set; }
+
+    [XmlElement("dPorcDescTotal")]
+    public decimal PorcentajeDescuentoGlobal {get; set; }
+
+    [XmlElement("dDescTotal")]
+    public decimal TotalDescuentoOperacion { get; set; }
+
+    [XmlElement("dAnticipo")]
+    public decimal TotalAnticipoOperacion { get; set; }
+
+    [XmlElement("dRedon")]
+    public decimal RedondeoOperacion { get; set;}
+
+    [XmlElement("dComi")]
+    public decimal ComisionOperacion { get; set; }
+
+    [XmlElement("dTotGralOpe")]
+    public decimal TotalNetoOperacion { get; set; }
+
+    [XmlElement("dIVA5")]
+    public decimal LiquidacionIVA5 { get; set; }
+
+    [XmlElement("dIVA10")]
+    public decimal LiquidacionIVA10 { get; set; }
+
+    [XmlElement("dLiqTotIVA5")]
+    public decimal LiquidacionTotalIVA5 {get; set; }
+
+    [XmlElement("dLiqTotIVA10")]
+    public decimal LiquidacionTotalIVA10 { get; set; }
+
+    [XmlElement("dIVAComi")]
+    public decimal LiquidacionIVAComision { get; set; }
+
+    [XmlElement("dTotIVA")]
+    public decimal LiquidacionTotalIVA { get; set; }
+
+    [XmlElement("dBaseGrav5")]
+    public decimal TotalGravada5 { get; set; }
+
+    [XmlElement("dBaseGrav10")]
+    public decimal TotalGravada10 { get; set; }
+
+    [XmlElement("dTBasGraIVA")]
+    public decimal TotalGravadaIVA { get; set; }
+
+    [XmlElement("dTotalGs")]
+    public decimal TotalGeneralOperacionGs { get; set; }
+
+    public GTotSub(){}
 }

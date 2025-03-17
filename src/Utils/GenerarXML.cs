@@ -9,7 +9,7 @@ public class GenerarXML
     public static void SerializarDocumentoElectronico(string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
         string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, 
         string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int dDVReceptor, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred,
-        List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones = null, List<GCuotas> cuotas = null, List<Item> items = null)
+        List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones = null, List<GCuotas> cuotas = null, List<Item> items = null, string plazoCredito = null)
     {
          try
         {
@@ -41,48 +41,40 @@ public class GenerarXML
                 }
             }
 
-            // Agregar cuotas si hay y si la operación es a crédito
-            if (iCondOpe == 2 && iCondCred == 2 && cuotas != null && cuotas.Any())
-            {
-                // Aseguramos que la estructura de crédito esté inicializada
-                if (documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito == null)
-                {
-                    documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito = new GPagCred(2, null, cuotas.Count);
-                }
-                
-                // Agregar cada cuota directamente
-                foreach (var cuota in cuotas)
-                {
-                    documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito.Cuotas.Add(cuota);
-                }
-            }
-            
             // Verificar si hay operación de crédito (iCondOpe == 2)
             if (iCondOpe == 2)
             {
                 // Verificar qué tipo de crédito es (plazo o cuotas)
                 if (iCondCred == 1) // Plazo
                 {
-                    // Para plazo, cuotas debe contener solo un elemento con el plazo en el campo FechaVencimientoCuota
-                    string plazoCredito = "30 días"; // Valor por defecto
+                    // Si no se pasó el plazo directamente, intentar obtenerlo de las cuotas
+                    string plazoFinal = plazoCredito;
                     
-                    // Si hay una cuota para plazo, usar su valor
-                    if (cuotas != null && cuotas.Count > 0)
+                    // Si no hay plazo, usar valor por defecto o intentar obtenerlo de las cuotas
+                    if (string.IsNullOrEmpty(plazoFinal))
                     {
-                        var cuotaPlazo = cuotas[0];
-                        if (!string.IsNullOrEmpty(cuotaPlazo.FechaVencimientoCuota))
+                        plazoFinal = "30 días"; // Valor por defecto
+                        
+                        // Si hay una cuota para plazo, usar su valor
+                        if (cuotas != null && cuotas.Count > 0)
                         {
-                            plazoCredito = cuotaPlazo.FechaVencimientoCuota;
+                            var cuotaPlazo = cuotas[0];
+                            if (!string.IsNullOrEmpty(cuotaPlazo.FechaVencimientoCuota))
+                            {
+                                plazoFinal = cuotaPlazo.FechaVencimientoCuota;
+                            }
                         }
                     }
                     
                     documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito = 
-                        new GPagCred(1, plazoCredito, null);
+                        new GPagCred(1, plazoFinal, null);
                 }
                 else if (iCondCred == 2) // Cuotas
                 {
                     // Para cuotas, cuotas debe contener todas las cuotas
                     int cantidadCuotas = cuotas?.Count ?? 0;
+                    
+                    // Crear el objeto GPagCred para cuotas
                     documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito = 
                         new GPagCred(2, null, cantidadCuotas);
                     
@@ -130,7 +122,10 @@ public class GenerarXML
                         AfectacionIVA = item.iAfecIVA,
                         DescripcionAfectacionIVA = item.dDesAfecIVA,
                         ProporcionIVA = item.dPropIVA,
-                        TasaIVA = item.dTasaIVA
+                        TasaIVA = (int)item.dTasaIVA,
+                        BaseGravadaIVA = item.dBasGravIVA,
+                        LiquidacionIVA = item.dLiqIVAItem,
+                        BaseExenta = item.dBasExe
                     };
                     
                     documento.DE.CamposEspecificosTipoDocumento.Items.Add(new GCamItem

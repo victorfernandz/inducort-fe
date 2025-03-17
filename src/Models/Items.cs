@@ -10,5 +10,8 @@ public class Item
     public int iAfecIVA { get; set; }
     public string dDesAfecIVA { get; set; }
     public int dPropIVA { get; set; }
-    public int dTasaIVA { get; set; }    
+    public decimal dTasaIVA { get; set; }
+    public decimal dBasGravIVA { get; set; }
+    public decimal dLiqIVAItem { get; set; }
+    public decimal dBasExe { get; set; }
 }
