@@ -1,7 +1,7 @@
 public class Item
 {
     public string dCodInt { get; set; }
-    public string dDescItem { get; set; }
+    public string dDesProSer { get; set; }
     public decimal dCantProSer { get; set; }
     public decimal dPUniProSer { get; set; }
     public decimal dTiCamIt { get; set; }
@@ -14,4 +14,12 @@ public class Item
     public decimal dBasGravIVA { get; set; }
     public decimal dLiqIVAItem { get; set; }
     public decimal dBasExe { get; set; }
+
+    // Campos para descuentos y anticipos
+
+    public decimal dDescItem { get; set; } = 0;
+    public decimal dPorcDesIt { get; set; } = 0;
+    public decimal dDescGloItem { get; set; } = 0;
+    public decimal dAntPreUniIt { get; set; } = 0;
+    public decimal dAntGloPreUniIt { get; set; } = 0;
 }

@@ -3,6 +3,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Text;
+using Newtonsoft.Json;
+using System.Collections.Generic;
+using System.Linq;
 
 public class SAPCDCService : BackgroundService
 {
@@ -10,14 +14,21 @@ public class SAPCDCService : BackgroundService
     private readonly SAPServiceLayer _sapServiceLayer;
     private readonly FacturaService _facturaService;
     private readonly EmpresaService _empresaService;
+    private readonly EnvioSifenService _envioService;
+    private readonly LoggerSifenService _loggerSifen;
+    private readonly Config _config;
+
     private EmpresaInfo _empresaInfo;
 
-    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, EmpresaService empresaService)
+    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, EmpresaService empresaService, EnvioSifenService envioService, LoggerSifenService loggerSifen, Config config)
     {
         _logger = logger;
         _sapServiceLayer = sapServiceLayer;
         _facturaService = facturaService;
         _empresaService = empresaService;
+        _envioService = envioService;
+        _loggerSifen = loggerSifen;
+        _config = config;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -98,6 +109,9 @@ public class SAPCDCService : BackgroundService
             var facturas = await _facturaService.GetFacturasSinCDC();
             _logger.LogInformation($"Se encontraron {facturas.Count} facturas sin CDC.");
 
+            // Obtener el certificado digital activo
+            var (certificadoBytes, contraseñaCertificado) = await ObtenerCertificadoActivo();
+
             //Consulta las facturas sin CDC
             foreach (var factura in facturas)
             {
@@ -107,14 +121,14 @@ public class SAPCDCService : BackgroundService
                 decimal dTiCam = factura.dTiCam;
                 string CardName = factura.BusinessPartner.dNomRec;
                 string[] rucPartes = rucCompleto.Split('-');
-                string dRucReceptor = rucPartes.Length > 0 ? rucPartes[0].PadLeft(8, '0') : "00000000";
+                string dRucReceptor = rucPartes.Length > 0 ? rucPartes[0] : "";//.PadLeft(8, '0') : "00000000";
                 int dDVReceptor = rucPartes.Length > 1 ? int.Parse(rucPartes[1]) : 0;
                 int U_CRSI = factura.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2;
                 int U_TIPCONT = factura.BusinessPartner.iTiContRec;
                 int U_EXX_FE_TipoOperacion = factura.BusinessPartner.iTiOpe;
                 string Country = factura.BusinessPartner.cPaisRec;
                 string DescPais = factura.BusinessPartner.dDesPaisRe;
-                int iTiDE = factura.U_CDOC;
+                string iTiDE = factura.U_CDOC;
                 string dEst = factura.U_EST;
                 string dPunExp = factura.U_PDE;
                 string dNumDoc = factura.FolioNum.PadLeft(7, '0');
@@ -223,7 +237,7 @@ public class SAPCDCService : BackgroundService
                         itemsList.Add(new Item
                         {
                             dCodInt = item.dCodInt,
-                            dDescItem = item.dDescItem,
+                            dDesProSer = item.dDesProSer,
                             dCantProSer = item.dCantProSer,
                             dPUniProSer = item.dPUniProSer,
                             dTiCamIt = item.dTiCamIt,
@@ -239,6 +253,9 @@ public class SAPCDCService : BackgroundService
                     }
                 }
 
+                // Calcular subtotales y totales usando el helper
+                var totalesFactura = Totalizador.CalcularTotalesFactura(itemsList, factura.dTiCam, factura.Currencies.cMoneOpe);
+
                 // Se genera el Código de Control (CDC)     
                 string dCodSeg = GenerarCodigoSeguridad();
                 string cdc = GenerarCDC.GenerarCodigoCDC(iTiDE, _empresaInfo.Ruc, _empresaInfo.Dv.ToString(), dEst, dPunExp, dNumDoc, 
@@ -246,6 +263,9 @@ public class SAPCDCService : BackgroundService
 
                 // Se extraer el Dígito Verificador (dv)
                 int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
+
+                // Convertir el tipo de documento a entero y luego a string para eliminar los ceros iniciales
+                string xmlTiDE = Convert.ToInt32(factura.U_CDOC).ToString();
 
             //    bool actualizado = await _facturaService.ActualizarCDC(factura.DocEntry, cdc);
 
@@ -257,16 +277,39 @@ public class SAPCDCService : BackgroundService
                     string rutaXml = $"XML/Documento_{cdc}.xml"; 
                     
                     // Usar un solo método para generar el XML
-                    GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
+                    GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
                         _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento, 
                         _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, 
-                        U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito);
+                        U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList
+                        , itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado);
             /*    }
                 else
                 {
                     _logger.LogWarning($"No se pudo actualizar el CDC para la factura {factura.DocEntry}");
                 } */
-            }
+                try
+                    {
+                        // Leer contenido del XML generado
+                        string xmlFirmado = File.ReadAllText(rutaXml);
+                        
+                        // Enviar el documento a SIFEN
+                        await _envioService.EnviarDocumentoAsincronico(cdc, null, xmlFirmado, xmlTiDE);
+                        
+                        _logger.LogInformation($"Documento con CDC {cdc} enviado a SIFEN correctamente");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error al enviar documento a SIFEN: {ex.Message}");
+                        
+                        // Guardar información del error para diagnóstico
+                        string errorPath = "Errors";
+                        Directory.CreateDirectory(errorPath);
+                        File.WriteAllText(
+                            Path.Combine(errorPath, $"error_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.log"),
+                            $"CDC: {cdc}\nError: {ex.Message}\nStackTrace: {ex.StackTrace}"
+                        );
+                    }
+                }
         }
         catch (Exception ex)
         {
@@ -280,4 +323,66 @@ public class SAPCDCService : BackgroundService
         Random random = new Random();
         return random.Next(1, 999999999).ToString("D9");
     }
-}
+    
+    private async Task<(byte[] certificadoBytes, string contraseña)> ObtenerCertificadoActivo()
+    {
+        try
+        {
+            // Consultar el certificado activo
+            string query = "U_CERTIFICADOS?$filter=U_ACTIVO eq 'Y'";
+            
+            var response = await _sapServiceLayer.GetHttpClient().GetAsync(query);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError($"Error al consultar certificados: {response.StatusCode}");
+                throw new Exception($"Error al consultar certificados: {response.StatusCode}");
+            }
+            
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+            
+            if (string.IsNullOrEmpty(jsonResponse))
+            {
+                throw new Exception("No se pudo obtener respuesta del servicio de certificados");
+            }
+            
+            // Deserializar la respuesta JSON
+            var responseObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
+            
+            if (responseObj == null || !responseObj.ContainsKey("value"))
+            {
+                throw new Exception("Formato de respuesta inválido al obtener certificado");
+            }
+            
+            var certificadosArray = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(responseObj["value"].ToString());
+            
+            if (certificadosArray == null || certificadosArray.Count == 0)
+            {
+                throw new Exception("No se encontró un certificado activo");
+            }
+            
+            // Tomar el primer certificado activo
+            var certificado = certificadosArray[0];
+            
+            // Obtener los datos del certificado y contraseña (que están en Base64)
+            string certificadoBase64 = certificado["U_ARCHIVO"].ToString();
+            string contraseñaBase64 = certificado["U_PWD"].ToString();
+            
+            // Decodificar el certificado y la contraseña desde Base64
+            byte[] certificadoBytes = Convert.FromBase64String(certificadoBase64);
+            string contraseña = Encoding.UTF8.GetString(Convert.FromBase64String(contraseñaBase64));
+            
+            _logger.LogInformation($"Certificado obtenido correctamente: {certificado["Name"]}");
+            return (certificadoBytes, contraseña);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error al obtener certificado: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                _logger.LogError($"Error interno: {ex.InnerException.Message}");
+            }
+            throw new Exception("Error al obtener certificado digital", ex);
+        }
+    }
+}    

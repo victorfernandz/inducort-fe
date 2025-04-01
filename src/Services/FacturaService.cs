@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
@@ -26,7 +21,7 @@ public class FacturaService
             "Currencies($select=Code,Name,DocumentsCode) " + 
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and (Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
-            "Invoices/DocDate eq '20250127'";
+            "Invoices/DocDate eq '20250114'";
 
         // Obtener datos principales
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -61,7 +56,7 @@ public class FacturaService
             .GroupBy(f => f.Invoices.DocEntry)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Crear una lista para almacenar los cardCodes
+        // Crear una lista para almacenar los cardCode
         var cardCode = facturasResponse.Select(f => f.BusinessPartners.CardCode).Distinct().ToList();
 
         // Obtener direcciones para todos los socios de negocio
@@ -112,7 +107,7 @@ public class FacturaService
             {
                 DocEntry = primeraEntrada.Invoices.DocEntry,
                 U_EXX_FE_CDC = primeraEntrada.Invoices.U_EXX_FE_CDC ?? "",
-                U_CDOC = primeraEntrada.Invoices.U_CDOC,
+                U_CDOC = primeraEntrada.Invoices.U_CDOC?.PadLeft(2, '0'),
                 CardCode = primeraEntrada.Invoices.CardCode ?? "",
                 U_EST = primeraEntrada.Invoices.U_EST ?? "",
                 U_PDE = primeraEntrada.Invoices.U_PDE ?? "",
@@ -249,7 +244,7 @@ public class FacturaService
                             factura.Items.Add(new Item
                             {
                                 dCodInt = linea.ItemCode,
-                                dDescItem = linea.ItemDescription,
+                                dDesProSer = linea.ItemDescription,
                                 dCantProSer = linea.Quantity,
                                 dPUniProSer = linea.PriceAfterVAT,
                                 dTiCamIt = linea.Rate,

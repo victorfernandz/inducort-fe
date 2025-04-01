@@ -23,7 +23,10 @@ public class DocumentoElectronico // Nodo Padre AA001
     [XmlElement("DE")]
     public DEContent DE { get; set; }
 
-    public DocumentoElectronico(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe,
+    [XmlElement("gCamFuFD")]
+    public gCamFuFD gCamFuFD { get; set; }
+
+    public DocumentoElectronico(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe,
         string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
         string dEmailE, string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred) 
    
@@ -32,7 +35,6 @@ public class DocumentoElectronico // Nodo Padre AA001
             cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iIndPres, iCondOpe, iCondCred);
 
     }
-
 }
 
 // Campos firmados del Documento Electrónico (A001-A099)
@@ -75,7 +77,7 @@ public class DEContent // Nodo padre AA001
 
     public DEContent() {}
 
-    public DEContent(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe, string dDesMoneOpe,
+    public DEContent(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe, string dDesMoneOpe,
         string dRucEm,int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE,
         string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred)
 
@@ -93,7 +95,7 @@ public class DEContent // Nodo padre AA001
         // Agregar la actividad económica si se proporcionó
         if (!string.IsNullOrEmpty(cActEco))
         {
-            CamposGenerales.ActividadesEconomicas.Add(new GActEco(cActEco, dDesActEco));
+            CamposGenerales.GrupoCamposEmisor.ActividadesEconomicas.Add(new GActEco(cActEco, dDesActEco));
         }
 
         CamposEspecificosTipoDocumento = new GDtipDE(iIndPres, iCondOpe, iCondCred);
@@ -124,7 +126,7 @@ public class GOpeDE // Nodo padre A001
 public class GTimb //  Nodo padre A001
 {
     [XmlElement("iTiDE")]
-    public int TipoDocumento { get; set; }
+    public string TipoDocumento { get; set; }
 
     [XmlElement("dDesTiDE")]
     public string DescripcionTipoDocumento { get; set; }
@@ -153,7 +155,7 @@ public class GTimb //  Nodo padre A001
 
     public GTimb() {}
 
-    public GTimb(int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT)
+    public GTimb(string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT)
     {
         TipoDocumento = iTiDE;
         DescripcionTipoDocumento = ObtenerDescripcionTipoDocumento(iTiDE);
@@ -164,18 +166,18 @@ public class GTimb //  Nodo padre A001
         FechaInicioTimbrado = dFeIniT;
     }
 
-    private string ObtenerDescripcionTipoDocumento(int iTiDE)
+    private string ObtenerDescripcionTipoDocumento(string iTiDE)
     {
         return iTiDE switch
         {
-            1 => "Factura electrónica",
-            2 => "Factura electrónica de exportación",
-            3 => "Factura electrónica de importación",
-            4 => "Autofactura electrónica",
-            5 => "Nota de crédito electrónica",
-            6 => "Nota de débito electrónica",
-            7 => "Nota de remisión electrónica",
-            8 => "Comprobante de retención electrónica"
+            "1" => "Factura electrónica",
+            "2" => "Factura electrónica de exportación",
+            "3" => "Factura electrónica de importación",
+            "4" => "Autofactura electrónica",
+            "5" => "Nota de crédito electrónica",
+            "6" => "Nota de débito electrónica",
+            "7" => "Nota de remisión electrónica",
+            "8" => "Comprobante de retención electrónica"
         };
     }
 }
@@ -199,9 +201,9 @@ public class GDatGralOpe // Nodo padre A001
     [XmlElement("gEmis")]
     public GEmis GrupoCamposEmisor { get; set; }
 
-    [XmlElement("gActEco")]
+ /*   [XmlElement("gActEco")]
     
-    public List<GActEco> ActividadesEconomicas { get; set; } = new List<GActEco>();
+    public List<GActEco> ActividadesEconomicas { get; set; } = new List<GActEco>(); */
 
     [XmlElement("gDatRec")]
     public GDatRec GrupoDatosReceptor { get; set; }
@@ -221,7 +223,7 @@ public class GDatGralOpe // Nodo padre A001
         {
             foreach (var actividad in actividades)
             {
-                ActividadesEconomicas.Add(new GActEco(actividad.Codigo, actividad.Descripcion));
+                GrupoCamposEmisor.ActividadesEconomicas.Add(new GActEco(actividad.Codigo, actividad.Descripcion));
             }
         }
 
@@ -354,6 +356,10 @@ public class GEmis // Nodo padre D001
     [XmlElement("dEmailE", Order = 14)]
     public string EmailEmisor { get; set; }
 
+    // Agregar la lista de actividades económicas
+    [XmlElement("gActEco", Order = 15)]
+    public List<GActEco> ActividadesEconomicas { get; set; } = new List<GActEco>();
+
     public GEmis(){}
 
     public GEmis(string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi,
@@ -373,6 +379,7 @@ public class GEmis // Nodo padre D001
         DesCiuEmisor = dDesCiuEmi;
         TelefEmisor = dTelEmi;
         EmailEmisor = dEmailE;
+        ActividadesEconomicas = new List<GActEco>();
     }
 }
 
@@ -653,7 +660,10 @@ public class GCamItem // Nodo Padre E001
 {
     [XmlElement("dCodInt")]
     public string CodigoItem { get; set; }
-
+/*
+    [XmlElement("dParAranc")]
+    public int ParteArancelaria { get; set; } = 1111;
+*/
     [XmlElement("dDescItem")]
     public string DescripcionItem { get; set; }
 
@@ -691,7 +701,7 @@ public class GCamItem // Nodo Padre E001
 }
 
 // Campos que describen el precio, tipo de cambio y valor total de la operación por ítem (E720-E729)
-public class GValorItem // Nodo Padre E700
+public class GValorItem // Nodo Padre E700dCodInt
 {
     [XmlIgnore]
     public decimal PrecioUnitario { get; set; }
@@ -928,3 +938,13 @@ public class GTotSub
 
     public GTotSub(){}
 }
+
+public class gCamFuFD
+{
+    [XmlElement("dCarQR")]
+    public string dCarQR { get; set; }
+
+    [XmlElement("dInfAdic")]
+    public string dInfAdic { get; set; } 
+}
+

@@ -4,7 +4,7 @@ public class Factura
 {
     public int DocEntry { get; set; }
     public string U_EXX_FE_CDC { get; set; }
-    public int U_CDOC { get; set; }
+    public string U_CDOC { get; set; }
     public string CardCode { get; set; }
     public string U_EST { get; set; }
     public string U_PDE { get; set; }

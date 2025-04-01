@@ -1,5 +1,6 @@
 using System.Security;
 using Newtonsoft.Json;
+using RestSharp.Serializers;
 
 public class FacturaResponse
 {
@@ -13,7 +14,7 @@ public class InvoiceData
 {
     public int DocEntry { get; set; }
     public string U_EXX_FE_CDC { get; set; }
-    public int U_CDOC { get; set; }
+    public string U_CDOC { get; set; }
     public string CardCode { get; set; }
     public string U_EST { get; set; }
     public string U_PDE { get; set; }

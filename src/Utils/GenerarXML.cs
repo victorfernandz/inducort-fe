@@ -3,15 +3,18 @@ using System.IO;
 using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
+using System.Collections.Generic;
+using System.Linq;
 
 public class GenerarXML
 {
-    public static void SerializarDocumentoElectronico(string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
+    public static void SerializarDocumentoElectronico(string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
         string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, 
         string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int dDVReceptor, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred,
-        List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones = null, List<GCuotas> cuotas = null, List<Item> items = null, string plazoCredito = null)
+        List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones = null, List<GCuotas> cuotas = null, List<Item> items = null, string plazoCredito = null, GTotSub totales = null,
+        byte[] certificadoBytes = null, string contraseñaCertificado = null)
     {
-         try
+        try
         {
             // Usar la primera actividad económica 
             var actividadPrincipal = actividades.First();
@@ -26,7 +29,7 @@ public class GenerarXML
             {
                 for (int i = 1; i < actividades.Count; i++)
                 {
-                    documento.DE.CamposGenerales.ActividadesEconomicas.Add(
+                    documento.DE.CamposGenerales.GrupoCamposEmisor.ActividadesEconomicas.Add(
                         new GActEco(actividades[i].Codigo, actividades[i].Descripcion));
                 }
             }
@@ -131,12 +134,28 @@ public class GenerarXML
                     documento.DE.CamposEspecificosTipoDocumento.Items.Add(new GCamItem
                     {
                         CodigoItem = item.dCodInt,
-                        DescripcionItem = item.dDescItem,
+                        DescripcionItem = item.dDesProSer,
                         CantidadProducto = item.dCantProSer,
                         ValorItem = valorItem,
                         CamposIVA = camposIVA
                     });
                 }
+            }
+
+            // Asignar los totales si fueron proporcionados
+            if (totales != null)
+            {
+                documento.DE.CamposTotalesSubtotales = totales;
+            }
+            else if (items != null && items.Any())
+            {
+                // Si no se proporcionaron totales pero hay items, calcularlos
+                documento.DE.CamposTotalesSubtotales = Totalizador.CalcularTotalesFactura(items, dTiCam, cMoneOpe);
+            }
+            else
+            {
+                // Si no hay items ni totales, inicializar un objeto vacío
+                documento.DE.CamposTotalesSubtotales = new GTotSub();
             }
 
             // Serializar primero a un StringWriter
@@ -172,6 +191,73 @@ public class GenerarXML
             schemaLocation.Value = "https://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd";
             root.Attributes.Append(schemaLocation);
 
+            // Agregar la firma digital solo si se proporcionaron los datos del certificado
+            if (certificadoBytes != null && !string.IsNullOrEmpty(contraseñaCertificado))
+            {
+                FirmaDigital.FirmarXml(xmlDoc, cdc, certificadoBytes, contraseñaCertificado);
+
+                // Crear nodo gCamFuFD (Grupo J - Campos fuera de la firma digital)
+                XmlNamespaceManager nsManager = new XmlNamespaceManager(xmlDoc.NameTable);
+                nsManager.AddNamespace("d", "http://www.w3.org/2000/09/xmldsig#");
+
+                XmlNode nodoFirma = xmlDoc.GetElementsByTagName("Signature", "http://www.w3.org/2000/09/xmldsig#")[0];
+
+                // Crear el nodo <gCamFuFD>
+                XmlElement nodoGrupoJ = xmlDoc.CreateElement("gCamFuFD", xmlDoc.DocumentElement.NamespaceURI);
+
+                // -------------------------------------------------------------------------
+                // Construcción de dCarQR conforme al Manual Técnico v150 de la SET
+                // -------------------------------------------------------------------------
+
+                string fechaBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(dFeEmiDE.ToString("yyyy-MM-ddTHH:mm:ss")));
+                string rucRec = dRucReceptor;
+                string totalGral = documento.DE.CamposTotalesSubtotales.TotalGravada10.ToString("F8").Replace(",", ".");
+                string totalIVA = documento.DE.CamposTotalesSubtotales.TotalGravadaIVA.ToString("F8").Replace(",", ".");
+                string cantidadItems = documento.DE.CamposEspecificosTipoDocumento.Items.Count.ToString();
+                string idCSC = "1"; // ID del Código Secreto Compartido
+
+                string digestValue = xmlDoc.GetElementsByTagName("DigestValue", "http://www.w3.org/2000/09/xmldsig#")[0]?.InnerText ?? "";
+
+                string cadenaQR = 
+                    $"nVersion=150" +
+                    $"&Id={cdc}" +
+                    $"&dFeEmiDE={fechaBase64}" +
+                    $"&dRucRec={rucRec}" +
+                    $"&dTotGralOpe={totalGral}" +
+                    $"&dTotIVA={totalIVA}" +
+                    $"&cItems={cantidadItems}" +
+                    $"&DigestValue={digestValue}" +
+                    $"&IdCSC={idCSC}";
+
+                string cHashQR;
+                using (var sha256 = System.Security.Cryptography.SHA256.Create())
+                {
+                    var bytesQR = Encoding.UTF8.GetBytes(cadenaQR);
+                    var hash = sha256.ComputeHash(bytesQR);
+                    cHashQR = BitConverter.ToString(hash).Replace("-", "").ToLower();
+                }
+
+                string urlQR = $"https://ekuatia.set.gov.py/consultas/qr?{cadenaQR}&cHashQR={cHashQR}";
+
+                XmlElement dCarQR = xmlDoc.CreateElement("dCarQR", xmlDoc.DocumentElement.NamespaceURI);
+                dCarQR.InnerText = urlQR;
+                nodoGrupoJ.AppendChild(dCarQR);
+
+                // (Opcional) Si querés agregar dInfAdic y NO vas a enviar a SIFEN, descomentá:
+                /*
+                XmlElement dInfAdic = xmlDoc.CreateElement("dInfAdic", xmlDoc.DocumentElement.NamespaceURI);
+                dInfAdic.InnerText = "Gracias por su preferencia.";
+                nodoGrupoJ.AppendChild(dInfAdic);
+                */
+
+                // Insertar <gCamFuFD> después del nodo <Signature>
+                xmlDoc.DocumentElement.InsertAfter(nodoGrupoJ, nodoFirma);
+            }
+            else
+            {
+                Console.WriteLine("Advertencia: No se ha proporcionado certificado para firmar el documento.");
+            }
+
             // Configurar los ajustes de escritura 
             var settings = new XmlWriterSettings
             {
@@ -180,11 +266,20 @@ public class GenerarXML
                 OmitXmlDeclaration = false
             };
 
+            // Crear el directorio si no existe
+            string directorio = Path.GetDirectoryName(rutaArchivo);
+            if (!string.IsNullOrEmpty(directorio) && !Directory.Exists(directorio))
+            {
+                Directory.CreateDirectory(directorio);
+            }
+
             // Guardar el documento
             using (var writer = XmlWriter.Create(rutaArchivo, settings))
             {
                 xmlDoc.Save(writer);
             }
+
+            Console.WriteLine($"Documento XML generado exitosamente en: {rutaArchivo}");
         }
         catch (Exception ex)
         {

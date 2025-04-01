@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
-/// Clase auxiliar para manejar operaciones HTTP comunes
 public static class HttpHelper
 {
     /// Ejecuta una solicitud HTTP GET y procesa la respuesta

@@ -5,19 +5,67 @@ using Newtonsoft.Json;
 public class Config
 {
     public SapServiceLayerConfig SapServiceLayer { get; set; }
+    public HanaDatabaseConfig HanaDatabase { get; set; }
+    public SifenConfig Sifen { get; set; }
 
     public static Config LoadConfig()
     {
-        string basePath = AppDomain.CurrentDomain.BaseDirectory;
-        string configPath = Path.Combine(basePath, "config", "config.json");
-
-        if (!File.Exists(configPath))
+        try
         {
-            throw new FileNotFoundException($"Archivo de configuración no encontrado: {configPath}");
-        }
+            string basePath = AppDomain.CurrentDomain.BaseDirectory;
+            string configPath = Path.Combine(basePath, "config", "config.json");
 
-        string json = File.ReadAllText(configPath);
-        return JsonConvert.DeserializeObject<Config>(json);
+            if (!File.Exists(configPath))
+            {
+                throw new FileNotFoundException($"Archivo de configuración no encontrado: {configPath}");
+            }
+
+            string json = File.ReadAllText(configPath);
+            var config = JsonConvert.DeserializeObject<Config>(json);
+            
+            // Validar configuración mínima requerida
+            if (config.SapServiceLayer == null)
+            {
+                throw new InvalidOperationException("Configuración SAP Service Layer no encontrada");
+            }
+            
+            if (config.HanaDatabase == null)
+            {
+                config.HanaDatabase = new HanaDatabaseConfig
+                {
+                    ServerNode = "192.168.0.5:30015",
+                    UserName = "SYSTEM",
+                    Password = "V1nsoc4!",
+                    Schema = "SAP_SIFEN"
+                };
+            }
+            
+            if (config.Sifen == null)
+            {
+                config.Sifen = new SifenConfig
+                {
+                    Url = "https://sifen-test.set.gov.py/"
+                };
+            }
+
+            return config;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar la configuración: {ex.Message}");
+            throw;
+        }
+    }
+    
+    // Genera una cadena de conexión ODBC para HANA
+    public string GetHanaConnectionString()
+    {
+        if (HanaDatabase == null)
+        {
+            throw new InvalidOperationException("La configuración de la base de datos HANA no está disponible");
+        }
+        
+        return $"Driver=HDBODBC;ServerNode={HanaDatabase.ServerNode};UID={HanaDatabase.UserName};PWD={HanaDatabase.Password};";
     }
 }
 
@@ -27,4 +75,17 @@ public class SapServiceLayerConfig
     public string CompanyDB { get; set; }
     public string UserName { get; set; }
     public string Password { get; set; }
+}
+
+public class HanaDatabaseConfig
+{
+    public string ServerNode { get; set; }
+    public string UserName { get; set; }
+    public string Password { get; set; }
+    public string Schema { get; set; }
+}
+
+public class SifenConfig
+{
+    public string Url { get; set; }
 }
