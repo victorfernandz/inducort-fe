@@ -240,6 +240,8 @@ public class SAPCDCService : BackgroundService
                             dDesProSer = item.dDesProSer,
                             dCantProSer = item.dCantProSer,
                             dPUniProSer = item.dPUniProSer,
+                            cUniMed = item.cUniMed,
+                            dDesUniMed = item.dDesUniMed,
                             dTiCamIt = item.dTiCamIt,
                             dTotBruOpeItem = totalBruto,
                             iAfecIVA = afectacionIVA,

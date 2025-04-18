@@ -1,6 +1,7 @@
 using System;
 using System.Xml.Serialization;
 using System.Xml;
+using System.Globalization;
 
 [XmlRoot("rDE", Namespace = "http://ekuatia.set.gov.py/sifen/xsd")]
 
@@ -664,8 +665,14 @@ public class GCamItem // Nodo Padre E001
     [XmlElement("dParAranc")]
     public int ParteArancelaria { get; set; } = 1111;
 */
-    [XmlElement("dDescItem")]
+    [XmlElement("dDesProSer")]
     public string DescripcionItem { get; set; }
+
+    [XmlElement("cUniMed")]
+    public int UnidadMedida { get; set; }
+
+    [XmlElement("dDesUniMed")]
+    public string DescripcionUnidadMedida { get; set; }
 
     [XmlIgnore]
     public decimal CantidadProducto { get; set; }
@@ -673,18 +680,8 @@ public class GCamItem // Nodo Padre E001
     [XmlElement("dCantProSer")]
     public string CantidadProductoString
     {
-        get
-        {
-            if (CantidadProducto == Math.Floor(CantidadProducto))
-                return CantidadProducto.ToString("0");
-            else
-                return CantidadProducto.ToString("0.00");
-        }
-        set
-        {
-            if (decimal.TryParse(value, out decimal result))
-                CantidadProducto = result;
-        }
+        get => CantidadProducto.ToString("F4", CultureInfo.InvariantCulture);
+        set => CantidadProducto = decimal.Parse(value, CultureInfo.InvariantCulture);
     }
 
     [XmlElement("gValorItem")]
@@ -709,23 +706,20 @@ public class GValorItem // Nodo Padre E700dCodInt
     [XmlElement("dPUniProSer")]
     public string PrecioUnitarioString
     {
-        get 
-        {
-            // Si no tiene decimales (es un número entero), mostrar sin decimales
-            if (PrecioUnitario == Math.Floor(PrecioUnitario))
-                return PrecioUnitario.ToString("0");
-            else
-                return PrecioUnitario.ToString("0.00");
-        }
-        set 
-        {
-            if (decimal.TryParse(value, out decimal result))
-                PrecioUnitario = result;
-        }
+        get => PrecioUnitario.ToString("F8", CultureInfo.InvariantCulture);
+        set => PrecioUnitario = decimal.Parse(value, CultureInfo.InvariantCulture);
     }
 
     [XmlElement("dTiCamIt")]
-    public decimal? TipoCambio { get; set; }
+    public decimal TipoCambioIt { get; set; }
+
+    [XmlIgnore]
+    public string MonedaOperacion { get; set; }
+
+    public bool ShouldSerializeTipoCambioIt()
+    {
+        return MonedaOperacion != "PYG";
+    }
     
     [XmlIgnore]
     public decimal TotalBrutoItem { get; set; }
@@ -733,19 +727,8 @@ public class GValorItem // Nodo Padre E700dCodInt
     [XmlElement("dTotBruOpeItem")]
     public string TotalBrutoItemString
     {
-        get 
-        {
-            // Si no tiene decimales (es un número entero), mostrar sin decimales
-            if (TotalBrutoItem == Math.Floor(TotalBrutoItem))
-                return TotalBrutoItem.ToString("0");
-            else
-                return TotalBrutoItem.ToString("0.00");
-        }
-        set 
-        {
-            if (decimal.TryParse(value, out decimal result))
-                TotalBrutoItem = result;
-        }
+        get => TotalBrutoItem.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalBrutoItem = decimal.Parse(value, CultureInfo.InvariantCulture);
     }
 
     [XmlElement("gValorRestaItem")]
@@ -754,11 +737,6 @@ public class GValorItem // Nodo Padre E700dCodInt
     public GValorItem()
     {
         ValorRestaItem = new GValorRestaItem();
-    }
-
-    public bool ShouldSerializeTipoCambio()
-    {
-        return TipoCambio != null || TipoCambio > 0;
     }
 }
 
@@ -786,18 +764,8 @@ public class GValorRestaItem // Nodo Padre E720
     [XmlElement("dTotOpeItem")]
     public string TotalOperacionItemStr
     {
-        get 
-        {
-            if (TotalOperacionItem == Math.Floor(TotalOperacionItem))
-                return TotalOperacionItem.ToString("0");
-            else
-                return TotalOperacionItem.ToString("0.00");
-        }
-        set 
-        {
-            if (decimal.TryParse(value, out decimal result))
-                TotalOperacionItem = result;
-        }
+        get => TotalOperacionItem.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalOperacionItem = decimal.Parse(value, CultureInfo.InvariantCulture);
     }
 
     [XmlIgnore]
@@ -806,32 +774,14 @@ public class GValorRestaItem // Nodo Padre E720
     [XmlElement("dTotOpeGs")]
     public string TotalOperacionGsStr
     {
-        get 
-        {
-            if (!TotalOperacionGs.HasValue)
-                return null;
-                
-            if (TotalOperacionGs.Value == Math.Floor(TotalOperacionGs.Value))
-                return TotalOperacionGs.Value.ToString("0");
-            else
-                return TotalOperacionGs.Value.ToString("0.00");
-        }
-        set 
-        {
-            if (decimal.TryParse(value, out decimal result))
-                TotalOperacionGs = result;
-        }
+        get => TotalOperacionGs?.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalOperacionGs = decimal.Parse(value, CultureInfo.InvariantCulture);
     }
+
+    public bool ShouldSerializeTotalOperacionGsStr() => TotalOperacionGs.HasValue;
 
     public GValorRestaItem(){}
 
-    // Métodos para controlar qué campos opcionales se serializan
-  /*  public bool ShouldSerializeDescuentoItem() => DescuentoItem.HasValue; // && DescuentoItem.Value > 0
-    public bool ShouldSerializePorcentajeDescuentoItem() => PorcentajeDescuentoItem.HasValue && PorcentajeDescuentoItem.Value > 0;
-    public bool ShouldSerializeDescuentoGlobalItem() => DescuentoGlobalItem.HasValue && DescuentoGlobalItem.Value > 0;
-    public bool ShouldSerializeAnticipoPreUnitarioItem() => AnticipoPreUnitarioItem.HasValue && AnticipoPreUnitarioItem.Value > 0;
-    public bool ShouldSerializeAnticipoGlobalPreUnitarioItem() => AnticipoGlobalPreUnitarioItem.HasValue && AnticipoGlobalPreUnitarioItem.Value > 0; */
-    public bool ShouldSerializeTotalOperacionGsStr() => TotalOperacionGs.HasValue;
 }
 
 // Campos que describen el IVA de la operación por ítem (E730-E739)
@@ -849,14 +799,35 @@ public class GCamIVA // Nodo Padre E730
     [XmlElement("dTasaIVA")]
     public int TasaIVA { get; set; }
 
-    [XmlElement("dBasGravIVA")]
+    [XmlIgnore]
     public decimal BaseGravadaIVA { get; set; }
 
-    [XmlElement("dLiqIVAItem")]
+    [XmlElement("dBasGravIVA")]
+    public string BaseGravadaIVAString
+    {
+        get => BaseGravadaIVA.ToString("F8", CultureInfo.InvariantCulture);
+        set => BaseGravadaIVA = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlIgnore]
     public decimal LiquidacionIVA { get; set; }
 
-    [XmlElement("dBasExe")]
+    [XmlElement("dLiqIVAItem")]
+    public string LiquidacionIVAString
+    {
+        get => LiquidacionIVA.ToString("F8", CultureInfo.InvariantCulture);
+        set => LiquidacionIVA = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlIgnore]
     public decimal BaseExenta { get; set; }
+
+    [XmlElement("dBasExe")]
+    public string BaseExentaString
+    {
+        get => BaseExenta.ToString("F8", CultureInfo.InvariantCulture);
+        set => BaseExenta = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
     public GCamIVA(){}
 }
@@ -866,6 +837,9 @@ public class GTotSub
 {
     [XmlElement("dSubExe")]
     public decimal SubtotalExenta { get; set; }
+
+    [XmlElement("dSubExo")]
+    public decimal SubtotalExonerado { get; set; }
 
     [XmlElement("dSub5")]
     public decimal SubtotalTasa5 { get; set; }
@@ -899,20 +873,41 @@ public class GTotSub
 
     [XmlElement("dRedon")]
     public decimal RedondeoOperacion { get; set;}
-
+/*
     [XmlElement("dComi")]
     public decimal ComisionOperacion { get; set; }
-
-    [XmlElement("dTotGralOpe")]
+*/
+    [XmlIgnore]
     public decimal TotalNetoOperacion { get; set; }
 
-    [XmlElement("dIVA5")]
+    [XmlElement("dTotGralOpe")]
+    public string TotalNetoOperacionStr
+    {
+        get => TotalNetoOperacion.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalNetoOperacion = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlIgnore]
     public decimal LiquidacionIVA5 { get; set; }
 
-    [XmlElement("dIVA10")]
+    [XmlElement("dIVA5")]
+    public string LiquidacionIVA5Str
+    {
+        get => LiquidacionIVA5.ToString("F8", CultureInfo.InvariantCulture);
+        set => LiquidacionIVA5 = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlIgnore]
     public decimal LiquidacionIVA10 { get; set; }
 
-    [XmlElement("dLiqTotIVA5")]
+    [XmlElement("dIVA10")]
+    public string LiquidacionIVA10Str
+    {
+        get => LiquidacionIVA10.ToString("F8", CultureInfo.InvariantCulture);
+        set => LiquidacionIVA10 = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+/*    [XmlElement("dLiqTotIVA5")]
     public decimal LiquidacionTotalIVA5 {get; set; }
 
     [XmlElement("dLiqTotIVA10")]
@@ -920,21 +915,58 @@ public class GTotSub
 
     [XmlElement("dIVAComi")]
     public decimal LiquidacionIVAComision { get; set; }
-
-    [XmlElement("dTotIVA")]
+*/
+    [XmlIgnore]
     public decimal LiquidacionTotalIVA { get; set; }
 
-    [XmlElement("dBaseGrav5")]
+    [XmlElement("dTotIVA")]
+    public string LiquidacionTotalIVAStr
+    {
+        get => LiquidacionTotalIVA.ToString("F8", CultureInfo.InvariantCulture);
+        set => LiquidacionTotalIVA = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlIgnore]
     public decimal TotalGravada5 { get; set; }
 
-    [XmlElement("dBaseGrav10")]
+    [XmlElement("dBaseGrav5")]
+    public string TotalGravada5Str
+    {
+        get => TotalGravada5.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalGravada5 = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlIgnore]
     public decimal TotalGravada10 { get; set; }
 
-    [XmlElement("dTBasGraIVA")]
+    [XmlElement("dBaseGrav10")]
+    public string TotalGravada10Str
+    {
+        get => TotalGravada10.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalGravada10 = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlIgnore]
     public decimal TotalGravadaIVA { get; set; }
 
-    [XmlElement("dTotalGs")]
+    [XmlElement("dTBasGraIVA")]
+    public string TotalGravadaIVAStr
+    {
+        get => TotalGravadaIVA.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalGravadaIVA = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlIgnore]
     public decimal TotalGeneralOperacionGs { get; set; }
+
+    [XmlElement("dTotalGs")]
+    public string TotalGeneralOperacionGsStr
+    {
+        get => TotalGeneralOperacionGs.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalGeneralOperacionGs = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    public bool ShouldSerializeTotalGeneralOperacionGsStr() => TotalGeneralOperacionGs != 0;
 
     public GTotSub(){}
 }

@@ -21,7 +21,7 @@ public class FacturaService
             "Currencies($select=Code,Name,DocumentsCode) " + 
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and (Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
-            "Invoices/DocDate eq '20250114'";
+            "Invoices/DocDate eq '20250411'";
 
         // Obtener datos principales
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");

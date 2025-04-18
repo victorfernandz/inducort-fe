@@ -11,6 +11,7 @@ public class Totalizador
         
         // Inicializar todos los valores a 0
         totales.SubtotalExenta = 0;
+        totales.SubtotalExonerado = 0;
         totales.SubtotalTasa5 = 0;
         totales.SubtotalTasa10 = 0;
         totales.TotalBrutoOperacion = 0;
@@ -22,14 +23,16 @@ public class Totalizador
         totales.TotalDescuentoOperacion = 0;
         totales.TotalAnticipoOperacion = 0;
         totales.RedondeoOperacion = 0;
-        totales.ComisionOperacion = 0;
+//        totales.ComisionOperacion = 0;
         totales.TotalNetoOperacion = 0;
         totales.LiquidacionIVA5 = 0;
         totales.LiquidacionIVA10 = 0;
+/*
         totales.LiquidacionTotalIVA5 = 0;
         totales.LiquidacionTotalIVA10 = 0;
         totales.LiquidacionIVAComision = 0;
-        totales.LiquidacionTotalIVA = 0;
+*/        
+        totales.LiquidacionTotalIVA = 0;      
         totales.TotalGravada5 = 0;
         totales.TotalGravada10 = 0;
         totales.TotalGravadaIVA = 0;
@@ -106,24 +109,25 @@ public class Totalizador
 
         // 4. Calcular redondeo (según reglas SEDECO)
         decimal totalSinRedondeo = totales.TotalBrutoOperacion - totales.TotalDescuentoOperacion - totales.TotalAnticipoOperacion;
-        decimal totalRedondeado = RedondearSEDECO(totalSinRedondeo);
-        totales.RedondeoOperacion = totalRedondeado - totalSinRedondeo;
+        decimal totalRedondeado = totalSinRedondeo;
+/*        decimal totalRedondeado = RedondearSEDECO(totalSinRedondeo);
+        totales.RedondeoOperacion = totalRedondeado - totalSinRedondeo; */
 
         // 5. Calcular el total neto de la operación
-        totales.TotalNetoOperacion = totalRedondeado + totales.ComisionOperacion;
-
+        totales.TotalNetoOperacion = totalRedondeado;// + totales.ComisionOperacion; 
+/*
         // 6. Calcular totales de IVA por tasas 
         totales.LiquidacionTotalIVA5 = totales.LiquidacionIVA5;
-        totales.LiquidacionTotalIVA10 = totales.LiquidacionIVA10;
+        totales.LiquidacionTotalIVA10 = totales.LiquidacionIVA10;*/
         
         // 7. Calcular total de IVA
-        totales.LiquidacionTotalIVA = totales.LiquidacionIVA5 + totales.LiquidacionIVA10 + totales.LiquidacionIVAComision;
+        totales.LiquidacionTotalIVA = totales.LiquidacionIVA5 + totales.LiquidacionIVA10; //+ totales.LiquidacionIVAComision;
 
         // 8. Calcular total base gravada
         totales.TotalGravadaIVA = totales.TotalGravada5 + totales.TotalGravada10;
 
         // 9. Calcular el total en guaraníes si la moneda no es Guaraní
-        if (moneda != "PYG" && tipoCambio > 0)
+        if (moneda != "PYG" && tipoCambio > 1)
         {
             totales.TotalGeneralOperacionGs = Math.Round(totales.TotalNetoOperacion * tipoCambio, 0);
         }
@@ -136,6 +140,7 @@ public class Totalizador
     }
 
     // Método para redondear según reglas SEDECO (múltiplos de 50 Gs)
+    /*
     private static decimal RedondearSEDECO(decimal monto)
     {
         // Si la moneda no es guaraníes o tiene decimales, no aplicamos reglas SEDECO
@@ -148,5 +153,5 @@ public class Totalizador
             return monto - resto; // Redondeo hacia abajo
         else
             return monto + (50 - resto); // Redondeo hacia arriba
-    }
+    } */
 }

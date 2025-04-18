@@ -28,7 +28,7 @@ public class Config
             {
                 throw new InvalidOperationException("Configuración SAP Service Layer no encontrada");
             }
-            
+
             if (config.HanaDatabase == null)
             {
                 config.HanaDatabase = new HanaDatabaseConfig
@@ -39,13 +39,13 @@ public class Config
                     Schema = "SAP_SIFEN"
                 };
             }
-            
-            if (config.Sifen == null)
+
+            if (config.Sifen == null ||
+                string.IsNullOrWhiteSpace(config.Sifen.Url) ||
+                string.IsNullOrWhiteSpace(config.Sifen.IdCSC) ||
+                string.IsNullOrWhiteSpace(config.Sifen.CSC))
             {
-                config.Sifen = new SifenConfig
-                {
-                    Url = "https://sifen-test.set.gov.py/"
-                };
+                throw new InvalidOperationException("Configuración SIFEN no encontrada o incompleta (Url, IdCSC, CSC)");
             }
 
             return config;
@@ -56,7 +56,7 @@ public class Config
             throw;
         }
     }
-    
+
     // Genera una cadena de conexión ODBC para HANA
     public string GetHanaConnectionString()
     {
@@ -64,7 +64,7 @@ public class Config
         {
             throw new InvalidOperationException("La configuración de la base de datos HANA no está disponible");
         }
-        
+
         return $"Driver=HDBODBC;ServerNode={HanaDatabase.ServerNode};UID={HanaDatabase.UserName};PWD={HanaDatabase.Password};";
     }
 }
@@ -88,4 +88,6 @@ public class HanaDatabaseConfig
 public class SifenConfig
 {
     public string Url { get; set; }
+    public string IdCSC { get; set; }
+    public string CSC { get; set; }
 }

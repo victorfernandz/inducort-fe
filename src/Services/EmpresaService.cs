@@ -30,13 +30,11 @@ public class EmpresaService
         }
 
         _logger.LogInformation($"Respuesta JSON: {jsonResponse}");
-//        Console.WriteLine($"Respuesta JSON: {jsonResponse}");
         
         var rawJson = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
         if (rawJson == null || !rawJson.ContainsKey("value"))
         {
             _logger.LogWarning("No se encontraron datos en la respuesta de EPY_PLPY.");
-//            Console.WriteLine("No se encontraron datos en la respuesta de EPY_PLPY.");
             return null;
         }
 
@@ -46,7 +44,6 @@ public class EmpresaService
         if (plpyResponse?.value == null || !plpyResponse.value.Any())
         {
             _logger.LogWarning("No se encontraron registros en EPY_PLPY.");
-//            Console.WriteLine("No se encontraron registros en EPY_PLPY.");
             return null;
         }
 
@@ -57,7 +54,6 @@ public class EmpresaService
         if (primerRegistro.EPY_DEMPCollection == null || !primerRegistro.EPY_DEMPCollection.Any())
         {
             _logger.LogWarning("No se encontraron datos en EPY_DEMP.");
-//            Console.WriteLine("No se encontraron datos en EPY_DEMP.");
             return null;
         }
 
@@ -106,7 +102,6 @@ public class EmpresaService
         catch (Exception ex)
         {
             _logger.LogError($"Error al obtener descripciones geográficas: {ex.Message}");
-//           Console.WriteLine($"Error al obtener descripciones geográficas: {ex.Message}");
         }
     }
 
@@ -139,7 +134,6 @@ public class EmpresaService
         catch (Exception ex)
         {
             _logger.LogError($"Error al procesar la respuesta de {tipo}: {ex.Message}");
-//            Console.WriteLine($"Error al procesar la respuesta de {tipo}: {ex.Message}");
         }
         
         return "";
@@ -158,7 +152,6 @@ public class EmpresaService
             }
 
             _logger.LogInformation($"Respuesta JSON de actividades económicas: {jsonResponse}");
-//            Console.WriteLine($"Respuesta JSON de actividades económicas: {jsonResponse}");
             
             // Deserializar a un objeto dinámico para mayor flexibilidad
             dynamic responseObj = JsonConvert.DeserializeObject(jsonResponse);
@@ -168,7 +161,6 @@ public class EmpresaService
             if (responseObj?.value == null || responseObj.value.Count == 0)
             {
                 _logger.LogWarning("No se encontraron registros de actividades económicas.");
-//                Console.WriteLine("No se encontraron registros de actividades económicas.");
                 return actividades;
             }
 
@@ -193,7 +185,6 @@ public class EmpresaService
         catch (Exception ex)
         {
             _logger.LogError($"Error al obtener actividades económicas: {ex.Message}");
-//            Console.WriteLine($"Error al obtener actividades económicas: {ex.Message}");
             return new List<ActividadEconomica>();
         }
     }
@@ -211,7 +202,6 @@ public class EmpresaService
             }
 
             _logger.LogInformation($"Respuesta JSON de obligaciones afectadas: {jsonResponse}");
-//            Console.WriteLine($"Respuesta JSON de obligaciones afectadas: {jsonResponse}");
             
             // Deserializar la respuesta
             var obligacionesResponse = JsonConvert.DeserializeObject<ObligacionesResponse>(jsonResponse);
@@ -221,7 +211,6 @@ public class EmpresaService
             if (obligacionesResponse?.value == null || !obligacionesResponse.value.Any())
             {
                 _logger.LogWarning("No se encontraron registros de obligaciones afectadas.");
-//                Console.WriteLine("No se encontraron registros de obligaciones afectadas.");
                 return obligaciones;
             }
 
@@ -247,7 +236,6 @@ public class EmpresaService
         catch (Exception ex)
         {
             _logger.LogError($"Error al obtener obligaciones afectadas: {ex.Message}");
-//            Console.WriteLine($"Error al obtener obligaciones afectadas: {ex.Message}");
             return new List<ObligacionAfectada>();
         }
     }

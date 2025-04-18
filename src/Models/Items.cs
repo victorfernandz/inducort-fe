@@ -4,6 +4,8 @@ public class Item
     public string dDesProSer { get; set; }
     public decimal dCantProSer { get; set; }
     public decimal dPUniProSer { get; set; }
+    public int cUniMed { get; set; }
+    public string dDesUniMed { get; set; }
     public decimal dTiCamIt { get; set; }
     public decimal dTotBruOpeItem { get; set; }
     public string taxCode { get; set; }

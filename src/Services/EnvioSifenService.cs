@@ -61,7 +61,6 @@ public class EnvioSifenService
             catch (Exception certEx)
             {
                 _log.LogWarning($"No se pudo obtener el certificado para autenticación TLS: {certEx.Message}");
-                _log.LogWarning("Continuando sin certificado para autenticación mutua");
             }
             
             // Crear identificador único para el lote
@@ -84,14 +83,11 @@ public class EnvioSifenService
                 _log.LogWarning($"El documento XML no comienza con <rDE> después de quitar la declaración XML");
             }
 
-            // SOLUCIÓN DEFINITIVA: Reemplazar el esquema https por http
-            // Esta es la corrección crítica que faltaba
             xmlDocumento = xmlDocumento.Replace(
                 "schemaLocation=\"https://ekuatia.set.gov.py/sifen/xsd", 
                 "schemaLocation=\"http://ekuatia.set.gov.py/sifen/xsd");
 
-            // No envolver en rLoteDE, enviar directamente
-            string loteXml = $"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{xmlDocumento}";
+            string loteXml = $"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rLoteDE>{xmlDocumento}</rLoteDE>";
 
             // Guardar una copia del XML exacto que enviaremos
             string debugDir = "debug_xml";
@@ -107,7 +103,12 @@ public class EnvioSifenService
                 xmlDoc.LoadXml(loteXml);
                 _log.LogInformation("XML validado correctamente");
                 // Registro adicional para confirmar la corrección del esquema
-                _log.LogInformation($"Schema location: {xmlDoc.DocumentElement.GetAttribute("schemaLocation", "http://www.w3.org/2001/XMLSchema-instance")}");
+                var deElement = xmlDoc.SelectSingleNode("//rDE");
+                if (deElement != null) {
+                    XmlElement rdeElement = (XmlElement)deElement;
+                    string schema = rdeElement.GetAttribute("schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
+                    _log.LogInformation($"Schema location: {schema}");
+                }
             } catch (XmlException xmlEx) {
                 _log.LogError($"XML mal formado: {xmlEx.Message}");
                 throw new Exception("El documento XML no está bien formado", xmlEx);
@@ -155,15 +156,13 @@ public class EnvioSifenService
             content.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("action", "http://ekuatia.set.gov.py/sifen/xsd/siRecepLoteDE"));
             
             // Guardar request SOAP para debugging
-            File.WriteAllText(
-                Path.Combine(debugDir, $"soap_request_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), 
-                soapEnvelope
-            );
+            File.WriteAllText(Path.Combine(debugDir, $"soap_request_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), soapEnvelope);
             
             var response = await _httpClient.PostAsync(fullUrl, content);
             
             string estado = "Error";
             string mensajeRespuesta = "";
+            string codigoRespuesta = "";
             DateTime? fechaRespuesta = null;
             
             // Guardar la respuesta HTTP completa para depuración
@@ -181,10 +180,7 @@ public class EnvioSifenService
                 fechaRespuesta = DateTime.Now;
                 
                 // Guardar respuesta XML para debugging
-                File.WriteAllText(
-                    Path.Combine(debugDir, $"soap_response_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), 
-                    respuestaXml
-                );
+                File.WriteAllText(Path.Combine(debugDir, $"soap_response_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), respuestaXml);
                 
                 _log.LogInformation($"Respuesta de SIFEN: Éxito con status code {response.StatusCode}");
                 
@@ -207,26 +203,26 @@ public class EnvioSifenService
                     else
                     {
                         // También buscar dCodRes (código de resultado)
-                        startIdx = respuestaXml.IndexOf("<dCodRes>");
-                        endIdx = respuestaXml.IndexOf("</dCodRes>");
+                        startIdx = respuestaXml.IndexOf("<ns2:dCodRes>");
+                        endIdx = respuestaXml.IndexOf("</ns2:dCodRes>");
                         
                         if (startIdx > 0 && endIdx > startIdx)
                         {
-                            startIdx += "<dCodRes>".Length;
-                            string codigoResultado = respuestaXml.Substring(startIdx, endIdx - startIdx);
-                            _log.LogInformation($"Código de resultado: {codigoResultado}");
+                            startIdx += "<ns2:dCodRes>".Length;
+                            codigoRespuesta = respuestaXml.Substring(startIdx, endIdx - startIdx);
+                            _log.LogInformation($"Código de resultado: {codigoRespuesta}");
                             
                             // Buscar mensaje asociado
-                            int msgStartIdx = respuestaXml.IndexOf("<dMsgRes>");
-                            int msgEndIdx = respuestaXml.IndexOf("</dMsgRes>");
+                            int msgStartIdx = respuestaXml.IndexOf("<ns2:dMsgRes>");
+                            int msgEndIdx = respuestaXml.IndexOf("</ns2:dMsgRes>");
                             
                             if (msgStartIdx > 0 && msgEndIdx > msgStartIdx)
                             {
-                                msgStartIdx += "<dMsgRes>".Length;
+                                msgStartIdx += "<ns2:dMsgRes>".Length;
                                 string mensajeResultado = respuestaXml.Substring(msgStartIdx, msgEndIdx - msgStartIdx);
                                 _log.LogInformation($"Mensaje de resultado: {mensajeResultado}");
                                 
-                                mensajeRespuesta += $"|Codigo:{codigoResultado}|Mensaje:{mensajeResultado}";
+                                mensajeRespuesta += $"|Codigo:{codigoRespuesta}|Mensaje:{mensajeResultado}";
                             }
                         }
                     }
@@ -254,13 +250,52 @@ public class EnvioSifenService
                         File.WriteAllText(
                             Path.Combine(debugDir, $"soap_error_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), errorBody
                         );
+                        
+                        // Extraer información del error del XML de rechazo
+                        try
+                        {
+                            XmlDocument xmlError = new XmlDocument();
+                            xmlError.LoadXml(errorBody);
+                            
+                            // Configurar namespace manager para la búsqueda XPath
+                            XmlNamespaceManager nsManager = new XmlNamespaceManager(xmlError.NameTable);
+                            nsManager.AddNamespace("env", "http://www.w3.org/2003/05/soap-envelope");
+                            nsManager.AddNamespace("ns2", "http://ekuatia.set.gov.py/sifen/xsd");
+                            
+                            // Buscar estado del resultado
+                            XmlNode estadoNode = xmlError.SelectSingleNode("//ns2:dEstRes", nsManager);
+                            if (estadoNode != null)
+                            {
+                                estado = estadoNode.InnerText; // Actualizar el estado
+                            }
+                            
+                            // Buscar código de resultado
+                            XmlNode codigoNode = xmlError.SelectSingleNode("//ns2:dCodRes", nsManager);
+                            if (codigoNode != null)
+                            {
+                                codigoRespuesta = codigoNode.InnerText; // Guardar código
+                            }
+                            
+                            // Buscar mensaje de resultado
+                            XmlNode mensajeNode = xmlError.SelectSingleNode("//ns2:dMsgRes", nsManager);
+                            if (mensajeNode != null)
+                            {
+                                string mensajeError = mensajeNode.InnerText;
+                                _log.LogWarning($"Error SIFEN: {estado} - Código: {codigoRespuesta} - Mensaje: {mensajeError}");
+                            }
+                        }
+                        catch (Exception xmlEx)
+                        {
+                            _log.LogWarning($"No se pudo analizar el XML de error: {xmlEx.Message}");
+                        }
                     }
                 }
             }
             
             try
             {
-                _logger.RegistrarDocumento(_baseDatos, cdc, qr, xmlFirmado, estado, tipoDocumento, "siRecepLoteDE", fechaCreacion, fechaEnvio, fechaRespuesta, mensajeRespuesta);
+                _logger.RegistrarDocumento(_baseDatos, cdc, qr, xmlFirmado, estado, tipoDocumento, "siRecepLoteDE", 
+                    fechaCreacion, fechaEnvio, fechaRespuesta, mensajeRespuesta, codigoRespuesta);
             }
             catch (Exception dbEx)
             {
@@ -294,7 +329,7 @@ public class EnvioSifenService
             }
             catch
             {
-                // Si ni siquiera podemos escribir el archivo, continuamos
+                
             }
         }
     }
