@@ -22,7 +22,7 @@ public class LoggerSifenService
         Directory.CreateDirectory(_respuestasPath);
     }
 
-    public void RegistrarDocumento(string baseDatos, string cdc, string qr, string xmlFirmado, string estado, string tipoDocumento, string servicio, DateTime fechaCreacion, DateTime fechaEnvio, DateTime? fechaRespuesta, string mensajeRespuesta, string codigoRespuesta = "")
+    public void RegistrarDocumento(string baseDatos, string cdc, string xmlFirmado, string estado, string tipoDocumento, string servicio, DateTime fechaCreacion, DateTime fechaEnvio, DateTime? fechaRespuesta, string mensajeRespuesta, string codigoRespuesta = "")
     {
         try
         {

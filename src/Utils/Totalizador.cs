@@ -23,15 +23,13 @@ public class Totalizador
         totales.TotalDescuentoOperacion = 0;
         totales.TotalAnticipoOperacion = 0;
         totales.RedondeoOperacion = 0;
-//        totales.ComisionOperacion = 0;
+        totales.ComisionOperacion = 0;
         totales.TotalNetoOperacion = 0;
         totales.LiquidacionIVA5 = 0;
         totales.LiquidacionIVA10 = 0;
-/*
         totales.LiquidacionTotalIVA5 = 0;
         totales.LiquidacionTotalIVA10 = 0;
-        totales.LiquidacionIVAComision = 0;
-*/        
+        totales.LiquidacionIVAComision = 0;      
         totales.LiquidacionTotalIVA = 0;      
         totales.TotalGravada5 = 0;
         totales.TotalGravada10 = 0;
@@ -133,7 +131,7 @@ public class Totalizador
         }
         else if (moneda == "PYG")
         {
-            totales.TotalGeneralOperacionGs = totales.TotalNetoOperacion;
+            totales.TotalGeneralOperacionGs = null;
         }
 
         return totales;

@@ -2,6 +2,8 @@ using System;
 using System.Xml.Serialization;
 using System.Xml;
 using System.Globalization;
+using Org.BouncyCastle.Crypto.Paddings;
+using System.Text.RegularExpressions;
 
 [XmlRoot("rDE", Namespace = "http://ekuatia.set.gov.py/sifen/xsd")]
 
@@ -253,13 +255,19 @@ public class GOpeCom // Nodo padre D001
     [XmlElement("dDesMoneOpe", Order = 6)]
     public string DescripcionMoneda { get; set; }
 
-    [XmlElement("dCondTiCam", Order = 7)]
+    [XmlElement("iCondAnt", Order = 7)]
+    public int CodigoAnticipo { get; set; } = 1;
+
+    [XmlElement("dDesCondAnt", Order = 8)]
+    public string DescripcionCodigoAnticipo { get; set; } = "Anticipo Global";
+
+    [XmlElement("dCondTiCam", Order = 9)]
     public int CondicionTipoCambio { get; set; } = 1;
 
-    [XmlElement("dTiCam", Order = 8)]
+    [XmlElement("dTiCam", Order = 10)]
     public decimal TipoCambio { get; set; }
 
-    [XmlElement("gOblAfe", Order = 9)]
+    [XmlElement("gOblAfe", Order = 11)]
     public List<GOblAfe> ObligacionesAfectadas { get; set; } = new List<GOblAfe>();
 
     public GOpeCom(){}
@@ -680,7 +688,7 @@ public class GCamItem // Nodo Padre E001
     [XmlElement("dCantProSer")]
     public string CantidadProductoString
     {
-        get => CantidadProducto.ToString("F4", CultureInfo.InvariantCulture);
+        get => CantidadProducto.ToString("F8", CultureInfo.InvariantCulture);
         set => CantidadProducto = decimal.Parse(value, CultureInfo.InvariantCulture);
     }
 
@@ -743,21 +751,51 @@ public class GValorItem // Nodo Padre E700dCodInt
 // E8.1.1 Campos que describen los descuentos, anticipos y valor total por ítem (EA001-EA050)
 public class GValorRestaItem // Nodo Padre E720
 {
+    [XmlIgnore]
+    public decimal DescuentoItem { get; set; }
     [XmlElement("dDescItem")]
-    public decimal DescuentoItem { get; set; } = 0;
+    public string DescuentoItemStr
+    {
+        get => DescuentoItem.ToString("F8", CultureInfo.InvariantCulture);
+        set => DescuentoItem = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
     
+    [XmlIgnore]
+    public decimal PorcentajeDescuentoItem { get; set; }
     [XmlElement("dPorcDesIt")]
-    public decimal PorcentajeDescuentoItem { get; set; } = 0;
+    public string PorcentajeDescuentoItemStr
+    {
+        get => PorcentajeDescuentoItem.ToString("F8", CultureInfo.InvariantCulture);
+        set => PorcentajeDescuentoItem = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
     
+    [XmlIgnore]
+    public decimal DescuentoGlobalItem { get; set; }
     [XmlElement("dDescGloItem")]
-    public decimal DescuentoGlobalItem { get; set; } = 0;
+    public string DescuentoGlobalItemStr
+    {
+        get => DescuentoGlobalItem.ToString("F8", CultureInfo.InvariantCulture);
+        set => DescuentoGlobalItem = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlIgnore]
+    public decimal AnticipoPreUnitarioItem { get; set; }    
+    [XmlElement("dAntPreUniIt")]
+    public string AnticipoPreUnitarioItemStr
+    {
+        get => AnticipoPreUnitarioItem.ToString("F8", CultureInfo.InvariantCulture);
+        set => AnticipoPreUnitarioItem = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }    
     
-    [XmlElement("dAntPreUniIt")] 
-    public decimal AnticipoPreUnitarioItem { get; set; } = 0;
-    
+    [XmlIgnore]
+    public decimal AnticipoGlobalPreUnitarioItem { get; set; }
     [XmlElement("dAntGloPreUniIt")]
-    public decimal AnticipoGlobalPreUnitarioItem { get; set; } = 0;
-    
+    public string AnticipoGlobalPreUnitarioItemStr
+    {
+        get => AnticipoGlobalPreUnitarioItem.ToString("F8", CultureInfo.InvariantCulture);
+        set => AnticipoGlobalPreUnitarioItem = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+        
     [XmlIgnore]
     public decimal TotalOperacionItem { get; set; }
 
@@ -835,48 +873,132 @@ public class GCamIVA // Nodo Padre E730
 // Campos que describen los subtotales y totales de la transacción documentada (F001-F099)
 public class GTotSub
 {
-    [XmlElement("dSubExe")]
+    [XmlIgnore]
     public decimal SubtotalExenta { get; set; }
+    [XmlElement("dSubExe")]
+    public string SubtotalExentaStr
+    {
+        get => SubtotalExenta.ToString("F8", CultureInfo.InvariantCulture);
+        set => SubtotalExenta = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dSubExo")]
+    [XmlIgnore]
     public decimal SubtotalExonerado { get; set; }
+    [XmlElement("dSubExo")]
+    public string SubtotalExoneradoStr
+    {
+        get => SubtotalExonerado.ToString("F8", CultureInfo.InvariantCulture);
+        set => SubtotalExonerado = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dSub5")]
+    [XmlIgnore]
     public decimal SubtotalTasa5 { get; set; }
+    [XmlElement("dSub5")]
+    public string SubtotalTasa5Str
+    {
+        get => SubtotalTasa5.ToString("F8", CultureInfo.InvariantCulture);
+        set => SubtotalTasa5 = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }    
 
-    [XmlElement("dSub10")]
+    [XmlIgnore]
     public decimal SubtotalTasa10 { get; set; }
+    [XmlElement("dSub10")]
+    public string SubtotalTasa10Str
+    {
+        get => SubtotalTasa10.ToString("F8", CultureInfo.InvariantCulture);
+        set => SubtotalTasa10 = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dTotOpe")]
+    [XmlIgnore]
     public decimal TotalBrutoOperacion { get; set; }
+    [XmlElement("dTotOpe")]
+    public string TotalBrutoOperacionStr
+    {
+        get => TotalBrutoOperacion.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalBrutoOperacion = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dTotDesc")]
+    [XmlIgnore]
     public decimal TotalDescuentoItem { get; set; }
+    [XmlElement("dTotDesc")]
+    public string TotalDescuentoItemStr
+    {
+        get => TotalDescuentoItem.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalDescuentoItem = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dTotDescGlotem")]
+    [XmlIgnore]
     public decimal TotalDescuentoGlobal { get; set; }
+    [XmlElement("dTotDescGlotem")]
+    public string TotalDescuentoGlobalStr
+    {
+        get => TotalDescuentoGlobal.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalDescuentoGlobal = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dTotAntItem")]
+    [XmlIgnore]
     public decimal TotalAnticipoItem { get; set; }
+    [XmlElement("dTotAntItem")]
+    public string TotalAnticipoItemStr
+    {
+        get => TotalAnticipoItem.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalAnticipoItem = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dTotAnt")]
+    [XmlIgnore]
     public decimal TotalAnticipoGlobal { get; set; }
+    [XmlElement("dTotAnt")]
+    public string TotalAnticipoGlobalStr
+    {
+        get => TotalAnticipoGlobal.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalAnticipoGlobal = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dPorcDescTotal")]
+    [XmlIgnore]
     public decimal PorcentajeDescuentoGlobal {get; set; }
+    [XmlElement("dPorcDescTotal")]
+    public string PorcentajeDescuentoGlobalStr
+    {
+        get => PorcentajeDescuentoGlobal.ToString("F8", CultureInfo.InvariantCulture);
+        set => PorcentajeDescuentoGlobal = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dDescTotal")]
+    [XmlIgnore]
     public decimal TotalDescuentoOperacion { get; set; }
-
-    [XmlElement("dAnticipo")]
+    [XmlElement("dDescTotal")]
+    public string TotalDescuentoOperacionStr
+    {
+        get => TotalDescuentoOperacion.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalDescuentoOperacion = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+    
+    [XmlIgnore]
     public decimal TotalAnticipoOperacion { get; set; }
+    [XmlElement("dAnticipo")]
+    public string TotalAnticipoOperacionStr
+    {
+        get => TotalAnticipoOperacion.ToString("F8", CultureInfo.InvariantCulture);
+        set => TotalAnticipoOperacion = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dRedon")]
+    [XmlIgnore]
     public decimal RedondeoOperacion { get; set;}
-/*
-    [XmlElement("dComi")]
+    [XmlElement("dRedon")]
+    public string RedondeoOperacionStr
+    {
+        get => RedondeoOperacion.ToString("F8", CultureInfo.InvariantCulture);
+        set => RedondeoOperacion = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlIgnore]
     public decimal ComisionOperacion { get; set; }
-*/
+    [XmlElement("dComi")]
+    public string ComisionOperacionStr
+    {
+        get => ComisionOperacion.ToString("F8", CultureInfo.InvariantCulture);
+        set => ComisionOperacion = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
     [XmlIgnore]
     public decimal TotalNetoOperacion { get; set; }
 
@@ -889,7 +1011,6 @@ public class GTotSub
 
     [XmlIgnore]
     public decimal LiquidacionIVA5 { get; set; }
-
     [XmlElement("dIVA5")]
     public string LiquidacionIVA5Str
     {
@@ -899,7 +1020,6 @@ public class GTotSub
 
     [XmlIgnore]
     public decimal LiquidacionIVA10 { get; set; }
-
     [XmlElement("dIVA10")]
     public string LiquidacionIVA10Str
     {
@@ -907,18 +1027,35 @@ public class GTotSub
         set => LiquidacionIVA10 = decimal.Parse(value, CultureInfo.InvariantCulture);
     }
 
-/*    [XmlElement("dLiqTotIVA5")]
+    [XmlIgnore]
     public decimal LiquidacionTotalIVA5 {get; set; }
+    [XmlElement("dLiqTotIVA5")]
+    public string LiquidacionTotalIVA5Str
+    {
+        get => LiquidacionTotalIVA5.ToString("F8", CultureInfo.InvariantCulture);
+        set => LiquidacionTotalIVA5 = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dLiqTotIVA10")]
+    [XmlIgnore]
     public decimal LiquidacionTotalIVA10 { get; set; }
+    [XmlElement("dLiqTotIVA10")]
+    public string LiquidacionTotalIVA10Str
+    {
+        get => LiquidacionTotalIVA10.ToString("F8", CultureInfo.InvariantCulture);
+        set => LiquidacionTotalIVA10 = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
-    [XmlElement("dIVAComi")]
+    [XmlIgnore]
     public decimal LiquidacionIVAComision { get; set; }
-*/
+    [XmlElement("dIVAComi")]
+    public string LiquidacionIVAComisionStr
+    {
+        get => LiquidacionIVAComision.ToString("F8", CultureInfo.InvariantCulture);
+        set => LiquidacionIVAComision = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
     [XmlIgnore]
     public decimal LiquidacionTotalIVA { get; set; }
-
     [XmlElement("dTotIVA")]
     public string LiquidacionTotalIVAStr
     {
@@ -928,7 +1065,6 @@ public class GTotSub
 
     [XmlIgnore]
     public decimal TotalGravada5 { get; set; }
-
     [XmlElement("dBaseGrav5")]
     public string TotalGravada5Str
     {
@@ -938,7 +1074,6 @@ public class GTotSub
 
     [XmlIgnore]
     public decimal TotalGravada10 { get; set; }
-
     [XmlElement("dBaseGrav10")]
     public string TotalGravada10Str
     {
@@ -948,7 +1083,6 @@ public class GTotSub
 
     [XmlIgnore]
     public decimal TotalGravadaIVA { get; set; }
-
     [XmlElement("dTBasGraIVA")]
     public string TotalGravadaIVAStr
     {
@@ -957,12 +1091,11 @@ public class GTotSub
     }
 
     [XmlIgnore]
-    public decimal TotalGeneralOperacionGs { get; set; }
-
+    public decimal? TotalGeneralOperacionGs { get; set; }
     [XmlElement("dTotalGs")]
     public string TotalGeneralOperacionGsStr
     {
-        get => TotalGeneralOperacionGs.ToString("F8", CultureInfo.InvariantCulture);
+        get => TotalGeneralOperacionGs?.ToString("F8", CultureInfo.InvariantCulture);
         set => TotalGeneralOperacionGs = decimal.Parse(value, CultureInfo.InvariantCulture);
     }
 

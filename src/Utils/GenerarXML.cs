@@ -78,7 +78,7 @@ public class GenerarXML
                 documento.DE.CamposEspecificosTipoDocumento.Items.Clear();
                 foreach (var item in items)
                 {
-                    decimal? totalGs = item.dTiCamIt > 0 ? item.dTotBruOpeItem * item.dTiCamIt : null;
+                    decimal? totalGs = cMoneOpe != "PYG" && item.dTiCamIt > 0 ? item.dTotBruOpeItem * item.dTiCamIt : null;
                     var valorItem = new GValorItem
                     {
                         PrecioUnitario = item.dPUniProSer,
@@ -179,10 +179,12 @@ public class GenerarXML
                         cHashQR = BitConverter.ToString(hash).Replace("-", "").ToLower();
                     }
 
-                    string urlQR = $"https://ekuatia.set.gov.py/consultas/qr?{cadenaVisibleQR}&cHashQR={cHashQR}";
+                //    string urlQR = $"https://ekuatia.set.gov.py/consultas/qr?{cadenaVisibleQR}&cHashQR={cHashQR}";
+                    string urlQR = $"https://ekuatia.set.gov.py/consultas-test/qr?{cadenaVisibleQR}&cHashQR={cHashQR}";
 
                     XmlElement dCarQR = xmlDoc.CreateElement("dCarQR", xmlDoc.DocumentElement.NamespaceURI);
                     dCarQR.InnerText = urlQR;
+                //   dCarQR.InnerText = urlQR.Replace("&", "&amp;");
                     nodoGrupoJ.AppendChild(dCarQR);
 
                     if (nodoPadreDE != null)

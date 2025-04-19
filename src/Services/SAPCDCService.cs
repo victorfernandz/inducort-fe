@@ -295,7 +295,7 @@ public class SAPCDCService : BackgroundService
                         string xmlFirmado = File.ReadAllText(rutaXml);
                         
                         // Enviar el documento a SIFEN
-                        await _envioService.EnviarDocumentoAsincronico(cdc, null, xmlFirmado, xmlTiDE);
+                        await _envioService.EnviarDocumentoAsincronico(cdc, xmlFirmado, xmlTiDE);
                         
                         _logger.LogInformation($"Documento con CDC {cdc} enviado a SIFEN correctamente");
                     }

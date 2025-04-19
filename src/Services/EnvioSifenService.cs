@@ -42,7 +42,7 @@ public class EnvioSifenService
         _log.LogInformation($"EnvioSifenService inicializado con URL base: {baseUrl}");
     }
     
-    public async Task EnviarDocumentoAsincronico(string cdc, string qr, string xmlFirmado, string tipoDocumento)
+    public async Task EnviarDocumentoAsincronico(string cdc, string xmlFirmado, string tipoDocumento)
     {
         try
         {
@@ -294,7 +294,7 @@ public class EnvioSifenService
             
             try
             {
-                _logger.RegistrarDocumento(_baseDatos, cdc, qr, xmlFirmado, estado, tipoDocumento, "siRecepLoteDE", 
+                _logger.RegistrarDocumento(_baseDatos, cdc, xmlFirmado, estado, tipoDocumento, "siRecepLoteDE", 
                     fechaCreacion, fechaEnvio, fechaRespuesta, mensajeRespuesta, codigoRespuesta);
             }
             catch (Exception dbEx)

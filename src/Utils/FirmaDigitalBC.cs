@@ -120,6 +120,7 @@ public class FirmaDigitalBC
         // Agregar CanonicalizationMethod
         XmlElement canonMethodElement = xmlDoc.CreateElement("CanonicalizationMethod", "http://www.w3.org/2000/09/xmldsig#");
         canonMethodElement.SetAttribute("Algorithm", "http://www.w3.org/2001/10/xml-exc-c14n#");
+    //    canonMethodElement.SetAttribute("Algorithm", "http://www.w3.org/TR/2001/REC-xml-c14n-20010315");
         signedInfoElement.AppendChild(canonMethodElement);
         
         // Agregar SignatureMethod
@@ -142,6 +143,7 @@ public class FirmaDigitalBC
         // Transform 2: Exclusive Canonicalization
         XmlElement transform2Element = xmlDoc.CreateElement("Transform", "http://www.w3.org/2000/09/xmldsig#");
         transform2Element.SetAttribute("Algorithm", "http://www.w3.org/2001/10/xml-exc-c14n#");
+    //    transform2Element.SetAttribute("Algorithm", "http://www.w3.org/TR/2001/REC-xml-c14n-20010315");
         transformsElement.AppendChild(transform2Element);
         
         referenceElement.AppendChild(transformsElement);
