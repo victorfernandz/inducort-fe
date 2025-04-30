@@ -1,6 +1,4 @@
-using System.Security;
 using Newtonsoft.Json;
-using RestSharp.Serializers;
 
 public class FacturaResponse
 {
@@ -103,4 +101,34 @@ public class CuotaResponse
     public decimal TotalFC { get; set; }
     public string U_FECHAV { get; set; }
     public int InstallmentId { get; set; }
+}
+
+public class IncomingPaymentResponse
+{
+    [JsonProperty("DocEntry")]
+    public int DocEntry { get; set; }
+
+    [JsonProperty("TransferSum")]
+    public decimal TransferSum { get; set; }
+
+    [JsonProperty("CashSum")]
+    public decimal CashSum { get; set; }
+
+    [JsonProperty("PaymentInvoices")]
+    public List<PaymentInvoiceItem> PaymentInvoices { get; set; }
+}
+
+public class PaymentInvoiceItem
+{
+    [JsonProperty("DocEntry")]
+    public int DocEntry { get; set; }
+
+    [JsonProperty("SumApplied")]
+    public decimal SumApplied { get; set; }
+
+    [JsonProperty("AppliedFC")]
+    public decimal AppliedFC { get; set; }
+
+    [JsonProperty("AppliedSys")]
+    public decimal AppliedSys { get; set; }
 }

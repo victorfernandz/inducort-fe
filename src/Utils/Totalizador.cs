@@ -127,7 +127,7 @@ public class Totalizador
         // 9. Calcular el total en guaraníes si la moneda no es Guaraní
         if (moneda != "PYG" && tipoCambio > 1)
         {
-            totales.TotalGeneralOperacionGs = Math.Round(totales.TotalNetoOperacion * tipoCambio, 0);
+            totales.TotalGeneralOperacionGs = (totales.TotalNetoOperacion * tipoCambio);
         }
         else if (moneda == "PYG")
         {

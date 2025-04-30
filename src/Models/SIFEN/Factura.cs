@@ -24,4 +24,5 @@ public class Factura
     public Currencies Currencies { get; set; }
     public GPagCred OperacionCredito { get; set; }
     public List<Item> Items { get; set; } = new List<Item>();
+    public GPaConEIni PagoContado { get; set; }
 }

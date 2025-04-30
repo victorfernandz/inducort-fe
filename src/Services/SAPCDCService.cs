@@ -5,8 +5,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text;
 using Newtonsoft.Json;
-using System.Collections.Generic;
-using System.Linq;
+using System.Xml;
+using Org.BouncyCastle.Crypto.Encodings;
+
 
 public class SAPCDCService : BackgroundService
 {
@@ -81,7 +82,7 @@ public class SAPCDCService : BackgroundService
                 }
                 else
                 {
-                    _logger.LogInformation($"Se obtuvieron {_empresaInfo.ObligacionesAfectadas.Count} obligaciones afectadas.");
+                //    _logger.LogInformation($"Se obtuvieron {_empresaInfo.ObligacionesAfectadas.Count} obligaciones afectadas.");
                 }
 
                 // Procesar Facturas sin CDC
@@ -132,7 +133,7 @@ public class SAPCDCService : BackgroundService
                 string dEst = factura.U_EST;
                 string dPunExp = factura.U_PDE;
                 string dNumDoc = factura.FolioNum.PadLeft(7, '0');
-                string dFecha = factura.DocDate.Replace("-", ""); // Fecha del documento para usar en el CDC
+        //        string dFecha = factura.DocDate.Replace("-", ""); // Fecha del documento para usar en el CDC
                 string iTipTra = factura.iTipTra;
                 int iIndPres = factura.iIndPres;
                 int iCondOpe = factura.iCondOpe == -1 ? 1 : 2;
@@ -140,7 +141,9 @@ public class SAPCDCService : BackgroundService
                 DateTime dFeIniT = DateTime.ParseExact(factura.U_FITE, "yyyy-MM-dd", null);
                 int dNumTim = factura.U_TIM;
                 int iTipEmi = 1; // Siempre fijo en 1
-                DateTime dFeEmiDE = DateTime.Now;
+                //DateTime dFeEmiDE = DateTime.Now;
+                DateTime dFeEmiDE = DateTime.ParseExact(factura.DocDate, "yyyy-MM-dd", null);
+                string fechaFormatoCDC = dFeEmiDE.ToString("yyyyMMdd");
                 DateTime dFecFirma = DateTime.Now;
 
                 //Agregamos las cuotas para las facturas a plazos
@@ -257,60 +260,76 @@ public class SAPCDCService : BackgroundService
 
                 // Calcular subtotales y totales usando el helper
                 var totalesFactura = Totalizador.CalcularTotalesFactura(itemsList, factura.dTiCam, factura.Currencies.cMoneOpe);
+                
+                var pagoContado = await _facturaService.GetPagoContado(factura.DocEntry);
+                int iTiPago = pagoContado?.TipoPago ?? 99;
+                decimal dMonTiPag = pagoContado?.MontoTipoPago ?? 0;
+                string cMoneTiPag = pagoContado?.MonedaTipoPago ?? "PYG";
+                string dDMoneTiPag = pagoContado?.DescripcionMonedaTipoPago ?? "Guaraní";
+                decimal? dTiCamTiPag = pagoContado?.TipoCambioPago;
 
                 // Se genera el Código de Control (CDC)     
                 string dCodSeg = GenerarCodigoSeguridad();
-                string cdc = GenerarCDC.GenerarCodigoCDC(iTiDE, _empresaInfo.Ruc, _empresaInfo.Dv.ToString(), dEst, dPunExp, dNumDoc, 
-                    _empresaInfo.TipoContribuyente.ToString(), dFecha, iTipEmi.ToString(), dCodSeg);
+                Console.WriteLine(dCodSeg);
 
+                string cdc = GenerarCDC.GenerarCodigoCDC(iTiDE, _empresaInfo.Ruc, _empresaInfo.Dv.ToString(), dEst, dPunExp, dNumDoc, _empresaInfo.TipoContribuyente.ToString(), fechaFormatoCDC, iTipEmi.ToString(), dCodSeg);
+                Console.WriteLine(cdc);
                 // Se extraer el Dígito Verificador (dv)
                 int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
-
+                Console.WriteLine(dv);
                 // Convertir el tipo de documento a entero y luego a string para eliminar los ceros iniciales
                 string xmlTiDE = Convert.ToInt32(factura.U_CDOC).ToString();
 
             //    bool actualizado = await _facturaService.ActualizarCDC(factura.DocEntry, cdc);
 
-            /*    if (actualizado)
+    /*    if (actualizado)
                 {
                     _logger.LogInformation($"CDC generado y actualizado: {cdc}");   
 */
                     // Generar XML
                     string rutaXml = $"XML/Documento_{cdc}.xml"; 
-                    
-                    // Usar un solo método para generar el XML
+                    Console.WriteLine(rutaXml);
+                    // Usar un solo método para generar 
                     GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
                         _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento, 
                         _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, 
-                        U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList
-                        , itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado);
+                        U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
+                        _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado);
             /*    }
                 else
                 {
                     _logger.LogWarning($"No se pudo actualizar el CDC para la factura {factura.DocEntry}");
                 } */
+                //string rutaXmlFirmado = $"XML/Documento_{cdc}.xml";
                 try
-                    {
-                        // Leer contenido del XML generado
-                        string xmlFirmado = File.ReadAllText(rutaXml);
-                        
-                        // Enviar el documento a SIFEN
-                        await _envioService.EnviarDocumentoAsincronico(cdc, xmlFirmado, xmlTiDE);
-                        
-                        _logger.LogInformation($"Documento con CDC {cdc} enviado a SIFEN correctamente");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"Error al enviar documento a SIFEN: {ex.Message}");
-                        
-                        // Guardar información del error para diagnóstico
-                        string errorPath = "Errors";
-                        Directory.CreateDirectory(errorPath);
-                        File.WriteAllText(
-                            Path.Combine(errorPath, $"error_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.log"),
-                            $"CDC: {cdc}\nError: {ex.Message}\nStackTrace: {ex.StackTrace}"
-                        );
-                    }
+                {
+                    string rutaXmlFirmado = $"XML/Documento_{cdc}.xml";
+
+                    // Cargar el XML ya firmado para enviarlo directamente
+                    string xmlFirmadoFinal = File.ReadAllText(rutaXmlFirmado);
+
+                    // Verificar que el XML está bien formado antes de enviar
+                    var validadorXml = new XmlDocument();
+                    validadorXml.LoadXml(xmlFirmadoFinal); // Si falla, lanza excepción
+                    
+                    // Enviar a SIFEN directamente
+                    await _envioService.EnviarDocumentoAsincronico(cdc, xmlFirmadoFinal, xmlTiDE);
+
+                    _logger.LogInformation($"Documento con CDC {cdc} enviado a SIFEN correctamente.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error al preparar/enviar documento con CDC {cdc}: {ex.Message}");
+                    _logger.LogError($"StackTrace: {ex.StackTrace}");
+
+                    string errorPath = "Errors";
+                    Directory.CreateDirectory(errorPath);
+                    File.WriteAllText(
+                        Path.Combine(errorPath, $"error_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.log"),
+                        $"CDC: {cdc}\nError: {ex.Message}\nStackTrace: {ex.StackTrace}"
+                    );
+                }
+
                 }
         }
         catch (Exception ex)
@@ -374,7 +393,7 @@ public class SAPCDCService : BackgroundService
             byte[] certificadoBytes = Convert.FromBase64String(certificadoBase64);
             string contraseña = Encoding.UTF8.GetString(Convert.FromBase64String(contraseñaBase64));
             
-            _logger.LogInformation($"Certificado obtenido correctamente: {certificado["Name"]}");
+        //    _logger.LogInformation($"Certificado obtenido correctamente: {certificado["Name"]}");
             return (certificadoBytes, contraseña);
         }
         catch (Exception ex)

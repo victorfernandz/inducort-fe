@@ -48,8 +48,8 @@ public class EnvioSifenService
         {
             var fechaCreacion = DateTime.Now;
             var fechaEnvio = DateTime.Now;
-            
-            // Obtener certificado activo si es necesario
+
+            // Cargar certificado desde SAP si está disponible
             try
             {
                 if (_sapServiceLayer != null)
@@ -62,127 +62,116 @@ public class EnvioSifenService
             {
                 _log.LogWarning($"No se pudo obtener el certificado para autenticación TLS: {certEx.Message}");
             }
-            
-            // Crear identificador único para el lote
+
+            // ID único para el lote
             string dId = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-            
-            // Preparar el XML del documento para el lote (eliminar declaración XML si existe)
-            string xmlDocumento = xmlFirmado.TrimStart();
-            if (xmlDocumento.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
-            {
-                int endOfDeclaration = xmlDocumento.IndexOf("?>");
-                if (endOfDeclaration > 0)
-                {
-                    xmlDocumento = xmlDocumento.Substring(endOfDeclaration + 2).TrimStart();
-                }
-            }
+            string xmlDocumento = xmlFirmado;
 
-            // Verificar si el documento resultante empieza correctamente
-            if (!xmlDocumento.StartsWith("<rDE"))
-            {
-                _log.LogWarning($"El documento XML no comienza con <rDE> después de quitar la declaración XML");
-            }
-
-            xmlDocumento = xmlDocumento.Replace(
-                "schemaLocation=\"https://ekuatia.set.gov.py/sifen/xsd", 
-                "schemaLocation=\"http://ekuatia.set.gov.py/sifen/xsd");
-
-            string loteXml = $"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rLoteDE>{xmlDocumento}</rLoteDE>";
-
-            // Guardar una copia del XML exacto que enviaremos
             string debugDir = "debug_xml";
             Directory.CreateDirectory(debugDir);
-            File.WriteAllText(
-                Path.Combine(debugDir, $"xml_a_enviar_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), 
-                loteXml
-            );
+            File.WriteAllText(Path.Combine(debugDir, $"rDE_completo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), xmlDocumento);
 
-            // Validación del XML antes de enviarlo
-            try {
-                var xmlDoc = new XmlDocument();
-                xmlDoc.LoadXml(loteXml);
-                _log.LogInformation("XML validado correctamente");
-                // Registro adicional para confirmar la corrección del esquema
-                var deElement = xmlDoc.SelectSingleNode("//rDE");
-                if (deElement != null) {
-                    XmlElement rdeElement = (XmlElement)deElement;
-                    string schema = rdeElement.GetAttribute("schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
-                    _log.LogInformation($"Schema location: {schema}");
+            XmlDocument xmlDoc = new XmlDocument();
+            xmlDoc.PreserveWhitespace = true;
+            xmlDoc.LoadXml(xmlFirmado);
+
+            XmlElement deNode = xmlDoc.GetElementsByTagName("DE")[0] as XmlElement;
+            if (deNode == null)
+                throw new Exception("No se encontró el elemento <DE> en el XML");
+
+            bool tieneGCamFuFD = xmlDoc.GetElementsByTagName("gCamFuFD").Count > 0;
+            _log.LogInformation($"El documento {(tieneGCamFuFD ? "ya tiene" : "no tiene")} un nodo gCamFuFD");
+
+            string deXml;
+            using (var sw = new StringWriter())
+            {
+                var settings = new XmlWriterSettings
+                {
+                    OmitXmlDeclaration = true,
+                    Indent = false,
+                    NewLineHandling = NewLineHandling.None,
+                    Encoding = new UTF8Encoding(false)
+                };
+
+                using (var writer = XmlWriter.Create(sw, settings))
+                {
+                    deNode.WriteTo(writer); 
                 }
-            } catch (XmlException xmlEx) {
-                _log.LogError($"XML mal formado: {xmlEx.Message}");
-                throw new Exception("El documento XML no está bien formado", xmlEx);
+
+                deXml = sw.ToString();
             }
 
-            // Comprimir el XML del lote
+            File.WriteAllText(Path.Combine(debugDir, $"DE_solo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), deXml);
+
+            byte[] deBytes = Encoding.UTF8.GetBytes(deXml);
             byte[] compressedData;
+
             using (var memoryStream = new MemoryStream())
             {
-                using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Compress, true))
+                using (var gzipStream = new GZipStream(memoryStream, CompressionLevel.Optimal))
                 {
-                    byte[] loteBytes = Encoding.UTF8.GetBytes(loteXml);
-                    gzipStream.Write(loteBytes, 0, loteBytes.Length);
+                    gzipStream.Write(deBytes, 0, deBytes.Length);
+                    gzipStream.Flush();
                 }
                 compressedData = memoryStream.ToArray();
             }
 
-            // Convertir a Base64
             string base64CompressedData = Convert.ToBase64String(compressedData);
 
-            // Crear el sobre SOAP con la estructura correcta para siRecepLoteDE
-            var soapBuilder = new StringBuilder();
-            soapBuilder.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-            soapBuilder.AppendLine("<soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\">");
-            soapBuilder.AppendLine("<soap:Header/>");
-            soapBuilder.AppendLine("<soap:Body>");
-            soapBuilder.AppendLine($"<rEnvioLote xmlns=\"http://ekuatia.set.gov.py/sifen/xsd\">");
-            soapBuilder.AppendLine($"<dId>{dId}</dId>");
-            soapBuilder.AppendLine($"<xDE>{base64CompressedData}</xDE>");
-            soapBuilder.AppendLine("</rEnvioLote>");
-            soapBuilder.AppendLine("</soap:Body>");
-            soapBuilder.AppendLine("</soap:Envelope>");
-            string soapEnvelope = soapBuilder.ToString();
+            // Guardar versiones intermedias para depuración
+            File.WriteAllBytes(Path.Combine(debugDir, $"debug_lote_comprimido_{cdc}.gz"), compressedData);
+            File.WriteAllText(Path.Combine(debugDir, $"debug_lote_base64_{cdc}.txt"), base64CompressedData);
 
-            // Enviar la solicitud SOAP
-            var content = new StringContent(soapEnvelope, Encoding.UTF8, "application/soap+xml");
-            
-            // La URL correcta según el manual técnico sección 7.10 (pág. 41)
-            string fullUrl = "de/ws/async/recibe-lote.wsdl";
-            _log.LogInformation($"Enviando documento a SIFEN: {_httpClient.BaseAddress}{fullUrl}");
-            
-            // Configurar encabezados y opciones adecuadas para el servicio SOAP
-            content.Headers.ContentType = new MediaTypeHeaderValue("application/soap+xml");
-            content.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
-            content.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("action", "http://ekuatia.set.gov.py/sifen/xsd/siRecepLoteDE"));
-            
-            // Guardar request SOAP para debugging
+            // Construcción del sobre SOAP para siRecepLote
+            string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"">
+  <soap:Header/>
+  <soap:Body>
+    <rEnvioLote xmlns=""http://ekuatia.set.gov.py/sifen/xsd"">
+      <dId>{dId}</dId>
+      <xDE>{base64CompressedData}</xDE>
+    </rEnvioLote>
+  </soap:Body>
+</soap:Envelope>";
+
             File.WriteAllText(Path.Combine(debugDir, $"soap_request_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), soapEnvelope);
+
+            // Validación de Base64
+            bool EsBase64Valido(string base64)
+            {
+                Span<byte> buffer = new Span<byte>(new byte[base64.Length]);
+                return Convert.TryFromBase64String(base64, buffer, out _);
+            }
+
+            if (!EsBase64Valido(base64CompressedData))
+            {
+                _log.LogError("El contenido codificado en Base64 del XML comprimido no es válido.");
+                throw new FormatException("Base64 inválido en el campo <xDE>.");
+            }   
+                        
+            // Enviar solicitud
+            var content = new StringContent(soapEnvelope, Encoding.UTF8, "application/soap+xml");
+            content.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
+            content.Headers.Add("SOAPAction", "\"http://ekuatia.set.gov.py/sifen/xsd/siRecepLoteDE\"");
+
+            string fullUrl = "de/ws/async/recibe-lote";
             
             var response = await _httpClient.PostAsync(fullUrl, content);
-            
+            // Procesar respuesta
             string estado = "Error";
             string mensajeRespuesta = "";
             string codigoRespuesta = "";
             DateTime? fechaRespuesta = null;
-            
-            // Guardar la respuesta HTTP completa para depuración
-            _log.LogDebug($"Respuesta HTTP: {response.StatusCode}");
-            foreach (var header in response.Headers)
-            {
-                _log.LogDebug($"Header {header.Key}: {string.Join(", ", header.Value)}");
-            }
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var respuestaXml = await response.Content.ReadAsStringAsync();
                 mensajeRespuesta = respuestaXml;
                 estado = "Enviado";
                 fechaRespuesta = DateTime.Now;
-                
-                // Guardar respuesta XML para debugging
+
                 File.WriteAllText(Path.Combine(debugDir, $"soap_response_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), respuestaXml);
-                
-                _log.LogInformation($"Respuesta de SIFEN: Éxito con status code {response.StatusCode}");
+                _log.LogInformation($"Documento enviado correctamente. StatusCode: {response.StatusCode}");
                 
                 // Analizar respuesta para obtener el número de lote
                 try 
@@ -196,9 +185,15 @@ public class EnvioSifenService
                         startIdx += "<dProtConsLote>".Length;
                         string numeroLote = respuestaXml.Substring(startIdx, endIdx - startIdx);
                         _log.LogInformation($"Número de lote obtenido: {numeroLote}");
-                        
-                        // Aquí podrías almacenar el número de lote para futuras consultas
+
                         mensajeRespuesta += $"|NumeroLote:{numeroLote}";
+                        codigoRespuesta = "0300"; 
+
+                        // Llamada inmediata a consulta del estado
+                        if (!string.IsNullOrEmpty(numeroLote) && estado == "Enviado" && codigoRespuesta == "0300")
+                        {
+                            await ConsultarEstadoLoteAsync(numeroLote);
+                        }
                     }
                     else
                     {
@@ -331,6 +326,60 @@ public class EnvioSifenService
             {
                 
             }
+        }
+    }
+
+    public async Task ConsultarEstadoLoteAsync(string dId)
+    {
+        try
+        {
+            _log.LogInformation($"Consultando estado del lote: {dId}");
+
+        var soapRequest = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"">
+  <soap:Header/>
+  <soap:Body>
+    <xConsLoteDE xmlns=""http://ekuatia.set.gov.py/sifen/xsd"">
+      <dProtConsLote>{dId}</dProtConsLote>
+    </xConsLoteDE>
+  </soap:Body>
+</soap:Envelope>";
+
+            var content = new StringContent(soapRequest, Encoding.UTF8, "application/soap+xml");
+            //content.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("action", "siConsLoteDE"));
+            content.Headers.Add("SOAPAction", "\"siConsLoteDE\"");
+
+            string endpoint = "de/ws/async/consulta-lote";
+            var response = await _httpClient.PostAsync(endpoint, content);
+            var resultXml = await response.Content.ReadAsStringAsync();
+
+            string debugDir = "debug_xml";
+            File.WriteAllText(Path.Combine(debugDir, $"soap_consulta_lote_{dId}_{DateTime.Now:yyyyMMddHHmmss}.xml"), resultXml);
+
+            if (response.IsSuccessStatusCode)
+            {
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(resultXml);
+
+                var ns = new XmlNamespaceManager(xmlDoc.NameTable);
+                ns.AddNamespace("env", "http://www.w3.org/2003/05/soap-envelope");
+                ns.AddNamespace("ns2", "http://ekuatia.set.gov.py/sifen/xsd");
+
+                string estado = xmlDoc.SelectSingleNode("//ns2:dEstRes", ns)?.InnerText;
+                string codigo = xmlDoc.SelectSingleNode("//ns2:dCodRes", ns)?.InnerText;
+                string mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgRes", ns)?.InnerText;
+
+                _log.LogInformation($"Resultado consulta lote - Estado: {estado}, Código: {codigo}, Mensaje: {mensaje}");
+            }
+            else
+            {
+                _log.LogWarning($"Error HTTP en consulta de lote: {response.StatusCode}");
+                _log.LogWarning(resultXml);
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogError($"Error al consultar estado del lote: {ex.Message}");
         }
     }
     

@@ -21,7 +21,7 @@ public class FacturaService
             "Currencies($select=Code,Name,DocumentsCode) " + 
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and (Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
-            "Invoices/DocDate eq '20250411'";
+            "Invoices/DocDate eq '20250123'";
 
         // Obtener datos principales
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -217,6 +217,9 @@ public class FacturaService
                     }
                 }
             }
+
+            factura.PagoContado = await GetPagoContado(factura.DocEntry);
+
         }
         return facturasList;
     }
@@ -497,6 +500,97 @@ public class FacturaService
         {
             _logger.LogError($"Error al obtener plazo de crédito: {ex.Message}");
             Console.WriteLine($"Error al obtener plazo de crédito: {ex.Message}");
+            return null;
+        }
+    }
+
+    public async Task<GPaConEIni> GetPagoContado(int docEntryFactura)
+    {
+        try
+        {
+            string query = $"IncomingPayments?$select=DocEntry,DocCurrency,DocRate,TransferSum,CashSum,PaymentInvoices&$orderby=DocEntry desc&$top=100";
+            var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, $"Error al consultar pagos recibidos");
+
+            if (string.IsNullOrEmpty(jsonResponse))
+            {
+                _logger.LogWarning("No se recibió respuesta de IncomingPayments.");
+                return null;
+            }
+
+            var result = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
+            if (result == null || !result.ContainsKey("value"))
+            {
+                _logger.LogWarning("Formato de respuesta inválido para IncomingPayments.");
+                return null;
+            }
+
+            var pagos = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(result["value"].ToString());
+
+            foreach (var pago in pagos)
+            {
+                if (!pago.ContainsKey("PaymentInvoices") || pago["PaymentInvoices"] == null)
+                    continue;
+
+                var invoicesJson = pago["PaymentInvoices"].ToString();
+                var invoices = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(invoicesJson);
+
+                if (invoices.Any(i => Convert.ToInt32(i["DocEntry"]) == docEntryFactura))
+                {
+                    string docCurrency = pago.ContainsKey("DocCurrency") ? pago["DocCurrency"]?.ToString() : "PYG";
+                    decimal docRate = pago.ContainsKey("DocRate") ? Convert.ToDecimal(pago["DocRate"]) : 1;
+
+                    decimal transferSum = pago.ContainsKey("TransferSum") ? Convert.ToDecimal(pago["TransferSum"]) : 0;
+                    decimal cashSum = pago.ContainsKey("CashSum") ? Convert.ToDecimal(pago["CashSum"]) : 0;
+
+                    decimal montoBase = transferSum > 0 ? transferSum : cashSum;
+
+                    if (montoBase > 0)
+                    {
+                        decimal montoFinal = (docCurrency != "PYG" && docRate != 0) ? montoBase / docRate : montoBase;
+                        int tipoPago = transferSum > 0 ? 5 : 1; // Transferencia o Efectivo
+
+                        // ➔ Normalizar código de moneda
+                        string codigoMonedaNormalizado = docCurrency switch
+                        {
+                            "US$" => "USD",
+                            "GS" => "PYG",
+                            _ => docCurrency
+                        };
+
+                        // ➔ Traer la descripción de la moneda
+                        string queryMoneda = $"Currencies?$select=Name&$filter=Code eq '{docCurrency}'";
+                        var jsonMoneda = await HttpHelper.GetStringAsync(_httpClient, queryMoneda, _logger, $"Error al obtener descripción de moneda {docCurrency}");
+
+                        string descripcionMoneda = docCurrency; // fallback
+                        if (!string.IsNullOrEmpty(jsonMoneda))
+                        {
+                            var monedaObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonMoneda);
+                            if (monedaObj != null && monedaObj.ContainsKey("value"))
+                            {
+                                var monedas = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(monedaObj["value"].ToString());
+                                if (monedas.Any())
+                                {
+                                    descripcionMoneda = monedas[0]["Name"].ToString();
+                                }
+                            }
+                        }
+
+                        return new GPaConEIni(
+                            tipoPago,
+                            montoFinal,
+                            codigoMonedaNormalizado,
+                            descripcionMoneda,
+                            codigoMonedaNormalizado != "PYG" ? docRate : (decimal?)null
+                        );
+                    }
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error al obtener pago contado para factura {docEntryFactura}: {ex.Message}");
             return null;
         }
     }

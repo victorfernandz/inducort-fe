@@ -3,28 +3,38 @@ using System.IO;
 using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography;
 using System.Globalization;
 
 public class GenerarXML
 {
     public static void SerializarDocumentoElectronico(string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
-        string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, 
-        string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int dDVReceptor, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred,
+        string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
+        string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int dDVReceptor, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred, int iTiPago, decimal dMonTiPag, 
+        string cMoneTiPag, string dDMoneTiPag, decimal? dTiCamTiPag,
         List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones = null, List<GCuotas> cuotas = null, List<Item> items = null, string plazoCredito = null, GTotSub totales = null,
         byte[] certificadoBytes = null, string contraseñaCertificado = null)
     {
         try
         {
+            // Limpiar posibles caracteres inválidos
+            dNomRec = LimpiarTexto(dNomRec);
+            dNomEmi = LimpiarTexto(dNomEmi);
+            dDirEmi = LimpiarTexto(dDirEmi);
+            dDesDepEmi = LimpiarTexto(dDesDepEmi);
+            dDesDisEmi = LimpiarTexto(dDesDisEmi);
+            dDesCiuEmi = LimpiarTexto(dDesCiuEmi);
+            dTelEmi = LimpiarTexto(dTelEmi);
+            dEmailE = LimpiarTexto(dEmailE);
+            dDesPaisRe = LimpiarTexto(dDesPaisRe);
+
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
             var actividadPrincipal = actividades.First();
             DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, dFecFirma, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, 
                 dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, actividadPrincipal.Codigo, actividadPrincipal.Descripcion, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucReceptor,
-                dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred);
+                dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag,
+                cMoneTiPag, dDMoneTiPag, dTiCamTiPag);
 
             if (actividades.Count > 1)
             {
@@ -79,17 +89,19 @@ public class GenerarXML
                 foreach (var item in items)
                 {
                     decimal? totalGs = cMoneOpe != "PYG" && item.dTiCamIt > 0 ? item.dTotBruOpeItem * item.dTiCamIt : null;
+                    int condicionTipoCambio = documento.DE.CamposGenerales.OperacionComercial.CondicionTipoCambio; // Condición tipo de cambio Global
                     var valorItem = new GValorItem
                     {
                         PrecioUnitario = item.dPUniProSer,
-                        TipoCambioIt = item.dTiCamIt,
+                        TipoCambioIt =  item.dTiCamIt,
                         TotalBrutoItem = item.dTotBruOpeItem,
                         ValorRestaItem = new GValorRestaItem
                         {
-                            TotalOperacionItem = item.dTotBruOpeItem,
-                            TotalOperacionGs = totalGs
+                            TotalOperacionItem = item.dTotBruOpeItem
+                        //    TotalOperacionGs = totalGs
                         },
-                        MonedaOperacion = cMoneOpe
+                        MonedaOperacion = cMoneOpe,
+                        EsTipoCambioGlobal = condicionTipoCambio == 1
                     };
 
                     var camposIVA = new GCamIVA
@@ -120,7 +132,7 @@ public class GenerarXML
                 ? Totalizador.CalcularTotalesFactura(items, dTiCam, cMoneOpe)
                 : new GTotSub());
 
-            var stringWriter = new StringWriter();
+            var stringWriter = new Utf8StringWriter();
             var serializer = new XmlSerializer(typeof(DocumentoElectronico));
             var emptyNs = new XmlSerializerNamespaces();
             emptyNs.Add("", "");
@@ -129,97 +141,38 @@ public class GenerarXML
             var xmlDoc = new XmlDocument();
             xmlDoc.LoadXml(stringWriter.ToString());
 
-            if (certificadoBytes != null && !string.IsNullOrEmpty(contraseñaCertificado))
-            {
-                FirmaDigitalBC.FirmarXml(xmlDoc, cdc, certificadoBytes, contraseñaCertificado);
-
-                try
-                {
-                    XmlNode nodoDE = xmlDoc.GetElementsByTagName("DE")[0];
-                    XmlNode nodoPadreDE = nodoDE?.ParentNode;
-
-                    XmlElement nodoGrupoJ = xmlDoc.CreateElement("gCamFuFD", xmlDoc.DocumentElement.NamespaceURI);
-                    var config = Config.LoadConfig();
-                    string idCSC = config.Sifen.IdCSC;
-                    string csc = config.Sifen.CSC;
-
-                    string fechaISO = dFeEmiDE.ToString("yyyy-MM-ddTHH:mm:ss");
-                    string fechaHex = BitConverter.ToString(Encoding.UTF8.GetBytes(fechaISO)).Replace("-", "").ToLower();
-                    string totalGral = xmlDoc.GetElementsByTagName("dTotGralOpe")[0].InnerText;
-                    string totalIVA = xmlDoc.GetElementsByTagName("dTotIVA")[0].InnerText;
-                    string cantidadItems = documento.DE.CamposEspecificosTipoDocumento.Items.Count.ToString();
-
-                    string digestValue = "";
-                    var digestNodes = xmlDoc.GetElementsByTagName("DigestValue", "http://www.w3.org/2000/09/xmldsig#");
-                    if (digestNodes.Count > 0)
-                    {
-                        digestValue = digestNodes[0]?.InnerText ?? "";
-                    }
-
-                    string digestHex = Base64ToHex(digestValue);
-
-                    string cadenaVisibleQR =
-                        $"nVersion=150" +
-                        $"&Id={cdc}" +
-                        $"&dFeEmiDE={fechaHex}" +
-                        $"&dRucRec={dRucReceptor}" +
-                        $"&dTotGralOpe={totalGral}" +
-                        $"&dTotIVA={totalIVA}" +
-                        $"&cItems={cantidadItems}" +
-                        $"&DigestValue={digestHex}" +
-                        $"&IdCSC={idCSC}";
-
-                    string cadenaParaHash = cadenaVisibleQR + csc;
-
-                    string cHashQR;
-                    using (var sha256 = SHA256.Create())
-                    {
-                        var bytesQR = Encoding.UTF8.GetBytes(cadenaParaHash);
-                        var hash = sha256.ComputeHash(bytesQR);
-                        cHashQR = BitConverter.ToString(hash).Replace("-", "").ToLower();
-                    }
-
-                //    string urlQR = $"https://ekuatia.set.gov.py/consultas/qr?{cadenaVisibleQR}&cHashQR={cHashQR}";
-                    string urlQR = $"https://ekuatia.set.gov.py/consultas-test/qr?{cadenaVisibleQR}&cHashQR={cHashQR}";
-
-                    XmlElement dCarQR = xmlDoc.CreateElement("dCarQR", xmlDoc.DocumentElement.NamespaceURI);
-                    dCarQR.InnerText = urlQR;
-                //   dCarQR.InnerText = urlQR.Replace("&", "&amp;");
-                    nodoGrupoJ.AppendChild(dCarQR);
-
-                    if (nodoPadreDE != null)
-                    {
-                        nodoPadreDE.AppendChild(nodoGrupoJ);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Error al construir nodo gCamFuFD: " + ex.Message);
-                }
-            }
-
+            // FORZAR los atributos de namespace correctos en <rDE>
             var root = xmlDoc.DocumentElement;
-            root.RemoveAllAttributes();
 
-            var xmlns = xmlDoc.CreateAttribute("xmlns");
-            xmlns.Value = "http://ekuatia.set.gov.py/sifen/xsd";
-            root.Attributes.Append(xmlns);
+            // Primero limpiamos cualquier definición vieja o incorrecta
+            root.Attributes.RemoveNamedItem("xmlns");
+            root.Attributes.RemoveNamedItem("xmlns:xsi");
+            root.Attributes.RemoveNamedItem("xsi:schemaLocation");
 
-            var xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
+            // Luego agregamos los correctos
+            root.SetAttribute("xmlns", "http://ekuatia.set.gov.py/sifen/xsd");
+
+            XmlAttribute xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
             xmlnsXsi.Value = "http://www.w3.org/2001/XMLSchema-instance";
             root.Attributes.Append(xmlnsXsi);
 
-            var schemaLocation = xmlDoc.CreateAttribute("xsi", "schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
+            XmlAttribute schemaLocation = xmlDoc.CreateAttribute("xsi", "schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
             schemaLocation.Value = "http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd";
             root.Attributes.Append(schemaLocation);
+
+            if (certificadoBytes != null && !string.IsNullOrEmpty(contraseñaCertificado))
+            {
+                FirmaDigitalBC.FirmarXml(xmlDoc, cdc, dFeEmiDE, dRucReceptor, certificadoBytes, contraseñaCertificado);
+                Console.WriteLine(cdc);
+            }
 
             Directory.CreateDirectory(Path.GetDirectoryName(rutaArchivo));
             XmlWriterSettings settings = new XmlWriterSettings
             {
-                Encoding = new UTF8Encoding(true),
-                Indent = true
+                Encoding = new UTF8Encoding(false),
+                Indent = false,
+                NewLineHandling = NewLineHandling.None
             };
-
             // Guardar directamente el XmlDocument con el nodo raíz "rDE"
             using (XmlWriter writer = XmlWriter.Create(rutaArchivo, settings))
             {
@@ -238,9 +191,23 @@ public class GenerarXML
         }
     }
 
-    public static string Base64ToHex(string base64)
+    public static string LimpiarTexto(string texto)
     {
-        byte[] bytes = Convert.FromBase64String(base64);
-        return BitConverter.ToString(bytes).Replace("-", "").ToLower();
+        if (string.IsNullOrEmpty(texto))
+            return texto;
+
+        var sb = new StringBuilder();
+        foreach (char c in texto)
+        {
+            if (XmlConvert.IsXmlChar(c))
+                sb.Append(c);
+        }
+        return sb.ToString();
     }
+
+    public class Utf8StringWriter : StringWriter
+    {
+        public override Encoding Encoding => new UTF8Encoding(false); // UTF-8 sin BOM
+    }
+
 }

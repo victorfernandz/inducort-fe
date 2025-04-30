@@ -31,11 +31,13 @@ public class DocumentoElectronico // Nodo Padre AA001
 
     public DocumentoElectronico(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe,
         string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
-        string dEmailE, string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred) 
+        string dEmailE, string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred, int iTiPago, decimal dMonTiPag,
+        string cMoneTiPag, string dDMoneTiPag, decimal? dTiCamTiPag) 
    
     {
         DE = new DEContent(cdc, dv, dFecFirma, dSisFact, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, 
-            cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iIndPres, iCondOpe, iCondCred);
+            cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag,
+            cMoneTiPag, dDMoneTiPag, dTiCamTiPag);
 
     }
 }
@@ -82,7 +84,8 @@ public class DEContent // Nodo padre AA001
 
     public DEContent(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe, string dDesMoneOpe,
         string dRucEm,int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE,
-        string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred)
+        string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred, int iTiPago, decimal dMonTiPag,
+        string cMoneTiPag, string dDMoneTiPag, decimal? dTiCamTiPag)
 
     {
         Id = cdc;
@@ -101,7 +104,7 @@ public class DEContent // Nodo padre AA001
             CamposGenerales.GrupoCamposEmisor.ActividadesEconomicas.Add(new GActEco(cActEco, dDesActEco));
         }
 
-        CamposEspecificosTipoDocumento = new GDtipDE(iIndPres, iCondOpe, iCondCred);
+        CamposEspecificosTipoDocumento = new GDtipDE(iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag);
     }
 }
 
@@ -255,16 +258,16 @@ public class GOpeCom // Nodo padre D001
     [XmlElement("dDesMoneOpe", Order = 6)]
     public string DescripcionMoneda { get; set; }
 
-    [XmlElement("iCondAnt", Order = 7)]
+    [XmlElement("iCondAnt", Order = 9)]
     public int CodigoAnticipo { get; set; } = 1;
 
-    [XmlElement("dDesCondAnt", Order = 8)]
+    [XmlElement("dDesCondAnt", Order = 10)]
     public string DescripcionCodigoAnticipo { get; set; } = "Anticipo Global";
 
-    [XmlElement("dCondTiCam", Order = 9)]
+    [XmlElement("dCondTiCam", Order = 7)]
     public int CondicionTipoCambio { get; set; } = 1;
 
-    [XmlElement("dTiCam", Order = 10)]
+    [XmlElement("dTiCam", Order = 8)]
     public decimal TipoCambio { get; set; }
 
     [XmlElement("gOblAfe", Order = 11)]
@@ -292,7 +295,7 @@ public class GOpeCom // Nodo padre D001
 
     public bool ShouldSerializeTipoCambio()
     {
-        return TipoCambio > 1;
+        return MonedaOperacion != "PYG";
     }
 
     public bool ShouldSerializeCondicionTipoCambio()
@@ -478,16 +481,21 @@ public class GDtipDE // Nodo padre A001
     [XmlElement("gCamCond")]
     public GCamCond CondicionOperacion { get; set; }
 
+    [XmlElement("gPaConEIni")]
+    public GPaConEIni PagoContadoInicial { get; set; }
+
     [XmlElement("gCamItem")]
     public List<GCamItem> Items { get; set; } = new List<GCamItem>();
 
     public GDtipDE() {}
 
-    public GDtipDE(int iIndPres, int iCondOpe, int iCondCred) 
+    public GDtipDE(int iIndPres, int iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag, string cMoneTiPag, string dDMoneTiPag, decimal? dTiCamTiPag)
     {
         CamposFacturaElectronica = new GCamFE(iIndPres);
-        CondicionOperacion = new GCamCond(iCondOpe, iCondCred);
+        CondicionOperacion = new GCamCond(iCondOpe, iCondCred, null, null, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag ?? 0);
+
         Items = new List<GCamItem>();
+
     }
 }
 
@@ -535,24 +543,24 @@ public class GCamCond // Nodo padre E001
     [XmlElement("gPagCred")]
     public GPagCred OperacionCredito { get; set; }
 
+    [XmlElement("gPaConEIni")]
+    public GPaConEIni PagoContadoInicial { get; set; }
+
     public GCamCond(){}
 
-    public GCamCond(int iCondOpe, int? iCondCred = null, string dPlazoCre = null, int? dCuotas = null)
+    public GCamCond(int iCondOpe, int? iCondCred, string dPlazoCre, int? dCuotas, int? iTiPago, decimal? dMonTiPag, string cMoneTiPag, string dDMoneTiPag, decimal dTiCamTiPag)
     {
         CondicionOperacion = iCondOpe;
         DescCondicionOperacion = ObtenerDescCondOperacion(iCondOpe);
 
         // Si la condición es "Crédito" y se proporcionan datos adicionales, inicializar gPagCred
-        if (iCondOpe == 2)
+        if (iCondOpe == 1 && iTiPago.HasValue && dMonTiPag.HasValue)
         {
-            if (iCondCred.HasValue)
-            {
-                OperacionCredito = new GPagCred(iCondCred.Value, dPlazoCre, dCuotas);
-            }
-            else
-            {
-                OperacionCredito = new GPagCred();
-            }
+            PagoContadoInicial = new GPaConEIni(iTiPago.Value, dMonTiPag.Value, cMoneTiPag, dDMoneTiPag, dTiCamTiPag);
+        }
+        else if (iCondOpe == 2)
+        {
+            OperacionCredito = new GPagCred(iCondCred ?? 1, dPlazoCre, dCuotas);
         }
     }
 
@@ -569,6 +577,11 @@ public class GCamCond // Nodo padre E001
     public bool ShouldSerializeOperacionCredito()
     {
         return CondicionOperacion == 2; // Solo serializar si es crédito
+    }
+
+    public bool ShouldSerializePagoContadoInicial()
+    {
+        return CondicionOperacion == 1 && PagoContadoInicial != null;
     }
 }
 
@@ -664,6 +677,85 @@ public class GCuotas // Nodo padre E640
     }
 }
 
+public class GPaConEIni
+{
+    [XmlElement("iTiPago")]
+    public int TipoPago { get; set;}
+
+    [XmlElement("dDesTiPag")]
+    public string DescripcionTipoPago { get; set;}
+
+    [XmlIgnore]
+    public decimal? MontoTipoPago { get; set;}
+    [XmlElement("dMonTiPag")]
+    public string MontoTipoPagoStr
+    {
+        get => MontoTipoPago?.ToString("F4", CultureInfo.InvariantCulture);
+        set => MontoTipoPago = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    [XmlElement("cMoneTiPag")]
+    public string MonedaTipoPago { get; set; }
+
+    [XmlElement("dDMoneTiPag")]
+    public string DescripcionMonedaTipoPago { get; set; }
+
+    [XmlIgnore]
+    public decimal? TipoCambioPago { set; get; }
+    [XmlElement("dTiCamTiPag")]
+    public string TipoCambioPagoStr
+    {
+        get => TipoCambioPago?.ToString("F4", CultureInfo.InvariantCulture);
+        set => TipoCambioPago = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    public bool ShouldSerializeTipoCambioPago()
+    {
+        return TipoCambioPago != null;
+    }
+
+    public GPaConEIni(){}
+
+    public GPaConEIni(int iTiPago, decimal dMonTiPag, string cMoneTiPag, string dDMoneTiPag, decimal? dTiCamTiPag = null)
+    {
+        TipoPago = iTiPago;
+        DescripcionTipoPago = ObtenerDescripcionTipoPago(iTiPago);
+        MontoTipoPago = dMonTiPag;
+        MonedaTipoPago = cMoneTiPag;
+        DescripcionMonedaTipoPago = dDMoneTiPag;
+        TipoCambioPago = dTiCamTiPag;
+    }
+
+    private string ObtenerDescripcionTipoPago(int iTiPago)
+    {
+        return iTiPago switch
+        {
+            1 => "Efectivo",
+            2 => "Cheque",
+            3 => "Tarjeta de crédito",
+            4 => "Tarjeta de débito",
+            5 => "Transferencia",
+            6 => "Giro",
+            7 => "Billetera electrónica",
+            8 => "Tarjeta empresarial",
+            9 => "Vale",
+            10 => "Retención",
+            11 => "Pago por anticipo",
+            12 => "Valor fiscal",
+            13 => "Valor comercial",
+            14 => "Compensación",
+            15 => "Permuta",
+            16 => "Pago bancario",
+            17 => "Pago Móvil",
+            18 => "Donación",
+            19 => "Promoción",
+            20 => "Consumo Interno",
+            21 => "Pago Electrónico",
+            99 => "Otro"
+        };
+    }
+}
+
 // Campos que describen los ítems de la operación (E700-E899)
 public class GCamItem // Nodo Padre E001
 {
@@ -724,9 +816,12 @@ public class GValorItem // Nodo Padre E700dCodInt
     [XmlIgnore]
     public string MonedaOperacion { get; set; }
 
+     [XmlIgnore]
+    public bool EsTipoCambioGlobal { get; set; } // Valor de dCondTiCam del documento (1=global, 2=individual)
+
     public bool ShouldSerializeTipoCambioIt()
     {
-        return MonedaOperacion != "PYG";
+        return MonedaOperacion != "PYG" && !EsTipoCambioGlobal;
     }
     
     [XmlIgnore]
