@@ -4,7 +4,7 @@ public class GenerarCDC
 {
     public static string GenerarCodigoCDC(string iTiDE, string dRucEm, string dDVEmi, string dEst, string dPunExp, string dNumDoc, string dTipCont, string dFeEmiDE, string iTipEmi, string dCodSeg)
     {
-        string cdcBase = $"{iTiDE}{dRucEm}{dDVEmi}{dEst}{dPunExp}{dNumDoc}{dTipCont}{dFeEmiDE}{iTipEmi}{dCodSeg}";
+        string cdcBase = $"{iTiDE.Trim()}{dRucEm.Trim()}{dDVEmi.Trim()}{dEst.Trim()}{dPunExp.Trim()}{dNumDoc.Trim()}{dTipCont.Trim()}{dFeEmiDE.Trim()}{iTipEmi.Trim()}{dCodSeg.Trim()}";
         Console.WriteLine($"CDC base generado: {cdcBase} " );
         int dv = CalcularDV(cdcBase);
     /*    Console.WriteLine($"Dígito verificador: {dv}");*/

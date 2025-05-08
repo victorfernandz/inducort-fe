@@ -25,10 +25,10 @@ public class DocumentoElectronico // Nodo Padre AA001
 
     [XmlElement("DE")]
     public DEContent DE { get; set; }
-
+/*
     [XmlElement("gCamFuFD")]
     public gCamFuFD gCamFuFD { get; set; }
-
+*/
     public DocumentoElectronico(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string iTipTra, string cMoneOpe,
         string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
         string dEmailE, string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred, int iTiPago, decimal dMonTiPag,
@@ -979,11 +979,17 @@ public class GTotSub
 
     [XmlIgnore]
     public decimal SubtotalExonerado { get; set; }
+
     [XmlElement("dSubExo")]
     public string SubtotalExoneradoStr
     {
         get => SubtotalExonerado.ToString("F8", CultureInfo.InvariantCulture);
         set => SubtotalExonerado = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    public bool ShouldSerializeSubtotalExoneradoStr()
+    {
+        return SubtotalExonerado > 0;
     }
 
     [XmlIgnore]
@@ -1106,11 +1112,17 @@ public class GTotSub
 
     [XmlIgnore]
     public decimal LiquidacionIVA5 { get; set; }
+
     [XmlElement("dIVA5")]
     public string LiquidacionIVA5Str
     {
         get => LiquidacionIVA5.ToString("F8", CultureInfo.InvariantCulture);
         set => LiquidacionIVA5 = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    public bool ShouldSerializeLiquidacionIVA5Str()
+    {
+        return LiquidacionIVA5 > 0;
     }
 
     [XmlIgnore]
@@ -1160,11 +1172,17 @@ public class GTotSub
 
     [XmlIgnore]
     public decimal TotalGravada5 { get; set; }
+
     [XmlElement("dBaseGrav5")]
     public string TotalGravada5Str
     {
         get => TotalGravada5.ToString("F8", CultureInfo.InvariantCulture);
         set => TotalGravada5 = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    public bool ShouldSerializeTotalGravada5Str()
+    {
+        return TotalGravada5 > 0;
     }
 
     [XmlIgnore]

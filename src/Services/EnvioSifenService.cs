@@ -65,41 +65,39 @@ public class EnvioSifenService
 
             // ID único para el lote
             string dId = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-            string xmlDocumento = xmlFirmado;
-
+            string rutaArchivoFirmado = $"XML/Documento_{cdc}.xml";
             string debugDir = "debug_xml";
             Directory.CreateDirectory(debugDir);
-            File.WriteAllText(Path.Combine(debugDir, $"rDE_completo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), xmlDocumento);
+            File.Copy(rutaArchivoFirmado, Path.Combine(debugDir, $"rDE_completo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), true);
+
+            if (string.IsNullOrWhiteSpace(xmlFirmado))
+            {
+                throw new Exception($"xmlFirmado está vacío para el CDC: {cdc}");
+            }
 
             XmlDocument xmlDoc = new XmlDocument();
-            xmlDoc.PreserveWhitespace = true;
-            xmlDoc.LoadXml(xmlFirmado);
+            xmlDoc.PreserveWhitespace = false;
+
+            try
+            {
+                xmlDoc.LoadXml(xmlFirmado);
+            }
+            catch (XmlException ex)
+            {
+                _log.LogError(ex, $"No se pudo cargar el XML firmado para el CDC {cdc}. XML recibido: {xmlFirmado.Substring(0, Math.Min(xmlFirmado.Length, 500))}");
+                throw;
+            }
 
             XmlElement deNode = xmlDoc.GetElementsByTagName("DE")[0] as XmlElement;
             if (deNode == null)
-                throw new Exception("No se encontró el elemento <DE> en el XML");
+                throw new Exception("No se encontró el elemento <DE> en el XML firmado.");
 
             bool tieneGCamFuFD = xmlDoc.GetElementsByTagName("gCamFuFD").Count > 0;
             _log.LogInformation($"El documento {(tieneGCamFuFD ? "ya tiene" : "no tiene")} un nodo gCamFuFD");
 
-            string deXml;
-            using (var sw = new StringWriter())
-            {
-                var settings = new XmlWriterSettings
-                {
-                    OmitXmlDeclaration = true,
-                    Indent = false,
-                    NewLineHandling = NewLineHandling.None,
-                    Encoding = new UTF8Encoding(false)
-                };
-
-                using (var writer = XmlWriter.Create(sw, settings))
-                {
-                    deNode.WriteTo(writer); 
-                }
-
-                deXml = sw.ToString();
-            }
+            string deXml = deNode.OuterXml;
+            if (string.IsNullOrWhiteSpace(deXml))
+                throw new Exception("El contenido del nodo <DE> está vacío antes de comprimir.");
 
             File.WriteAllText(Path.Combine(debugDir, $"DE_solo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), deXml);
 
@@ -108,35 +106,18 @@ public class EnvioSifenService
 
             using (var memoryStream = new MemoryStream())
             {
-                using (var gzipStream = new GZipStream(memoryStream, CompressionLevel.Optimal))
+                using (var gzipStream = new GZipStream(memoryStream, CompressionLevel.Optimal, leaveOpen: true))
                 {
                     gzipStream.Write(deBytes, 0, deBytes.Length);
-                    gzipStream.Flush();
                 }
                 compressedData = memoryStream.ToArray();
             }
 
+            if (compressedData == null || compressedData.Length == 0)
+                throw new Exception("Error: El archivo comprimido resultante está vacío.");
+
             string base64CompressedData = Convert.ToBase64String(compressedData);
 
-            // Guardar versiones intermedias para depuración
-            File.WriteAllBytes(Path.Combine(debugDir, $"debug_lote_comprimido_{cdc}.gz"), compressedData);
-            File.WriteAllText(Path.Combine(debugDir, $"debug_lote_base64_{cdc}.txt"), base64CompressedData);
-
-            // Construcción del sobre SOAP para siRecepLote
-            string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
-<soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"">
-  <soap:Header/>
-  <soap:Body>
-    <rEnvioLote xmlns=""http://ekuatia.set.gov.py/sifen/xsd"">
-      <dId>{dId}</dId>
-      <xDE>{base64CompressedData}</xDE>
-    </rEnvioLote>
-  </soap:Body>
-</soap:Envelope>";
-
-            File.WriteAllText(Path.Combine(debugDir, $"soap_request_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), soapEnvelope);
-
-            // Validación de Base64
             bool EsBase64Valido(string base64)
             {
                 Span<byte> buffer = new Span<byte>(new byte[base64.Length]);
@@ -147,7 +128,26 @@ public class EnvioSifenService
             {
                 _log.LogError("El contenido codificado en Base64 del XML comprimido no es válido.");
                 throw new FormatException("Base64 inválido en el campo <xDE>.");
-            }   
+            }
+
+            // Guardar versiones intermedias
+            File.WriteAllBytes(Path.Combine(debugDir, $"debug_lote_comprimido_{cdc}.gz"), compressedData);
+            File.WriteAllText(Path.Combine(debugDir, $"debug_lote_base64_{cdc}.txt"), base64CompressedData);
+
+// Construcción del sobre SOAP completo
+string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"">
+  <soap:Header/>
+  <soap:Body>
+    <rEnvioLote xmlns=""http://ekuatia.set.gov.py/sifen/xsd"">
+      <dId>{dId}</dId>
+      <xDE>{base64CompressedData}</xDE>
+    </rEnvioLote>
+  </soap:Body>
+</soap:Envelope>";
+
+            // Guardar para depuración
+            File.WriteAllText(Path.Combine(debugDir, $"soap_request_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), soapEnvelope);
                         
             // Enviar solicitud
             var content = new StringContent(soapEnvelope, Encoding.UTF8, "application/soap+xml");

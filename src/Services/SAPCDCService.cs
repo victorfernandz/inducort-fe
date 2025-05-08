@@ -6,8 +6,7 @@ using Microsoft.Extensions.Logging;
 using System.Text;
 using Newtonsoft.Json;
 using System.Xml;
-using Org.BouncyCastle.Crypto.Encodings;
-
+using System.Globalization;
 
 public class SAPCDCService : BackgroundService
 {
@@ -141,8 +140,18 @@ public class SAPCDCService : BackgroundService
                 DateTime dFeIniT = DateTime.ParseExact(factura.U_FITE, "yyyy-MM-dd", null);
                 int dNumTim = factura.U_TIM;
                 int iTipEmi = 1; // Siempre fijo en 1
-                //DateTime dFeEmiDE = DateTime.Now;
-                DateTime dFeEmiDE = DateTime.ParseExact(factura.DocDate, "yyyy-MM-dd", null);
+        //        DateTime dFeEmiDE = DateTime.ParseExact(factura.DocDate, "yyyy-MM-dd", null);
+                
+                DateTime fecha = DateTime.ParseExact(factura.DocDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+                TimeSpan hora = TimeSpan.Zero;
+
+                if (!string.IsNullOrWhiteSpace(factura.DocTime))
+                {
+                    hora = TimeSpan.ParseExact(factura.DocTime, "hh\\:mm\\:ss", CultureInfo.InvariantCulture);
+                }
+
+                DateTime dFeEmiDE = fecha.Date.Add(hora);
+
                 string fechaFormatoCDC = dFeEmiDE.ToString("yyyyMMdd");
                 DateTime dFecFirma = DateTime.Now;
 

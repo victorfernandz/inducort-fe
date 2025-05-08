@@ -16,7 +16,8 @@ public class GenerarXML
     {
         try
         {
-            // Limpiar posibles caracteres inválidos
+            // Limpieza previa si fuera necesario (desactivada temporalmente)
+            /*
             dNomRec = LimpiarTexto(dNomRec);
             dNomEmi = LimpiarTexto(dNomEmi);
             dDirEmi = LimpiarTexto(dDirEmi);
@@ -26,53 +27,53 @@ public class GenerarXML
             dTelEmi = LimpiarTexto(dTelEmi);
             dEmailE = LimpiarTexto(dEmailE);
             dDesPaisRe = LimpiarTexto(dDesPaisRe);
+            */
 
+            Console.WriteLine($"{dNomRec}-{dNomEmi}-{dDirEmi}-{dDesDepEmi}-{dDesDisEmi}-{dDesCiuEmi}-{dTelEmi}-{dEmailE}-{dDesPaisRe}");
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
             var actividadPrincipal = actividades.First();
             DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, dFecFirma, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, 
                 dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, actividadPrincipal.Codigo, actividadPrincipal.Descripcion, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucReceptor,
-                dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag,
-                cMoneTiPag, dDMoneTiPag, dTiCamTiPag);
+                dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag);
 
+            // Agregar actividades económicas adicionales
             if (actividades.Count > 1)
             {
                 for (int i = 1; i < actividades.Count; i++)
                 {
-                    documento.DE.CamposGenerales.GrupoCamposEmisor.ActividadesEconomicas.Add(
-                        new GActEco(actividades[i].Codigo, actividades[i].Descripcion));
+                    documento.DE.CamposGenerales.GrupoCamposEmisor.ActividadesEconomicas.Add(new GActEco(actividades[i].Codigo, actividades[i].Descripcion));
                 }
             }
 
+            // Agregar obligaciones
             if (obligaciones != null && obligaciones.Any())
             {
                 foreach (var obligacion in obligaciones)
                 {
-                    documento.DE.CamposGenerales.OperacionComercial.ObligacionesAfectadas.Add(
-                        new GOblAfe(obligacion.Codigo, obligacion.Descripcion));
+                    documento.DE.CamposGenerales.OperacionComercial.ObligacionesAfectadas.Add(new GOblAfe(obligacion.Codigo, obligacion.Descripcion));
                 }
             }
 
+            // Configurar condiciones de operación y crédito
             if (iCondOpe == 2)
             {
                 if (iCondCred == 1)
                 {
-                    string plazoFinal = plazoCredito;
-                    if (string.IsNullOrEmpty(plazoFinal))
-                    {
-                        plazoFinal = "30 días";
-                        if (cuotas != null && cuotas.Count > 0 && !string.IsNullOrEmpty(cuotas[0].FechaVencimientoCuota))
-                        {
-                            plazoFinal = cuotas[0].FechaVencimientoCuota;
-                        }
-                    }
-                    documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito = new GPagCred(1, plazoFinal, null);
+                    string plazoFinal = string.IsNullOrEmpty(plazoCredito) ? 
+                        (cuotas?.FirstOrDefault()?.FechaVencimientoCuota ?? "30 días") : 
+                        plazoCredito;
+                    
+                    documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito = 
+                        new GPagCred(1, plazoFinal, null);
                 }
                 else if (iCondCred == 2)
                 {
                     int cantidadCuotas = cuotas?.Count ?? 0;
-                    documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito = new GPagCred(2, null, cantidadCuotas);
+                    documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito = 
+                        new GPagCred(2, null, cantidadCuotas);
+                    
                     if (cuotas != null && cuotas.Any())
                     {
                         foreach (var cuota in cuotas)
@@ -83,23 +84,19 @@ public class GenerarXML
                 }
             }
 
+            // Agregar items
             if (items != null && items.Any())
             {
                 documento.DE.CamposEspecificosTipoDocumento.Items.Clear();
                 foreach (var item in items)
                 {
-                    decimal? totalGs = cMoneOpe != "PYG" && item.dTiCamIt > 0 ? item.dTotBruOpeItem * item.dTiCamIt : null;
-                    int condicionTipoCambio = documento.DE.CamposGenerales.OperacionComercial.CondicionTipoCambio; // Condición tipo de cambio Global
+                    int condicionTipoCambio = documento.DE.CamposGenerales.OperacionComercial.CondicionTipoCambio;
                     var valorItem = new GValorItem
                     {
                         PrecioUnitario = item.dPUniProSer,
-                        TipoCambioIt =  item.dTiCamIt,
+                        TipoCambioIt = item.dTiCamIt,
                         TotalBrutoItem = item.dTotBruOpeItem,
-                        ValorRestaItem = new GValorRestaItem
-                        {
-                            TotalOperacionItem = item.dTotBruOpeItem
-                        //    TotalOperacionGs = totalGs
-                        },
+                        ValorRestaItem = new GValorRestaItem { TotalOperacionItem = item.dTotBruOpeItem },
                         MonedaOperacion = cMoneOpe,
                         EsTipoCambioGlobal = condicionTipoCambio == 1
                     };
@@ -128,28 +125,26 @@ public class GenerarXML
                 }
             }
 
-            documento.DE.CamposTotalesSubtotales = totales ?? (items != null && items.Any()
-                ? Totalizador.CalcularTotalesFactura(items, dTiCam, cMoneOpe)
-                : new GTotSub());
+            // Calcular totales
+            documento.DE.CamposTotalesSubtotales = totales ?? (items != null && items.Any() ? Totalizador.CalcularTotalesFactura(items, dTiCam, cMoneOpe) : new GTotSub());
 
-            var stringWriter = new Utf8StringWriter();
+            // Serializar usando MemoryStream para mantener consistencia con XmlDocument
             var serializer = new XmlSerializer(typeof(DocumentoElectronico));
-            var emptyNs = new XmlSerializerNamespaces();
-            emptyNs.Add("", "");
-            serializer.Serialize(stringWriter, documento, emptyNs);
+            var xmlDoc = new XmlDocument { PreserveWhitespace = true };
 
-            var xmlDoc = new XmlDocument();
-            xmlDoc.LoadXml(stringWriter.ToString());
+            using (var ms = new MemoryStream())
+            {
+                serializer.Serialize(ms, documento);
+                ms.Position = 0;
+                xmlDoc.Load(ms);
+            }
 
-            // FORZAR los atributos de namespace correctos en <rDE>
+            // Preparar namespace y atributos de schema
             var root = xmlDoc.DocumentElement;
-
-            // Primero limpiamos cualquier definición vieja o incorrecta
             root.Attributes.RemoveNamedItem("xmlns");
             root.Attributes.RemoveNamedItem("xmlns:xsi");
             root.Attributes.RemoveNamedItem("xsi:schemaLocation");
 
-            // Luego agregamos los correctos
             root.SetAttribute("xmlns", "http://ekuatia.set.gov.py/sifen/xsd");
 
             XmlAttribute xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
@@ -160,12 +155,45 @@ public class GenerarXML
             schemaLocation.Value = "http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd";
             root.Attributes.Append(schemaLocation);
 
+            // Firmar el XML si se proporcionan los datos del certificado
             if (certificadoBytes != null && !string.IsNullOrEmpty(contraseñaCertificado))
             {
-                FirmaDigitalBC.FirmarXml(xmlDoc, cdc, dFeEmiDE, dRucReceptor, certificadoBytes, contraseñaCertificado);
+                // Guardar el XML antes de aplicar la firma digital
+                string rutaDebug = Path.Combine(Path.GetDirectoryName(rutaArchivo), "debug_pre_firma.xml");
+                xmlDoc.Save(rutaDebug);
+                Console.WriteLine("XML guardado antes de firmar: " + rutaDebug);
+
+                Console.WriteLine("=== Validación previa de propiedades del objeto DocumentoElectronico ===");
+                foreach (var prop in typeof(DocumentoElectronico).GetProperties())
+                {
+                    try
+                    {
+                        var val = prop.GetValue(documento);
+                        if (val == null)
+                        {
+                            Console.WriteLine($"[NULL] {prop.Name}");
+                        }
+                        else
+                        {
+                            var subSerializer = new XmlSerializer(prop.PropertyType);
+                            using var sw = new StringWriter();
+                            subSerializer.Serialize(sw, val);
+                            Console.WriteLine($"[OK] {prop.Name} es serializable.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ERROR] {prop.Name} no serializable: {ex.Message}");
+                        throw;
+                    }
+                }
+
+                // Ejecutar firma digital
+                SifenSigner.FirmarXml(xmlDoc, cdc, dRucReceptor, certificadoBytes, contraseñaCertificado);
                 Console.WriteLine(cdc);
             }
 
+            // Guardar el archivo XML resultante
             Directory.CreateDirectory(Path.GetDirectoryName(rutaArchivo));
             XmlWriterSettings settings = new XmlWriterSettings
             {
@@ -173,7 +201,6 @@ public class GenerarXML
                 Indent = false,
                 NewLineHandling = NewLineHandling.None
             };
-            // Guardar directamente el XmlDocument con el nodo raíz "rDE"
             using (XmlWriter writer = XmlWriter.Create(rutaArchivo, settings))
             {
                 xmlDoc.Save(writer);
@@ -191,23 +218,23 @@ public class GenerarXML
         }
     }
 
+    // Método auxiliar para limpiar caracteres inválidos XML
+    /*
     public static string LimpiarTexto(string texto)
     {
-        if (string.IsNullOrEmpty(texto))
-            return texto;
-
+        if (string.IsNullOrEmpty(texto)) return texto;
         var sb = new StringBuilder();
         foreach (char c in texto)
         {
-            if (XmlConvert.IsXmlChar(c))
-                sb.Append(c);
+            if (XmlConvert.IsXmlChar(c)) sb.Append(c);
         }
         return sb.ToString();
     }
+    */
 
+    // Soporte para encoding UTF-8 sin BOM
     public class Utf8StringWriter : StringWriter
     {
-        public override Encoding Encoding => new UTF8Encoding(false); // UTF-8 sin BOM
+        public override Encoding Encoding => new UTF8Encoding(false);
     }
-
 }

@@ -16,12 +16,12 @@ public class FacturaService
     public async Task<List<Factura>> GetFacturasSinCDC()
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies) " + 
-            "?$expand=Invoices($select=DocEntry,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," + 
+            "?$expand=Invoices($select=DocEntry,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,DocTime,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," + 
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion), " +
             "Currencies($select=Code,Name,DocumentsCode) " + 
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and (Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
-            "Invoices/DocDate eq '20250123'";
+            "Invoices/DocDate eq '20250506'";
 
         // Obtener datos principales
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -47,9 +47,6 @@ public class FacturaService
             _logger.LogWarning("No se pudieron deserializar las facturas.");
             return new List<Factura>();
         }
-
-        // Asignamos la hora de generación del xml para enviar como fecha y hora del documento
-        string fechaConHora = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
 
         // Agrupar las respuestas por DocEntry para consolidar todas las líneas de cada factura
         var facturasAgrupadas = facturasResponse
@@ -113,6 +110,7 @@ public class FacturaService
                 U_PDE = primeraEntrada.Invoices.U_PDE ?? "",
                 FolioNum = primeraEntrada.Invoices.FolioNumber ?? "", 
                 DocDate = primeraEntrada.Invoices.DocDate,
+                DocTime = primeraEntrada.Invoices.Doctime,
                 U_TIM = primeraEntrada.Invoices.U_TIM,
                 U_FITE = primeraEntrada.Invoices.U_FITE,
                 iTipTra = primeraEntrada.Invoices.U_EXX_FE_TipoTran,
