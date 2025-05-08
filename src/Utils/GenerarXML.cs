@@ -16,19 +16,6 @@ public class GenerarXML
     {
         try
         {
-            // Limpieza previa si fuera necesario (desactivada temporalmente)
-            /*
-            dNomRec = LimpiarTexto(dNomRec);
-            dNomEmi = LimpiarTexto(dNomEmi);
-            dDirEmi = LimpiarTexto(dDirEmi);
-            dDesDepEmi = LimpiarTexto(dDesDepEmi);
-            dDesDisEmi = LimpiarTexto(dDesDisEmi);
-            dDesCiuEmi = LimpiarTexto(dDesCiuEmi);
-            dTelEmi = LimpiarTexto(dTelEmi);
-            dEmailE = LimpiarTexto(dEmailE);
-            dDesPaisRe = LimpiarTexto(dDesPaisRe);
-            */
-
             Console.WriteLine($"{dNomRec}-{dNomEmi}-{dDirEmi}-{dDesDepEmi}-{dDesDisEmi}-{dDesCiuEmi}-{dTelEmi}-{dEmailE}-{dDesPaisRe}");
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;

@@ -16,7 +16,7 @@ public class FacturaService
     public async Task<List<Factura>> GetFacturasSinCDC()
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies) " + 
-            "?$expand=Invoices($select=DocEntry,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,DocTime,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," + 
+            "?$expand=Invoices($select=DocEntry,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," + 
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion), " +
             "Currencies($select=Code,Name,DocumentsCode) " + 
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
@@ -110,7 +110,7 @@ public class FacturaService
                 U_PDE = primeraEntrada.Invoices.U_PDE ?? "",
                 FolioNum = primeraEntrada.Invoices.FolioNumber ?? "", 
                 DocDate = primeraEntrada.Invoices.DocDate,
-                DocTime = primeraEntrada.Invoices.Doctime,
+                DocTime = await ObtenerDocTimePorDocEntry(docEntry),
                 U_TIM = primeraEntrada.Invoices.U_TIM,
                 U_FITE = primeraEntrada.Invoices.U_FITE,
                 iTipTra = primeraEntrada.Invoices.U_EXX_FE_TipoTran,
@@ -220,6 +220,34 @@ public class FacturaService
 
         }
         return facturasList;
+    }
+
+    private async Task<int> ObtenerDocTimePorDocEntry(int docEntry)
+    {
+        string query = $"Invoices?$select=DocEntry,DocTime&$filter=DocEntry eq {docEntry}";
+        var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, $"Error al obtener DocTime para DocEntry {docEntry}");
+
+        if (string.IsNullOrEmpty(jsonResponse)) return 0;
+
+        var rawJson = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
+        if (rawJson == null || !rawJson.ContainsKey("value")) return 0;
+
+        var valueJson = rawJson["value"].ToString();
+        var facturaDocs = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(valueJson);
+
+        if (facturaDocs == null || facturaDocs.Count == 0) return 0;
+
+        if (facturaDocs[0].ContainsKey("DocTime"))
+        {
+            var docTimeStr = facturaDocs[0]["DocTime"]?.ToString();
+
+            if (TimeSpan.TryParse(docTimeStr, out var ts))
+            {
+                return ts.Hours * 10000 + ts.Minutes * 100 + ts.Seconds;
+            }
+        }
+
+        return 0;
     }
 
     private async Task ObtenerLineasFactura(Factura factura, int docEntry)

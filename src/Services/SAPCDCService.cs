@@ -145,9 +145,15 @@ public class SAPCDCService : BackgroundService
                 DateTime fecha = DateTime.ParseExact(factura.DocDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
                 TimeSpan hora = TimeSpan.Zero;
 
-                if (!string.IsNullOrWhiteSpace(factura.DocTime))
+                if (factura.DocTime > 0)
                 {
-                    hora = TimeSpan.ParseExact(factura.DocTime, "hh\\:mm\\:ss", CultureInfo.InvariantCulture);
+                    int horaInt = factura.DocTime;
+
+                    int horas = horaInt / 10000;
+                    int minutos = (horaInt % 10000) / 100;
+                    int segundos = horaInt % 100;
+
+                    hora = new TimeSpan(horas, minutos, segundos);
                 }
 
                 DateTime dFeEmiDE = fecha.Date.Add(hora);

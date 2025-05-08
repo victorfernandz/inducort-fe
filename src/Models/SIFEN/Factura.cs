@@ -10,7 +10,7 @@ public class Factura
     public string U_PDE { get; set; }
     public string FolioNum { get; set; }
     public string DocDate { get; set; }
-    public string DocTime { get; set; }
+    public int DocTime { get; set; }
     //public int iTipEmi { get; set; }
     public int U_TIM { get; set; }
     public string U_FITE { get; set; }
