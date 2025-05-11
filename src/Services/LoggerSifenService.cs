@@ -42,7 +42,6 @@ public class LoggerSifenService
 
                 try
                 {
-                    // Intentar analizar como XML
                     XmlDocument doc = new XmlDocument();
                     doc.LoadXml(mensajeRespuesta);
 
@@ -59,7 +58,6 @@ public class LoggerSifenService
                 }
                 catch (Exception exXml)
                 {
-                    // Intentar analizar como HTML
                     try
                     {
                         int start = mensajeRespuesta.IndexOf("<title>", StringComparison.OrdinalIgnoreCase);
@@ -80,7 +78,6 @@ public class LoggerSifenService
                     _logger?.LogWarning($"No se pudo analizar XML: {exXml.Message}");
                 }
                 
-                // Buscar información en el texto de la respuesta si no se pudo obtener por XML
                 if (string.IsNullOrEmpty(dCodRes) && mensajeRespuesta.Contains("|Codigo:"))
                 {
                     int startCodigo = mensajeRespuesta.IndexOf("|Codigo:") + 8;
@@ -104,7 +101,6 @@ public class LoggerSifenService
                 }
             }
 
-            // Si tenemos un código de respuesta pasado directamente, usarlo
             if (!string.IsNullOrEmpty(codigoRespuesta))
             {
                 dCodRes = codigoRespuesta;
@@ -142,7 +138,6 @@ public class LoggerSifenService
         }
         catch (Exception ex)
         {
-            // Manejo de errores y respaldo en disco
             try
             {
                 if (!string.IsNullOrEmpty(mensajeRespuesta) && !string.IsNullOrEmpty(cdc))

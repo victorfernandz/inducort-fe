@@ -15,10 +15,8 @@ public class SAPCDCService : BackgroundService
     private readonly FacturaService _facturaService;
     private readonly EmpresaService _empresaService;
     private readonly EnvioSifenService _envioService;
-    private readonly LoggerSifenService _loggerSifen;
-    private readonly Config _config;
-
     private EmpresaInfo _empresaInfo;
+    private readonly Config _config;
 
     public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, EmpresaService empresaService, EnvioSifenService envioService, LoggerSifenService loggerSifen, Config config)
     {
@@ -27,7 +25,6 @@ public class SAPCDCService : BackgroundService
         _facturaService = facturaService;
         _empresaService = empresaService;
         _envioService = envioService;
-        _loggerSifen = loggerSifen;
         _config = config;
     }
 
@@ -94,7 +91,7 @@ public class SAPCDCService : BackgroundService
             }
             finally
             {
-                await _sapServiceLayer.Logout(); // Cerrar sesión después de cada ciclo
+                await _sapServiceLayer.Logout(); 
             }
             
             await Task.Delay(TimeSpan.FromMinutes(2), stoppingToken);
@@ -111,6 +108,9 @@ public class SAPCDCService : BackgroundService
 
             // Obtener el certificado digital activo
             var (certificadoBytes, contraseñaCertificado) = await ObtenerCertificadoActivo();
+
+            var loteDocumentos = new List<(string cdc, string xmlFirmadoFinal)>();
+            string tipoDocumentoLote = null;
 
             //Consulta las facturas sin CDC
             foreach (var factura in facturas)
@@ -303,8 +303,8 @@ public class SAPCDCService : BackgroundService
 */
                     // Generar XML
                     string rutaXml = $"XML/Documento_{cdc}.xml"; 
-                    Console.WriteLine(rutaXml);
-                    // Usar un solo método para generar 
+        //            Console.WriteLine(rutaXml);
+
                     GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
                         _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento, 
                         _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, 
@@ -319,16 +319,28 @@ public class SAPCDCService : BackgroundService
                 try
                 {
                     string rutaXmlFirmado = $"XML/Documento_{cdc}.xml";
-
-                    // Cargar el XML ya firmado para enviarlo directamente
                     string xmlFirmadoFinal = File.ReadAllText(rutaXmlFirmado);
+                //    xmlFirmadoFinal = EnvioSifenService.NormalizarXmlFirmado(xmlFirmadoFinal);
 
-                    // Verificar que el XML está bien formado antes de enviar
-                    var validadorXml = new XmlDocument();
-                    validadorXml.LoadXml(xmlFirmadoFinal); // Si falla, lanza excepción
-                    
-                    // Enviar a SIFEN directamente
-                    await _envioService.EnviarDocumentoAsincronico(cdc, xmlFirmadoFinal, xmlTiDE);
+                    tipoDocumentoLote ??= xmlTiDE;
+
+                    if (_config.Sifen.Url.ToLower().Contains("test"))
+                    {
+            //            string respuesta = await _envioService.EnviarDocumentoSincrono(cdc, "FacturaElectronica");
+
+                    }
+                    else
+                    {
+                        loteDocumentos.Add((cdc, xmlFirmadoFinal));
+
+                        if (loteDocumentos.Count == 3)
+                        {
+                            await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote);
+                            _logger.LogInformation("Lote de 3 documentos enviado.");
+                            loteDocumentos.Clear();
+                            tipoDocumentoLote = null;
+                        }
+                    }
 
                     _logger.LogInformation($"Documento con CDC {cdc} enviado a SIFEN correctamente.");
                 }
@@ -339,13 +351,17 @@ public class SAPCDCService : BackgroundService
 
                     string errorPath = "Errors";
                     Directory.CreateDirectory(errorPath);
-                    File.WriteAllText(
-                        Path.Combine(errorPath, $"error_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.log"),
-                        $"CDC: {cdc}\nError: {ex.Message}\nStackTrace: {ex.StackTrace}"
-                    );
+                    File.WriteAllText(Path.Combine(errorPath, $"error_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.log"),
+                        $"CDC: {cdc}\nError: {ex.Message}\nStackTrace: {ex.StackTrace}");
                 }
+            }
 
-                }
+            // Si quedó un lote incompleto
+            if (loteDocumentos.Count > 0 && !_config.Sifen.Url.ToLower().Contains("test"))
+            {
+                await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote);
+                _logger.LogInformation($"Lote final de {loteDocumentos.Count} documento(s) enviado.");
+            }
         }
         catch (Exception ex)
         {
@@ -400,11 +416,9 @@ public class SAPCDCService : BackgroundService
             // Tomar el primer certificado activo
             var certificado = certificadosArray[0];
             
-            // Obtener los datos del certificado y contraseña (que están en Base64)
+            // Obtener los datos del certificado y contraseña
             string certificadoBase64 = certificado["U_ARCHIVO"].ToString();
             string contraseñaBase64 = certificado["U_PWD"].ToString();
-            
-            // Decodificar el certificado y la contraseña desde Base64
             byte[] certificadoBytes = Convert.FromBase64String(certificadoBase64);
             string contraseña = Encoding.UTF8.GetString(Convert.FromBase64String(contraseñaBase64));
             

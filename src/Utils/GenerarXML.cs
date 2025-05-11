@@ -16,11 +16,11 @@ public class GenerarXML
     {
         try
         {
-            Console.WriteLine($"{dNomRec}-{dNomEmi}-{dDirEmi}-{dDesDepEmi}-{dDesDisEmi}-{dDesCiuEmi}-{dTelEmi}-{dEmailE}-{dDesPaisRe}");
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
 
             var actividadPrincipal = actividades.First();
+
             DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, dFecFirma, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, 
                 dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, actividadPrincipal.Codigo, actividadPrincipal.Descripcion, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucReceptor,
                 dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag);
@@ -115,13 +115,24 @@ public class GenerarXML
             // Calcular totales
             documento.DE.CamposTotalesSubtotales = totales ?? (items != null && items.Any() ? Totalizador.CalcularTotalesFactura(items, dTiCam, cMoneOpe) : new GTotSub());
 
-            // Serializar usando MemoryStream para mantener consistencia con XmlDocument
+            // Serializar usando MemoryStream
             var serializer = new XmlSerializer(typeof(DocumentoElectronico));
             var xmlDoc = new XmlDocument { PreserveWhitespace = true };
 
             using (var ms = new MemoryStream())
+            using (var writer = XmlWriter.Create(ms, new XmlWriterSettings
             {
-                serializer.Serialize(ms, documento);
+                Encoding = new UTF8Encoding(false),
+                Indent = false,
+                OmitXmlDeclaration = true,
+                NewLineHandling = NewLineHandling.None
+            }))
+            {
+                serializer.Serialize(writer, documento);
+                writer.Flush();
+
+                // Validar XML generado como string antes de cargar al XmlDocument
+                string xmlStringGenerado = Encoding.UTF8.GetString(ms.ToArray());
                 ms.Position = 0;
                 xmlDoc.Load(ms);
             }
@@ -130,6 +141,7 @@ public class GenerarXML
             var root = xmlDoc.DocumentElement;
             root.Attributes.RemoveNamedItem("xmlns");
             root.Attributes.RemoveNamedItem("xmlns:xsi");
+            root.Attributes.RemoveNamedItem("xmlns:xsd");
             root.Attributes.RemoveNamedItem("xsi:schemaLocation");
 
             root.SetAttribute("xmlns", "http://ekuatia.set.gov.py/sifen/xsd");
@@ -142,56 +154,40 @@ public class GenerarXML
             schemaLocation.Value = "http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd";
             root.Attributes.Append(schemaLocation);
 
-            // Firmar el XML si se proporcionan los datos del certificado
+            // Firmar el XML
             if (certificadoBytes != null && !string.IsNullOrEmpty(contraseñaCertificado))
             {
-                // Guardar el XML antes de aplicar la firma digital
                 string rutaDebug = Path.Combine(Path.GetDirectoryName(rutaArchivo), "debug_pre_firma.xml");
-                xmlDoc.Save(rutaDebug);
+                using (var fs = new FileStream(rutaDebug, FileMode.Create, FileAccess.Write))
+                using (var writer = XmlWriter.Create(fs, new XmlWriterSettings {
+                    Encoding = new UTF8Encoding(false),
+                    Indent = false,
+                    OmitXmlDeclaration = true,
+                    NewLineHandling = NewLineHandling.None
+                }))
+                {
+                    xmlDoc.Save(writer);
+                    writer.Flush();
+                }
                 Console.WriteLine("XML guardado antes de firmar: " + rutaDebug);
 
-                Console.WriteLine("=== Validación previa de propiedades del objeto DocumentoElectronico ===");
-                foreach (var prop in typeof(DocumentoElectronico).GetProperties())
-                {
-                    try
-                    {
-                        var val = prop.GetValue(documento);
-                        if (val == null)
-                        {
-                            Console.WriteLine($"[NULL] {prop.Name}");
-                        }
-                        else
-                        {
-                            var subSerializer = new XmlSerializer(prop.PropertyType);
-                            using var sw = new StringWriter();
-                            subSerializer.Serialize(sw, val);
-                            Console.WriteLine($"[OK] {prop.Name} es serializable.");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[ERROR] {prop.Name} no serializable: {ex.Message}");
-                        throw;
-                    }
-                }
-
-                // Ejecutar firma digital
                 SifenSigner.FirmarXml(xmlDoc, cdc, dRucReceptor, certificadoBytes, contraseñaCertificado);
-                Console.WriteLine(cdc);
             }
 
-            // Guardar el archivo XML resultante
-            Directory.CreateDirectory(Path.GetDirectoryName(rutaArchivo));
             XmlWriterSettings settings = new XmlWriterSettings
             {
+                OmitXmlDeclaration = true,
                 Encoding = new UTF8Encoding(false),
                 Indent = false,
-                NewLineHandling = NewLineHandling.None
+                NewLineHandling = NewLineHandling.None,
+                CheckCharacters = false
             };
+
             using (XmlWriter writer = XmlWriter.Create(rutaArchivo, settings))
             {
                 xmlDoc.Save(writer);
             }
+
             Console.WriteLine($"XML generado exitosamente: {rutaArchivo}");
         }
         catch (Exception ex)
@@ -203,25 +199,5 @@ public class GenerarXML
             }
             throw new Exception($"Error al generar el XML: {ex.Message}", ex);
         }
-    }
-
-    // Método auxiliar para limpiar caracteres inválidos XML
-    /*
-    public static string LimpiarTexto(string texto)
-    {
-        if (string.IsNullOrEmpty(texto)) return texto;
-        var sb = new StringBuilder();
-        foreach (char c in texto)
-        {
-            if (XmlConvert.IsXmlChar(c)) sb.Append(c);
-        }
-        return sb.ToString();
-    }
-    */
-
-    // Soporte para encoding UTF-8 sin BOM
-    public class Utf8StringWriter : StringWriter
-    {
-        public override Encoding Encoding => new UTF8Encoding(false);
     }
 }

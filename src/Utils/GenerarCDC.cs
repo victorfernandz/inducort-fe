@@ -43,7 +43,6 @@ public class GenerarCDC
         for (int i = 0; i < longitud; i++) 
         {
             int digito = int.Parse(cdcBase[longitud - 1 - i].ToString());
-            // Usamos módulo 10 en lugar de módulo 6 para ciclar entre los 10 pesos
             int peso = pesos[i % 10];
             suma += digito * peso;
         }

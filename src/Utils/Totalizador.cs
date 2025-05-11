@@ -4,7 +4,7 @@ using System.Linq;
 
 public class Totalizador
 {
-    // Método principal para calcular subtotales y totales a partir de los items
+    // Método para calcular subtotales y totales a partir de los items
     public static GTotSub CalcularTotalesFactura(List<Item> items, decimal tipoCambio, string moneda)
     {
         var totales = new GTotSub();
@@ -39,7 +39,7 @@ public class Totalizador
         if (items == null || !items.Any())
             return totales;
 
-        // 1. Calcular subtotales por tipo de afectación y tasa
+        // Calcular subtotales por tipo de afectación y tasa
         foreach (var item in items)
         {
             // Subtotales basados en la afectación de IVA
@@ -95,36 +95,36 @@ public class Totalizador
             }
         }
 
-        // 2. Calcular total de descuentos y anticipos
+        // Calcular total de descuentos y anticipos
         totales.TotalDescuentoOperacion = totales.TotalDescuentoItem + totales.TotalDescuentoGlobal;
         totales.TotalAnticipoOperacion = totales.TotalAnticipoItem + totales.TotalAnticipoGlobal;
 
-        // 3. Calcular porcentaje de descuento total
+        // Calcular porcentaje de descuento total
         if (totales.TotalBrutoOperacion > 0)
         {
             totales.PorcentajeDescuentoGlobal = Math.Round((totales.TotalDescuentoOperacion * 100) / totales.TotalBrutoOperacion, 8);
         }
 
-        // 4. Calcular redondeo (según reglas SEDECO)
+        // Calcular redondeo (según reglas SEDECO)
         decimal totalSinRedondeo = totales.TotalBrutoOperacion - totales.TotalDescuentoOperacion - totales.TotalAnticipoOperacion;
         decimal totalRedondeado = totalSinRedondeo;
 /*        decimal totalRedondeado = RedondearSEDECO(totalSinRedondeo);
         totales.RedondeoOperacion = totalRedondeado - totalSinRedondeo; */
 
-        // 5. Calcular el total neto de la operación
+        // Calcular el total neto de la operación
         totales.TotalNetoOperacion = totalRedondeado;// + totales.ComisionOperacion; 
 /*
-        // 6. Calcular totales de IVA por tasas 
+        // Calcular totales de IVA por tasas 
         totales.LiquidacionTotalIVA5 = totales.LiquidacionIVA5;
         totales.LiquidacionTotalIVA10 = totales.LiquidacionIVA10;*/
         
-        // 7. Calcular total de IVA
+        // Calcular total de IVA
         totales.LiquidacionTotalIVA = totales.LiquidacionIVA5 + totales.LiquidacionIVA10; //+ totales.LiquidacionIVAComision;
 
-        // 8. Calcular total base gravada
+        // Calcular total base gravada
         totales.TotalGravadaIVA = totales.TotalGravada5 + totales.TotalGravada10;
 
-        // 9. Calcular el total en guaraníes si la moneda no es Guaraní
+        // Calcular el total en guaraníes si la moneda no es Guaraní
         if (moneda != "PYG" && tipoCambio > 1)
         {
             totales.TotalGeneralOperacionGs = (totales.TotalNetoOperacion * tipoCambio);
@@ -136,20 +136,4 @@ public class Totalizador
 
         return totales;
     }
-
-    // Método para redondear según reglas SEDECO (múltiplos de 50 Gs)
-    /*
-    private static decimal RedondearSEDECO(decimal monto)
-    {
-        // Si la moneda no es guaraníes o tiene decimales, no aplicamos reglas SEDECO
-        if (monto != Math.Floor(monto))
-            return monto;
-
-        decimal resto = monto % 50;
-        
-        if (resto <= 25)
-            return monto - resto; // Redondeo hacia abajo
-        else
-            return monto + (50 - resto); // Redondeo hacia arriba
-    } */
 }

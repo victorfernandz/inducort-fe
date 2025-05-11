@@ -53,7 +53,7 @@ public class BaloRecord {
     public string U_NLOC { get; set; }
 }
 
-// Respuesta de la API que contiene las obligaciones
+// Respuesta que contiene las obligaciones
 public class ObligacionesResponse 
 {
     public List<ObligacionesRecord> value { get; set; }
@@ -71,7 +71,7 @@ public class Obligaciones
     public string U_NOBLI; // Descripción de las obligaciones
 }
 
-// Respuesta de la API que contiene una lista de actividades económicas
+// Respuesta que contiene una lista de actividades económicas
 public class ActividadEconomicaResponse 
 {
     public List<ActividadEconomicaRecord> value { get; set; }

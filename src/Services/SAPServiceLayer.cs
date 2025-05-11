@@ -91,13 +91,11 @@ public class SAPServiceLayer
             _sessionId = null;
             _routeId = null;
             
-            // Eliminar encabezados de sesión
             _httpClient.DefaultRequestHeaders.Remove("B1SESSION");
             _httpClient.DefaultRequestHeaders.Remove("RouteID");
         }
     }
 
-    // Método protegido para que los servicios derivados puedan usar el HttpClient
     public HttpClient GetHttpClient()
     {
         return _httpClient;

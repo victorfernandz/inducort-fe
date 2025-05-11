@@ -17,18 +17,13 @@ public class SifenSigner
         var deElement = xmlDoc.GetElementsByTagName("DE")[0] as XmlElement;
         if (deElement == null) throw new Exception("Elemento <DE> no encontrado en el XML.");
 
-        // Establecer atributo Id correctamente como parte del DOM
+        // Establecer atributo Id 
         XmlAttribute idAttr = xmlDoc.CreateAttribute("Id");
         idAttr.Value = cdc;
         deElement.Attributes.Append(idAttr);
 
         if (deElement.HasAttribute("xmlns"))
             deElement.RemoveAttribute("xmlns");
-
-        // Eliminar firmas previas
-        var firmas = xmlDoc.GetElementsByTagName("Signature", "http://www.w3.org/2000/09/xmldsig#");
-        for (int i = firmas.Count - 1; i >= 0; i--)
-            firmas[i].ParentNode.RemoveChild(firmas[i]);
 
         // Crear y configurar la firma
         SignedXml signedXml = new SignedXmlWithId(xmlDoc);
@@ -52,7 +47,7 @@ public class SifenSigner
         // Insertar la firma
         xmlDoc.DocumentElement.AppendChild(xmlDoc.ImportNode(xmlDigitalSignature, true));
 
-        // Obtener el DigestValue generado realmente
+        // Obtener el DigestValue generado
         string digestValueReal = xmlDigitalSignature.GetElementsByTagName("DigestValue")[0]?.InnerText;
         InsertarQRCode(xmlDoc, cdc, dRucReceptor, digestValueReal);
 
@@ -74,9 +69,6 @@ public class SifenSigner
             byte[] digestAsciiBytes = Encoding.UTF8.GetBytes(digestBase64);
             string digestHex = BitConverter.ToString(digestAsciiBytes).Replace("-", "").ToLower();
 
-            Console.WriteLine("✅ DigestValue base64: " + digestBase64);
-            Console.WriteLine("✅ DigestValue hex para QR: " + digestHex);
-
             var config = Config.LoadConfig();
             string idCSC = config.Sifen.IdCSC;
             string csc = config.Sifen.CSC;
@@ -94,16 +86,6 @@ public class SifenSigner
 
             string cadenaParaHash = cadenaQR + csc;
             string cHashQR;
-
-            Console.WriteLine("========== DEBUG QR ==========");
-            Console.WriteLine("fechaHex: " + fechaHex);
-            Console.WriteLine("totalGral: " + totalGral);
-            Console.WriteLine("totalIVA: " + totalIVA);
-            Console.WriteLine("cItems: " + cItems);
-            Console.WriteLine("digestHex: " + digestHex);
-            Console.WriteLine("cadenaQR: " + cadenaQR);
-            Console.WriteLine("cadenaParaHash (final): " + cadenaParaHash);
-            Console.WriteLine("==============================");
 
             using (SHA256 sha256 = SHA256.Create())
             {
@@ -125,8 +107,6 @@ public class SifenSigner
             }
 
             xmlDoc.DocumentElement.AppendChild(gCamFuFD);
-
-            Console.WriteLine("Código QR generado correctamente");
         }
         catch (Exception ex)
         {

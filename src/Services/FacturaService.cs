@@ -21,9 +21,8 @@ public class FacturaService
             "Currencies($select=Code,Name,DocumentsCode) " + 
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and (Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
-            "Invoices/DocDate eq '20250506'";
+            "Invoices/DocDate eq '20250510'";
 
-        // Obtener datos principales
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))
         {
@@ -53,13 +52,8 @@ public class FacturaService
             .GroupBy(f => f.Invoices.DocEntry)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Crear una lista para almacenar los cardCode
         var cardCode = facturasResponse.Select(f => f.BusinessPartners.CardCode).Distinct().ToList();
-
-        // Obtener direcciones para todos los socios de negocio
         var direcciones = await GetDireccionesSocioNegocio(cardCode);
-
-        // Obtener todos los países
         var paises = direcciones.Select(d => d.Country).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
         
         // Crear diccionarios para nombres y códigos de países
@@ -137,7 +131,7 @@ public class FacturaService
                 Items = new List<Item>()
             };
 
-            // Segunda consulta: Obtener las líneas para este DocEntry específico
+            // Obtener las líneas para este DocEntry específico
             await ObtenerLineasFactura(factura, docEntry);
             facturasList.Add(factura);
         }
@@ -145,7 +139,7 @@ public class FacturaService
         // Inicializar operación de crédito y obtener cuotas para facturas a crédito
         foreach (var factura in facturasList)
         {
-            // Normalizar la condición de operación y condición de crédito según el estándar del servicio
+            // Normalizar la condición de operación y condición de crédito
             int condicionOperacion = factura.iCondOpe == -1 ? 1 : 2;
             int condicionCredito = factura.iCondCred == 1 ? 1 : 2;
             
@@ -177,10 +171,9 @@ public class FacturaService
                             {
                                 if (DateTime.TryParse(cuota.U_FECHAV, out DateTime fechaVencimiento))
                                 {
-                                    // Determinar el monto de la cuota (usar TotalFC si está disponible, de lo contrario Total)
+                                    // Determinar el monto de la cuota
                                     decimal montoCuota = cuota.TotalFC > 0 ? cuota.TotalFC : cuota.Total;
                                     
-                                    // Crear y agregar la cuota con los datos completos según el manual técnico
                                     var nuevaCuota = new GCuotas(
                                         factura.Currencies.cMoneOpe,         // Moneda de la cuota
                                         factura.Currencies.dDesMoneOpe,      // Descripción de la moneda
@@ -193,24 +186,20 @@ public class FacturaService
                                 else
                                 {
                                     _logger.LogWarning($"Advertencia: Formato de fecha inválido en cuota: {cuota.U_FECHAV}");
-                                    Console.WriteLine($"Advertencia: Formato de fecha inválido en cuota: {cuota.U_FECHAV}");
                                 }
                             }
                         }
                         else
                         {
                             _logger.LogWarning($"No se encontraron cuotas para la factura {factura.DocEntry}");
-                            Console.WriteLine($"No se encontraron cuotas para la factura {factura.DocEntry}");
                         }
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError($"Error al obtener cuotas para DocEntry {factura.DocEntry}: {ex.Message}");
-                        Console.WriteLine($"Error al obtener cuotas para DocEntry {factura.DocEntry}: {ex.Message}");
                         if (ex.InnerException != null)
                         {
                             _logger.LogError($"Error interno: {ex.InnerException.Message}");
-                            Console.WriteLine($"Error interno: {ex.InnerException.Message}");
                         }
                     }
                 }
@@ -285,23 +274,19 @@ public class FacturaService
                     else
                     {
                         _logger.LogWarning($"No se pudieron deserializar las líneas de la factura {docEntry}");
-                        Console.WriteLine($"No se pudieron deserializar las líneas de la factura {docEntry}");
                     }
                 }
                 else
                 {
                     _logger.LogWarning($"No se encontraron líneas para la factura {docEntry}");
-                    Console.WriteLine($"No se encontraron líneas para la factura {docEntry}");
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error al procesar las líneas para la factura {docEntry}: {ex.Message}");
-                Console.WriteLine($"Error al procesar las líneas para la factura {docEntry}: {ex.Message}");
                 if (ex.InnerException != null)
                 {
                     _logger.LogError($"Error interno: {ex.InnerException.Message}");
-                    Console.WriteLine($"Error interno: {ex.InnerException.Message}");
                 }
             }
         }
@@ -310,8 +295,6 @@ public class FacturaService
             var errorContent = await responseLineas.Content.ReadAsStringAsync();
             _logger.LogError($"Error al obtener líneas para la factura {docEntry}: {responseLineas.StatusCode}");
             _logger.LogError($"Detalles: {errorContent}");
-            Console.WriteLine($"Error al obtener líneas para la factura {docEntry}: {responseLineas.StatusCode}");
-            Console.WriteLine($"Detalles: {errorContent}");
         }
     }
 
@@ -381,14 +364,7 @@ public class FacturaService
         try
         {
             string query = $"Countries?$select=Code,Name,CodeForReports&$filter=Code eq '{codigoPais}'";
-            
-            // Usando el método auxiliar para obtener la respuesta
-            var jsonResponse = await HttpHelper.GetStringAsync(
-                _httpClient, 
-                query, 
-                _logger, 
-                $"Error al obtener información del país {codigoPais}"
-            );
+            var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, $"Error al obtener información del país {codigoPais}");
 
             if (string.IsNullOrEmpty(jsonResponse))
             {
@@ -400,7 +376,6 @@ public class FacturaService
             if (responseObj == null || !responseObj.ContainsKey("value"))
             {
                 _logger.LogWarning($"Formato de respuesta inesperado para el país {codigoPais}");
-                Console.WriteLine($"Formato de respuesta inesperado para el país {codigoPais}");
                 return ("", "");
             }
 
@@ -410,7 +385,6 @@ public class FacturaService
             if (valueArray == null || valueArray.Count == 0)
             {
                 _logger.LogWarning($"No se encontró información para el país {codigoPais}");
-                Console.WriteLine($"No se encontró información para el país {codigoPais}");
                 return ("", "");
             }
 
@@ -424,7 +398,6 @@ public class FacturaService
         catch (Exception ex)
         {
             _logger.LogError($"Error al obtener información del país {codigoPais}: {ex.Message}");
-            Console.WriteLine($"Error al obtener información del país {codigoPais}: {ex.Message}");
             return ("", "");
         }
     }
@@ -435,17 +408,13 @@ public class FacturaService
         {           
             string query = $"Invoices({docEntry})";
             
-            // Usando el método auxiliar para obtener la respuesta
-            var jsonResponse = await HttpHelper.GetStringAsync(_httpClient,query,_logger, 
-                $"Error al obtener la factura {docEntry}"
-            );
+            var jsonResponse = await HttpHelper.GetStringAsync(_httpClient,query,_logger, $"Error al obtener la factura {docEntry}");
 
             if (string.IsNullOrEmpty(jsonResponse))
             {
                 return new List<CuotaResponse>();
             }
             
-            // Revisar el contenido de la respuesta para ver si contiene las cuotas
             if (jsonResponse.Contains("\"DocumentInstallments\""))
             {
                 // Si la respuesta contiene DocumentInstallments, intentar extraerlas
@@ -469,20 +438,15 @@ public class FacturaService
                 }
             }
             
-            // Si llegamos aquí, no pudimos obtener las cuotas
-            _logger.LogWarning($"No se pudieron encontrar las cuotas para la factura {docEntry}");
-            Console.WriteLine($"No se pudieron encontrar las cuotas para la factura {docEntry}");
-            
+            _logger.LogWarning($"No se encontraron las cuotas para la factura {docEntry}");            
             return new List<CuotaResponse>();
         }
         catch (Exception ex)
         {
             _logger.LogError($"Error al obtener cuotas: {ex.Message}");
-            Console.WriteLine($"Error al obtener cuotas: {ex.Message}");
             if (ex.InnerException != null)
             {
                 _logger.LogError($"Error interno: {ex.InnerException.Message}");
-                Console.WriteLine($"Error interno: {ex.InnerException.Message}");
             }
             return new List<CuotaResponse>();
         }
@@ -513,19 +477,15 @@ public class FacturaService
             if (!string.IsNullOrEmpty(jsonResponse))
             {
                 var payTerm = JsonConvert.DeserializeObject<dynamic>(jsonResponse);
-                
-                // Formatear el plazo según lo requerido
                 string months = payTerm.PaymentTermsGroupName ?? "0";
                 return months;
             }
             
-            // Si no se pudo obtener, retornar nulo y se usará el valor por defecto
             return null;
         }
         catch (Exception ex)
         {
             _logger.LogError($"Error al obtener plazo de crédito: {ex.Message}");
-            Console.WriteLine($"Error al obtener plazo de crédito: {ex.Message}");
             return null;
         }
     }
@@ -575,7 +535,7 @@ public class FacturaService
                         decimal montoFinal = (docCurrency != "PYG" && docRate != 0) ? montoBase / docRate : montoBase;
                         int tipoPago = transferSum > 0 ? 5 : 1; // Transferencia o Efectivo
 
-                        // ➔ Normalizar código de moneda
+                        // Normalizar código de moneda
                         string codigoMonedaNormalizado = docCurrency switch
                         {
                             "US$" => "USD",
@@ -583,11 +543,11 @@ public class FacturaService
                             _ => docCurrency
                         };
 
-                        // ➔ Traer la descripción de la moneda
+                        // Traer la descripción de la moneda
                         string queryMoneda = $"Currencies?$select=Name&$filter=Code eq '{docCurrency}'";
                         var jsonMoneda = await HttpHelper.GetStringAsync(_httpClient, queryMoneda, _logger, $"Error al obtener descripción de moneda {docCurrency}");
 
-                        string descripcionMoneda = docCurrency; // fallback
+                        string descripcionMoneda = docCurrency;
                         if (!string.IsNullOrEmpty(jsonMoneda))
                         {
                             var monedaObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonMoneda);
@@ -601,13 +561,7 @@ public class FacturaService
                             }
                         }
 
-                        return new GPaConEIni(
-                            tipoPago,
-                            montoFinal,
-                            codigoMonedaNormalizado,
-                            descripcionMoneda,
-                            codigoMonedaNormalizado != "PYG" ? docRate : (decimal?)null
-                        );
+                        return new GPaConEIni(tipoPago, montoFinal, codigoMonedaNormalizado, descripcionMoneda, codigoMonedaNormalizado != "PYG" ? docRate : (decimal?)null);
                     }
                 }
             }

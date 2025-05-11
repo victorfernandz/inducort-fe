@@ -28,8 +28,6 @@ public class EmpresaService
         {
             return null;
         }
-
-    //    _logger.LogInformation($"Respuesta JSON: {jsonResponse}");
         
         var rawJson = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
         if (rawJson == null || !rawJson.ContainsKey("value"))
@@ -150,12 +148,8 @@ public class EmpresaService
             {
                 return new List<ActividadEconomica>();
             }
-
-    //        _logger.LogInformation($"Respuesta JSON de actividades económicas: {jsonResponse}");
             
-            // Deserializar a un objeto dinámico para mayor flexibilidad
             dynamic responseObj = JsonConvert.DeserializeObject(jsonResponse);
-            
             var actividades = new List<ActividadEconomica>();
             
             if (responseObj?.value == null || responseObj.value.Count == 0)
@@ -200,12 +194,8 @@ public class EmpresaService
             {
                 return new List<ObligacionAfectada>();
             }
-
-    //        _logger.LogInformation($"Respuesta JSON de obligaciones afectadas: {jsonResponse}");
             
-            // Deserializar la respuesta
             var obligacionesResponse = JsonConvert.DeserializeObject<ObligacionesResponse>(jsonResponse);
-            
             var obligaciones = new List<ObligacionAfectada>();
             
             if (obligacionesResponse?.value == null || !obligacionesResponse.value.Any())

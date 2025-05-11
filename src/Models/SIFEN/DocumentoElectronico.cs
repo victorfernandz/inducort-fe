@@ -2,8 +2,6 @@ using System;
 using System.Xml.Serialization;
 using System.Xml;
 using System.Globalization;
-using Org.BouncyCastle.Crypto.Paddings;
-using System.Text.RegularExpressions;
 
 [XmlRoot("rDE", Namespace = "http://ekuatia.set.gov.py/sifen/xsd")]
 
@@ -57,7 +55,7 @@ public class DEContent // Nodo padre AA001
     [XmlElement("dFecFirma")]
     public string FechaFirmaString
     {
-        get => FechaFirma.ToString("yyyy-MM-ddTHH:mm:ss"); // Formato correcto para XML
+        get => FechaFirma.ToString("yyyy-MM-ddTHH:mm:ss"); 
         set => FechaFirma = DateTime.ParseExact(value, "yyyy-MM-ddTHH:mm:ss", null);
     }
 
@@ -155,7 +153,7 @@ public class GTimb //  Nodo padre A001
     [XmlElement("dFeIniT")]
     public string FechaInicioTimbradoString
     {
-        get => FechaInicioTimbrado.ToString("yyyy-MM-dd"); // Formato correcto para XML
+        get => FechaInicioTimbrado.ToString("yyyy-MM-dd"); 
         set => FechaInicioTimbrado = DateTime.ParseExact(value, "yyyy-MM-dd", null);
     }
 
@@ -267,8 +265,14 @@ public class GOpeCom // Nodo padre D001
     [XmlElement("dCondTiCam", Order = 7)]
     public int CondicionTipoCambio { get; set; } = 1;
 
-    [XmlElement("dTiCam", Order = 8)]
+    [XmlIgnore]
     public decimal TipoCambio { get; set; }
+    [XmlElement("dTiCam", Order = 8)]
+    public string TipoCambioStr
+    {
+        get => TipoCambio.ToString("F4", CultureInfo.InvariantCulture);
+        set => TipoCambio = decimal.Parse(value, CultureInfo.InvariantCulture);
+    }
 
     [XmlElement("gOblAfe", Order = 11)]
     public List<GOblAfe> ObligacionesAfectadas { get; set; } = new List<GOblAfe>();

@@ -1,16 +1,13 @@
-using System;
-using System.IO;
-using System.Net.Http;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System.IO.Compression;
 using System.Security.Cryptography.X509Certificates;
 using System.Net.Http.Headers;
 using System.Security.Authentication;
 using Newtonsoft.Json;
-using System.Collections.Generic;
+using System.Xml.Schema;
 using System.Xml;
+using System.Text.RegularExpressions;
 
 public class EnvioSifenService 
 {
@@ -41,299 +38,219 @@ public class EnvioSifenService
         
         _log.LogInformation($"EnvioSifenService inicializado con URL base: {baseUrl}");
     }
+
+    public static string NormalizarXmlFirmado(string xmlFirmado, bool quitarDeclaracionXml = true)
+{
+        if (string.IsNullOrWhiteSpace(xmlFirmado))
+            return xmlFirmado;
+
+        if (quitarDeclaracionXml && xmlFirmado.TrimStart().StartsWith("<?xml"))
+        {
+            int endDeclaration = xmlFirmado.IndexOf("?>");
+            if (endDeclaration > 0)
+                xmlFirmado = xmlFirmado.Substring(endDeclaration + 2).TrimStart();
+        }
+
+        XmlDocument xmlDoc = new XmlDocument();
+        xmlDoc.PreserveWhitespace = true;
+        xmlDoc.LoadXml(xmlFirmado);
+
+        var settings = new XmlWriterSettings
+        {
+            Encoding = new UTF8Encoding(false),
+            Indent = false,
+            OmitXmlDeclaration = quitarDeclaracionXml,
+            NewLineHandling = NewLineHandling.None,
+            CheckCharacters = false
+        };
+
+        using (var ms = new MemoryStream())
+        using (var writer = XmlWriter.Create(ms, settings))
+        {
+            xmlDoc.Save(writer);
+            writer.Flush();
+            ms.Position = 0;
+            return Encoding.UTF8.GetString(ms.ToArray()).TrimStart('\r', '\n');
+        }
+    }
     
-    public async Task EnviarDocumentoAsincronico(string cdc, string xmlFirmado, string tipoDocumento)
+    public async Task<string> EnviarDocumentoAsincronico(List<(string cdc, string xmlFirmado)> documentosFirmados, string tipoDocumento)
     {
+        if (documentosFirmados.Count < 1 || documentosFirmados.Count > 50)
+            throw new Exception("El lote debe contener entre 1 y 50 documentos.");
+
+        var fechaCreacion = DateTime.Now;
+        var fechaEnvio = DateTime.Now;
+        string dId = DateTime.Now.ToString("yyyyMMddHHmmssfff");
+        string debugDir = "debug_xml";
+        Directory.CreateDirectory(debugDir);
+        string numeroLote = "";
+        string codigoRespuesta = "";
+
         try
         {
-            var fechaCreacion = DateTime.Now;
-            var fechaEnvio = DateTime.Now;
-
-            // Cargar certificado desde SAP si está disponible
-            try
+            if (_sapServiceLayer != null)
             {
-                if (_sapServiceLayer != null)
+                try
                 {
                     var (certificadoBytes, password) = await ObtenerCertificadoActivo();
                     ConfigurarCertificadoCliente(certificadoBytes, password);
                 }
-            }
-            catch (Exception certEx)
-            {
-                _log.LogWarning($"No se pudo obtener el certificado para autenticación TLS: {certEx.Message}");
-            }
-
-            // ID único para el lote
-            string dId = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-            string rutaArchivoFirmado = $"XML/Documento_{cdc}.xml";
-            string debugDir = "debug_xml";
-            Directory.CreateDirectory(debugDir);
-            File.Copy(rutaArchivoFirmado, Path.Combine(debugDir, $"rDE_completo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), true);
-
-            if (string.IsNullOrWhiteSpace(xmlFirmado))
-            {
-                throw new Exception($"xmlFirmado está vacío para el CDC: {cdc}");
-            }
-
-            XmlDocument xmlDoc = new XmlDocument();
-            xmlDoc.PreserveWhitespace = false;
-
-            try
-            {
-                xmlDoc.LoadXml(xmlFirmado);
-            }
-            catch (XmlException ex)
-            {
-                _log.LogError(ex, $"No se pudo cargar el XML firmado para el CDC {cdc}. XML recibido: {xmlFirmado.Substring(0, Math.Min(xmlFirmado.Length, 500))}");
-                throw;
-            }
-
-            XmlElement deNode = xmlDoc.GetElementsByTagName("DE")[0] as XmlElement;
-            if (deNode == null)
-                throw new Exception("No se encontró el elemento <DE> en el XML firmado.");
-
-            bool tieneGCamFuFD = xmlDoc.GetElementsByTagName("gCamFuFD").Count > 0;
-            _log.LogInformation($"El documento {(tieneGCamFuFD ? "ya tiene" : "no tiene")} un nodo gCamFuFD");
-
-            string deXml = deNode.OuterXml;
-            if (string.IsNullOrWhiteSpace(deXml))
-                throw new Exception("El contenido del nodo <DE> está vacío antes de comprimir.");
-
-            File.WriteAllText(Path.Combine(debugDir, $"DE_solo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), deXml);
-
-            byte[] deBytes = Encoding.UTF8.GetBytes(deXml);
-            byte[] compressedData;
-
-            using (var memoryStream = new MemoryStream())
-            {
-                using (var gzipStream = new GZipStream(memoryStream, CompressionLevel.Optimal, leaveOpen: true))
+                catch (Exception certEx)
                 {
-                    gzipStream.Write(deBytes, 0, deBytes.Length);
+                    _log.LogWarning($"No se pudo obtener el certificado TLS: {certEx.Message}");
                 }
-                compressedData = memoryStream.ToArray();
             }
 
-            if (compressedData == null || compressedData.Length == 0)
-                throw new Exception("Error: El archivo comprimido resultante está vacío.");
+            // Crear XML del lote
+            XmlDocument loteDoc = new XmlDocument();
+            loteDoc.PreserveWhitespace = true;
+            XmlDeclaration xmlDecl = loteDoc.CreateXmlDeclaration("1.0", "utf-8", null);
+            loteDoc.AppendChild(xmlDecl);
 
-            string base64CompressedData = Convert.ToBase64String(compressedData);
+            XmlElement rootElement = loteDoc.CreateElement("rLoteDE", "http://ekuatia.set.gov.py/sifen/xsd");
+            rootElement.SetAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
+            rootElement.SetAttribute("xsi:schemaLocation", "http://ekuatia.set.gov.py/sifen/xsd siRecepLoteDE_v150.xsd");
+            loteDoc.AppendChild(rootElement);
 
-            bool EsBase64Valido(string base64)
+
+            foreach (var (cdc, xmlFirmado) in documentosFirmados)
             {
-                Span<byte> buffer = new Span<byte>(new byte[base64.Length]);
-                return Convert.TryFromBase64String(base64, buffer, out _);
+                try
+                {
+                    string rutaArchivoFirmado = $"XML/Documento_{cdc}.xml";
+                    File.Copy(rutaArchivoFirmado, Path.Combine(debugDir, $"rDE_completo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), true);
+
+                    string xmlNormalizado = NormalizarXmlFirmado(xmlFirmado);
+                    XmlDocument docXml = new XmlDocument();
+                    docXml.PreserveWhitespace = true;
+                    docXml.LoadXml(xmlNormalizado);
+
+                    XmlNode rdeImportado = loteDoc.ImportNode(docXml.DocumentElement, true);
+                    rootElement.AppendChild(rdeImportado);
+                }
+                catch (Exception ex)
+                {
+                    _log.LogError($"Error al procesar XML para CDC {cdc}: {ex.Message}");
+                    throw;
+                }
             }
 
-            if (!EsBase64Valido(base64CompressedData))
+            // Guardar el lote en memoria
+            MemoryStream loteStream = new MemoryStream();
+            XmlWriterSettings settings = new XmlWriterSettings
             {
-                _log.LogError("El contenido codificado en Base64 del XML comprimido no es válido.");
-                throw new FormatException("Base64 inválido en el campo <xDE>.");
+                OmitXmlDeclaration = true,
+                Encoding = new UTF8Encoding(false)
+            };
+            using (XmlWriter writer = XmlWriter.Create(loteStream, settings))
+            {
+                loteDoc.Save(writer);
+            }
+            loteStream.Position = 0;
+
+            string loteXmlDebug = Encoding.UTF8.GetString(loteStream.ToArray());
+            File.WriteAllText(Path.Combine(debugDir, $"rLoteDE_zip_contenido_{dId}.xml"), loteXmlDebug);
+
+            // Comprimir ZIP
+            string zipPath = Path.Combine(debugDir, $"rLoteDE_lote_{dId}.zip");
+            if (File.Exists(zipPath))
+                File.Delete(zipPath);
+
+            using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+            {
+                var entry = zip.CreateEntry("rLoteDE.xml", CompressionLevel.Optimal);
+                using (var entryStream = entry.Open())
+                {
+                    loteStream.CopyTo(entryStream);
+                }
             }
 
-            // Guardar versiones intermedias
-            File.WriteAllBytes(Path.Combine(debugDir, $"debug_lote_comprimido_{cdc}.gz"), compressedData);
-            File.WriteAllText(Path.Combine(debugDir, $"debug_lote_base64_{cdc}.txt"), base64CompressedData);
+            // Codificar en base64
+            byte[] zipBytes = File.ReadAllBytes(zipPath);
+            string base64Zip = Convert.ToBase64String(zipBytes);
+            File.WriteAllText(Path.Combine(debugDir, $"lote_base64_{dId}.txt"), base64Zip);
 
-// Construcción del sobre SOAP completo
-string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
-<soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"">
-  <soap:Header/>
-  <soap:Body>
-    <rEnvioLote xmlns=""http://ekuatia.set.gov.py/sifen/xsd"">
-      <dId>{dId}</dId>
-      <xDE>{base64CompressedData}</xDE>
-    </rEnvioLote>
-  </soap:Body>
-</soap:Envelope>";
+            // Construir SOAP
+            StringBuilder sb = new StringBuilder();
+            sb.Append("<soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\">");
+            sb.Append("<soap:Header/>"); // evitar problemas con autenticación
+            sb.Append("<soap:Body>");
+            sb.Append("<rEnvioLote xmlns=\"http://ekuatia.set.gov.py/sifen/xsd\">");
+            sb.Append($"<dId>{dId}</dId>");
+            sb.Append($"<xDE>{base64Zip}</xDE>");
+            sb.Append("</rEnvioLote>");
+            sb.Append("</soap:Body>");
+            sb.Append("</soap:Envelope>");
 
-            // Guardar para depuración
-            File.WriteAllText(Path.Combine(debugDir, $"soap_request_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), soapEnvelope);
-                        
-            // Enviar solicitud
-            var content = new StringContent(soapEnvelope, Encoding.UTF8, "application/soap+xml");
-            content.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
-            content.Headers.Add("SOAPAction", "\"http://ekuatia.set.gov.py/sifen/xsd/siRecepLoteDE\"");
+            string soapEnvelope = sb.ToString();
+            File.WriteAllText(Path.Combine(debugDir, $"soap_request_lote_{dId}.xml"), soapEnvelope);
+
+            var soapContent = new StringContent(soapEnvelope, new UTF8Encoding(false), "application/soap+xml");
+            soapContent.Headers.ContentType.Parameters.Clear();
+            soapContent.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
+            soapContent.Headers.Remove("SOAPAction");
+            soapContent.Headers.Add("SOAPAction", "\"http://ekuatia.set.gov.py/sifen/xsd/siRecepLoteDE\"");
 
             string fullUrl = "de/ws/async/recibe-lote";
-            
-            var response = await _httpClient.PostAsync(fullUrl, content);
-            // Procesar respuesta
-            string estado = "Error";
-            string mensajeRespuesta = "";
-            string codigoRespuesta = "";
-            DateTime? fechaRespuesta = null;
 
-            if (response.IsSuccessStatusCode)
-            {
-                var respuestaXml = await response.Content.ReadAsStringAsync();
-                mensajeRespuesta = respuestaXml;
-                estado = "Enviado";
-                fechaRespuesta = DateTime.Now;
+            var response = await _httpClient.PostAsync(fullUrl, soapContent);
+            string mensajeRespuesta = await response.Content.ReadAsStringAsync();
+            File.WriteAllText(Path.Combine(debugDir, $"soap_response_lote_{dId}_{DateTime.Now:yyyyMMddHHmmss}.xml"), mensajeRespuesta);
 
-                File.WriteAllText(Path.Combine(debugDir, $"soap_response_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), respuestaXml);
-                _log.LogInformation($"Documento enviado correctamente. StatusCode: {response.StatusCode}");
-                
-                // Analizar respuesta para obtener el número de lote
-                try 
-                {
-                    // Verificar si contiene "dProtConsLote" mediante búsqueda simple
-                    int startIdx = respuestaXml.IndexOf("<dProtConsLote>");
-                    int endIdx = respuestaXml.IndexOf("</dProtConsLote>");
-                    
-                    if (startIdx > 0 && endIdx > startIdx)
-                    {
-                        startIdx += "<dProtConsLote>".Length;
-                        string numeroLote = respuestaXml.Substring(startIdx, endIdx - startIdx);
-                        _log.LogInformation($"Número de lote obtenido: {numeroLote}");
+            string estado = response.IsSuccessStatusCode ? "Enviado" : "Error";
+            DateTime? fechaRespuesta = DateTime.Now;
 
-                        mensajeRespuesta += $"|NumeroLote:{numeroLote}";
-                        codigoRespuesta = "0300"; 
-
-                        // Llamada inmediata a consulta del estado
-                        if (!string.IsNullOrEmpty(numeroLote) && estado == "Enviado" && codigoRespuesta == "0300")
-                        {
-                            await ConsultarEstadoLoteAsync(numeroLote);
-                        }
-                    }
-                    else
-                    {
-                        // También buscar dCodRes (código de resultado)
-                        startIdx = respuestaXml.IndexOf("<ns2:dCodRes>");
-                        endIdx = respuestaXml.IndexOf("</ns2:dCodRes>");
-                        
-                        if (startIdx > 0 && endIdx > startIdx)
-                        {
-                            startIdx += "<ns2:dCodRes>".Length;
-                            codigoRespuesta = respuestaXml.Substring(startIdx, endIdx - startIdx);
-                            _log.LogInformation($"Código de resultado: {codigoRespuesta}");
-                            
-                            // Buscar mensaje asociado
-                            int msgStartIdx = respuestaXml.IndexOf("<ns2:dMsgRes>");
-                            int msgEndIdx = respuestaXml.IndexOf("</ns2:dMsgRes>");
-                            
-                            if (msgStartIdx > 0 && msgEndIdx > msgStartIdx)
-                            {
-                                msgStartIdx += "<ns2:dMsgRes>".Length;
-                                string mensajeResultado = respuestaXml.Substring(msgStartIdx, msgEndIdx - msgStartIdx);
-                                _log.LogInformation($"Mensaje de resultado: {mensajeResultado}");
-                                
-                                mensajeRespuesta += $"|Codigo:{codigoRespuesta}|Mensaje:{mensajeResultado}";
-                            }
-                        }
-                    }
-                }
-                catch (Exception parseEx)
-                {
-                    _log.LogWarning($"No se pudo extraer información de la respuesta: {parseEx.Message}");
-                }
-            }
-            else
-            {
-                mensajeRespuesta = $"Error HTTP: {response.StatusCode}";
-                _log.LogError($"Error en respuesta SIFEN: {mensajeRespuesta}");
-                
-                // Intentar leer el cuerpo de la respuesta para más detalles
-                if (response.Content != null)
-                {
-                    string errorBody = await response.Content.ReadAsStringAsync();
-                    if (!string.IsNullOrEmpty(errorBody))
-                    {
-                        mensajeRespuesta += $" | Detalle: {errorBody}";
-                        _log.LogError($"Detalle del error: {errorBody}");
-                        
-                        // Guardar respuesta de error para debugging
-                        File.WriteAllText(
-                            Path.Combine(debugDir, $"soap_error_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), errorBody
-                        );
-                        
-                        // Extraer información del error del XML de rechazo
-                        try
-                        {
-                            XmlDocument xmlError = new XmlDocument();
-                            xmlError.LoadXml(errorBody);
-                            
-                            // Configurar namespace manager para la búsqueda XPath
-                            XmlNamespaceManager nsManager = new XmlNamespaceManager(xmlError.NameTable);
-                            nsManager.AddNamespace("env", "http://www.w3.org/2003/05/soap-envelope");
-                            nsManager.AddNamespace("ns2", "http://ekuatia.set.gov.py/sifen/xsd");
-                            
-                            // Buscar estado del resultado
-                            XmlNode estadoNode = xmlError.SelectSingleNode("//ns2:dEstRes", nsManager);
-                            if (estadoNode != null)
-                            {
-                                estado = estadoNode.InnerText; // Actualizar el estado
-                            }
-                            
-                            // Buscar código de resultado
-                            XmlNode codigoNode = xmlError.SelectSingleNode("//ns2:dCodRes", nsManager);
-                            if (codigoNode != null)
-                            {
-                                codigoRespuesta = codigoNode.InnerText; // Guardar código
-                            }
-                            
-                            // Buscar mensaje de resultado
-                            XmlNode mensajeNode = xmlError.SelectSingleNode("//ns2:dMsgRes", nsManager);
-                            if (mensajeNode != null)
-                            {
-                                string mensajeError = mensajeNode.InnerText;
-                                _log.LogWarning($"Error SIFEN: {estado} - Código: {codigoRespuesta} - Mensaje: {mensajeError}");
-                            }
-                        }
-                        catch (Exception xmlEx)
-                        {
-                            _log.LogWarning($"No se pudo analizar el XML de error: {xmlEx.Message}");
-                        }
-                    }
-                }
-            }
-            
             try
             {
-                _logger.RegistrarDocumento(_baseDatos, cdc, xmlFirmado, estado, tipoDocumento, "siRecepLoteDE", 
-                    fechaCreacion, fechaEnvio, fechaRespuesta, mensajeRespuesta, codigoRespuesta);
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(mensajeRespuesta);
+                var ns = new XmlNamespaceManager(xmlDoc.NameTable);
+                ns.AddNamespace("ns2", "http://ekuatia.set.gov.py/sifen/xsd");
+
+                string codRes = xmlDoc.SelectSingleNode("//ns2:dCodRes", ns)?.InnerText;
+                string nroLote = xmlDoc.SelectSingleNode("//ns2:dProtConsLote", ns)?.InnerText;
+
+                if (!string.IsNullOrEmpty(codRes)) codigoRespuesta = codRes;
+                if (!string.IsNullOrEmpty(nroLote)) numeroLote = nroLote;
+
+                _log.LogInformation($"Código respuesta: {codigoRespuesta}, Número lote: {numeroLote}");
             }
-            catch (Exception dbEx)
+            catch (Exception ex)
             {
-                _log.LogError($"Error al registrar en la base de datos: {dbEx.Message}");
-                if (dbEx.InnerException != null)
-                {
-                    _log.LogError($"Error interno: {dbEx.InnerException.Message}");
-                }
-                
-                // Continuamos el proceso sin interrumpirlo por errores de BD
-                _log.LogWarning($"Continuando el proceso a pesar del error de BD para documento con CDC: {cdc}");
+                _log.LogWarning($"Error al analizar respuesta XML: {ex.Message}");
             }
-            
-            _log.LogInformation($"Documento {cdc} procesado. Estado: {estado}");
+
+            foreach (var (cdc, xmlFirmado) in documentosFirmados)
+            {
+                try
+                {
+                    _logger.RegistrarDocumento(_baseDatos, cdc, xmlFirmado, estado, tipoDocumento, "siRecepLoteDE", fechaCreacion, fechaEnvio, fechaRespuesta, mensajeRespuesta, codigoRespuesta);
+                }
+                catch (Exception dbEx)
+                {
+                    _log.LogError($"Error al registrar CDC {cdc}: {dbEx.Message}");
+                }
+            }
+
+            return numeroLote;
         }
         catch (Exception ex)
         {
-            _log.LogError($"Error al enviar documento SIFEN: {ex.Message}");
-            _log.LogError($"StackTrace: {ex.StackTrace}");
-            
-            // Guardar el error en archivo de respaldo
-            try
+            _log.LogError($"Error al enviar lote: {ex.Message}");
+            if (ex.InnerException != null)
             {
-                string errorPath = "sifen_errors";
-                Directory.CreateDirectory(errorPath);
-                File.WriteAllText(
-                    Path.Combine(errorPath, $"error_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.log"),
-                    $"CDC: {cdc}\nError: {ex.Message}\nStackTrace: {ex.StackTrace}\n\n" +
-                    $"XML:\n{xmlFirmado}"
-                );
+                _log.LogError($"Error interno: {ex.InnerException.Message}");
             }
-            catch
-            {
-                
-            }
+            throw;
         }
     }
 
-    public async Task ConsultarEstadoLoteAsync(string dId)
+    public async Task<bool> ConsultarEstadoLoteAsync(string dId, List<string> cdcs = null, int intentos = 0)
     {
         try
         {
-            _log.LogInformation($"Consultando estado del lote: {dId}");
+            _log.LogInformation($"Consultando estado del lote: {dId} (Intento {intentos + 1})");
 
         var soapRequest = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"">
@@ -346,8 +263,7 @@ string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 </soap:Envelope>";
 
             var content = new StringContent(soapRequest, Encoding.UTF8, "application/soap+xml");
-            //content.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("action", "siConsLoteDE"));
-            content.Headers.Add("SOAPAction", "\"siConsLoteDE\"");
+            content.Headers.Add("SOAPAction", "\"http://ekuatia.set.gov.py/sifen/xsd/siConsLoteDE\"");
 
             string endpoint = "de/ws/async/consulta-lote";
             var response = await _httpClient.PostAsync(endpoint, content);
@@ -370,16 +286,68 @@ string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
                 string mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgRes", ns)?.InnerText;
 
                 _log.LogInformation($"Resultado consulta lote - Estado: {estado}, Código: {codigo}, Mensaje: {mensaje}");
+
+                // Volvemos a consultar después de un tiempo
+                if (estado == "Procesamiento" && intentos < 5)
+                {
+                    _log.LogInformation($"Lote en procesamiento, esperando antes de volver a consultar...");
+                    await Task.Delay(5000);
+                    return await ConsultarEstadoLoteAsync(dId, cdcs, intentos + 1);
+                }
+
+                // Procesar los resultados individuales de cada documento
+                if (cdcs != null && cdcs.Count > 0 && (estado == "Aprobado" || estado == "Aprobado con Observaciones" || estado == "Rechazado"))
+                {
+                    Dictionary<string, (string estado, string mensaje)> resultadosPorCdc = new Dictionary<string, (string, string)>();
+
+                    // Buscar nodos de resultados individuales
+                    var docNodes = xmlDoc.SelectNodes("//ns2:gResProc", ns);
+                    if (docNodes != null)
+                    {
+                        foreach (XmlNode docNode in docNodes)
+                        {
+                            string cdc = docNode.SelectSingleNode("./ns2:dCDC", ns)?.InnerText;
+                            string estadoDoc = docNode.SelectSingleNode("./ns2:dEstRes", ns)?.InnerText;
+                            string mensajeDoc = docNode.SelectSingleNode("./ns2:dMsgRes", ns)?.InnerText;
+
+                            if (!string.IsNullOrEmpty(cdc) && cdcs.Contains(cdc))
+                            {
+                                resultadosPorCdc[cdc] = (estadoDoc, mensajeDoc);
+                                
+                                // Actualizar el estado del documento en la base de datos
+                                try
+                                {
+                                //    _logger.ActualizarEstadoDocumento(_baseDatos, cdc, estadoDoc, mensajeDoc);
+                                    _log.LogInformation($"CDC {cdc} actualizado con estado: {estadoDoc}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    _log.LogError($"Error al actualizar estado del CDC {cdc}: {ex.Message}");
+                                }
+                            }
+                        }
+                    }
+
+                    // Verificar si todos los documentos del lote fueron procesados
+                    bool todosProcesados = cdcs.All(cdc => resultadosPorCdc.ContainsKey(cdc));
+                    _log.LogInformation($"Documentos procesados: {resultadosPorCdc.Count}/{cdcs.Count}");
+                    
+                    return todosProcesados;
+                }
+                
+                return estado != "Procesamiento";
             }
             else
             {
                 _log.LogWarning($"Error HTTP en consulta de lote: {response.StatusCode}");
                 _log.LogWarning(resultXml);
+                return false;
             }
         }
         catch (Exception ex)
         {
             _log.LogError($"Error al consultar estado del lote: {ex.Message}");
+            return false;
         }
     }
     
@@ -387,7 +355,6 @@ string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
     {
         try
         {
-            // Verificar que hay SAPServiceLayer disponible
             if (_sapServiceLayer == null)
             {
                 throw new InvalidOperationException("SAPServiceLayer no está disponible para obtener el certificado");
@@ -411,7 +378,6 @@ string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
                 throw new Exception("No se pudo obtener respuesta del servicio de certificados");
             }
             
-            // Deserializar la respuesta JSON
             var responseObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
             
             if (responseObj == null || !responseObj.ContainsKey("value"))
@@ -429,11 +395,10 @@ string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
             // Tomar el primer certificado activo
             var certificado = certificadosArray[0];
             
-            // Obtener los datos del certificado y contraseña (que están en Base64)
+            // Obtener los datos del certificado y contraseña
             string certificadoBase64 = certificado["U_ARCHIVO"].ToString();
             string contraseñaBase64 = certificado["U_PWD"].ToString();
             
-            // Decodificar el certificado y la contraseña desde Base64
             byte[] certificadoBytes = Convert.FromBase64String(certificadoBase64);
             string contraseña = Encoding.UTF8.GetString(Convert.FromBase64String(contraseñaBase64));
             
@@ -456,13 +421,8 @@ string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
         try
         {
             // Cargar el certificado
-            var certificado = new X509Certificate2(
-                certificadoBytes, 
-                contraseña, 
-                X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet
-            );
+            var certificado = new X509Certificate2(certificadoBytes, contraseña, X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
             
-            // Crear un nuevo handler con el certificado
             var handler = new HttpClientHandler
             {
                 SslProtocols = SslProtocols.Tls12,
@@ -470,28 +430,23 @@ string soapEnvelope = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
                 ClientCertificates = { certificado }
             };
             
-            // Crear un nuevo HttpClient con el handler configurado
             var nuevoHttpClient = new HttpClient(handler)
             {
                 BaseAddress = _httpClient.BaseAddress,
                 Timeout = _httpClient.Timeout
             };
             
-            // Transferir headers del cliente anterior
             foreach (var header in _httpClient.DefaultRequestHeaders)
             {
                 nuevoHttpClient.DefaultRequestHeaders.Add(header.Key, header.Value);
             }
             
-            // Reemplazar el cliente actual
             var clienteAnterior = _httpClient;
             _httpClient = nuevoHttpClient;
             
-            // Disponer el cliente anterior
             clienteAnterior.Dispose();
             
-            _log.LogInformation($"Certificado cliente configurado: {certificado.Subject}, " +
-                               $"válido desde {certificado.NotBefore} hasta {certificado.NotAfter}");
+            _log.LogInformation($"Certificado cliente configurado: {certificado.Subject}, válido desde {certificado.NotBefore} hasta {certificado.NotAfter}");
         }
         catch (Exception ex)
         {
