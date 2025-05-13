@@ -7,7 +7,7 @@ public class FacturaResponse
     public BusinessPartnerData BusinessPartners { get; set; }
     public CurrenciesData Currencies { get; set; }
 }
-
+ 
 public class InvoiceData
 {
     public int DocEntry { get; set; }

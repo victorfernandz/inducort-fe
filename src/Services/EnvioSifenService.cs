@@ -7,8 +7,6 @@ using System.Security.Authentication;
 using Newtonsoft.Json;
 using System.Xml.Schema;
 using System.Xml;
-using System.Text.RegularExpressions;
-
 public class EnvioSifenService 
 {
     private HttpClient _httpClient;
@@ -40,7 +38,7 @@ public class EnvioSifenService
     }
 
     public static string NormalizarXmlFirmado(string xmlFirmado, bool quitarDeclaracionXml = true)
-{
+    {
         if (string.IsNullOrWhiteSpace(xmlFirmado))
             return xmlFirmado;
 
@@ -81,7 +79,7 @@ public class EnvioSifenService
 
         var fechaCreacion = DateTime.Now;
         var fechaEnvio = DateTime.Now;
-        string dId = DateTime.Now.ToString("yyyyMMddHHmmssfff");
+        string dId = DateTime.Now.ToString("yyyyMMddHHmmssfff").Substring(0, 15);
         string debugDir = "debug_xml";
         Directory.CreateDirectory(debugDir);
         string numeroLote = "";
@@ -108,11 +106,10 @@ public class EnvioSifenService
             XmlDeclaration xmlDecl = loteDoc.CreateXmlDeclaration("1.0", "utf-8", null);
             loteDoc.AppendChild(xmlDecl);
 
-            XmlElement rootElement = loteDoc.CreateElement("rLoteDE", "http://ekuatia.set.gov.py/sifen/xsd");
-            rootElement.SetAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
-            rootElement.SetAttribute("xsi:schemaLocation", "http://ekuatia.set.gov.py/sifen/xsd siRecepLoteDE_v150.xsd");
+            XmlElement rootElement = loteDoc.CreateElement("rLoteDE", "");
+        /*    rootElement.SetAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
+            rootElement.SetAttribute("xsi:schemaLocation", "http://ekuatia.set.gov.py/sifen/xsd siRecepLoteDE_v150.xsd"); */
             loteDoc.AppendChild(rootElement);
-
 
             foreach (var (cdc, xmlFirmado) in documentosFirmados)
             {
@@ -172,7 +169,7 @@ public class EnvioSifenService
             File.WriteAllText(Path.Combine(debugDir, $"lote_base64_{dId}.txt"), base64Zip);
 
             // Construir SOAP
-            StringBuilder sb = new StringBuilder();
+       /*     StringBuilder sb = new StringBuilder();
             sb.Append("<soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\">");
             sb.Append("<soap:Header/>"); // evitar problemas con autenticación
             sb.Append("<soap:Body>");
@@ -181,18 +178,26 @@ public class EnvioSifenService
             sb.Append($"<xDE>{base64Zip}</xDE>");
             sb.Append("</rEnvioLote>");
             sb.Append("</soap:Body>");
-            sb.Append("</soap:Envelope>");
+            sb.Append("</soap:Envelope>"); */
 
+            string sb = $@"<soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"" xmlns:xsd=""http://ekuatia.set.gov.py/sifen/xsd""><soap:Header/>
+    <soap:Body><xsd:rEnvioLote>
+            <xsd:dId>{dId}</xsd:dId>
+            <xsd:xDE>{base64Zip}</xsd:xDE>
+        </xsd:rEnvioLote>
+    </soap:Body>
+</soap:Envelope>";
+    
             string soapEnvelope = sb.ToString();
             File.WriteAllText(Path.Combine(debugDir, $"soap_request_lote_{dId}.xml"), soapEnvelope);
 
-            var soapContent = new StringContent(soapEnvelope, new UTF8Encoding(false), "application/soap+xml");
+            var soapContent = new StringContent(soapEnvelope, new UTF8Encoding(false), "text/xml");
+            soapContent.Headers.Add("SOAPAction", "");
             soapContent.Headers.ContentType.Parameters.Clear();
             soapContent.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
-            soapContent.Headers.Remove("SOAPAction");
-            soapContent.Headers.Add("SOAPAction", "\"http://ekuatia.set.gov.py/sifen/xsd/siRecepLoteDE\"");
+            //soapContent.Headers.Add("SOAPAction", "\"http://ekuatia.set.gov.py/sifen/xsd/siRecepLoteDE\"");
 
-            string fullUrl = "de/ws/async/recibe-lote";
+            string fullUrl = "de/ws/async/recibe-lote.wsdl";
 
             var response = await _httpClient.PostAsync(fullUrl, soapContent);
             string mensajeRespuesta = await response.Content.ReadAsStringAsync();
@@ -233,7 +238,14 @@ public class EnvioSifenService
                 }
             }
 
+            if (!string.IsNullOrEmpty(numeroLote))
+            {
+                bool consultaExitosa = await ConsultarEstadoLoteAsync(dId, numeroLote);
+                _log.LogInformation($"Consulta de estado del lote {numeroLote} finalizada: {(consultaExitosa ? "Éxito" : "Incompleta o con error")}");
+            }
+
             return numeroLote;
+
         }
         catch (Exception ex)
         {
@@ -246,31 +258,34 @@ public class EnvioSifenService
         }
     }
 
-    public async Task<bool> ConsultarEstadoLoteAsync(string dId, List<string> cdcs = null, int intentos = 0)
+    public async Task<bool> ConsultarEstadoLoteAsync(string dId, string numeroLote)
     {
         try
         {
-            _log.LogInformation($"Consultando estado del lote: {dId} (Intento {intentos + 1})");
+            _log.LogInformation($"Consultando estado del lote con dId: {dId}, nroLote: {numeroLote}");
 
-        var soapRequest = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
-<soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"">
-  <soap:Header/>
-  <soap:Body>
-    <xConsLoteDE xmlns=""http://ekuatia.set.gov.py/sifen/xsd"">
-      <dProtConsLote>{dId}</dProtConsLote>
-    </xConsLoteDE>
-  </soap:Body>
-</soap:Envelope>";
+            string soapRequest = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+    <soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"">
+    <soap:Header/>
+    <soap:Body>
+        <rEnviConsLoteDe xmlns=""http://ekuatia.set.gov.py/sifen/xsd"">
+        <dId>{dId}</dId>
+        <dProtConsLote>{numeroLote}</dProtConsLote>
+        </rEnviConsLoteDe>
+    </soap:Body>
+    </soap:Envelope>";
 
             var content = new StringContent(soapRequest, Encoding.UTF8, "application/soap+xml");
-            content.Headers.Add("SOAPAction", "\"http://ekuatia.set.gov.py/sifen/xsd/siConsLoteDE\"");
+            content.Headers.ContentType.Parameters.Clear();
+            content.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
 
-            string endpoint = "de/ws/async/consulta-lote";
+            string endpoint = "de/ws/consultas/consulta-lote.wsdl";
+
             var response = await _httpClient.PostAsync(endpoint, content);
             var resultXml = await response.Content.ReadAsStringAsync();
 
             string debugDir = "debug_xml";
-            File.WriteAllText(Path.Combine(debugDir, $"soap_consulta_lote_{dId}_{DateTime.Now:yyyyMMddHHmmss}.xml"), resultXml);
+            File.WriteAllText(Path.Combine(debugDir, $"soap_consulta_rEnviConsLoteDe_{numeroLote}_{DateTime.Now:yyyyMMddHHmmss}.xml"), resultXml);
 
             if (response.IsSuccessStatusCode)
             {
@@ -287,71 +302,23 @@ public class EnvioSifenService
 
                 _log.LogInformation($"Resultado consulta lote - Estado: {estado}, Código: {codigo}, Mensaje: {mensaje}");
 
-                // Volvemos a consultar después de un tiempo
-                if (estado == "Procesamiento" && intentos < 5)
-                {
-                    _log.LogInformation($"Lote en procesamiento, esperando antes de volver a consultar...");
-                    await Task.Delay(5000);
-                    return await ConsultarEstadoLoteAsync(dId, cdcs, intentos + 1);
-                }
-
-                // Procesar los resultados individuales de cada documento
-                if (cdcs != null && cdcs.Count > 0 && (estado == "Aprobado" || estado == "Aprobado con Observaciones" || estado == "Rechazado"))
-                {
-                    Dictionary<string, (string estado, string mensaje)> resultadosPorCdc = new Dictionary<string, (string, string)>();
-
-                    // Buscar nodos de resultados individuales
-                    var docNodes = xmlDoc.SelectNodes("//ns2:gResProc", ns);
-                    if (docNodes != null)
-                    {
-                        foreach (XmlNode docNode in docNodes)
-                        {
-                            string cdc = docNode.SelectSingleNode("./ns2:dCDC", ns)?.InnerText;
-                            string estadoDoc = docNode.SelectSingleNode("./ns2:dEstRes", ns)?.InnerText;
-                            string mensajeDoc = docNode.SelectSingleNode("./ns2:dMsgRes", ns)?.InnerText;
-
-                            if (!string.IsNullOrEmpty(cdc) && cdcs.Contains(cdc))
-                            {
-                                resultadosPorCdc[cdc] = (estadoDoc, mensajeDoc);
-                                
-                                // Actualizar el estado del documento en la base de datos
-                                try
-                                {
-                                //    _logger.ActualizarEstadoDocumento(_baseDatos, cdc, estadoDoc, mensajeDoc);
-                                    _log.LogInformation($"CDC {cdc} actualizado con estado: {estadoDoc}");
-                                }
-                                catch (Exception ex)
-                                {
-                                    _log.LogError($"Error al actualizar estado del CDC {cdc}: {ex.Message}");
-                                }
-                            }
-                        }
-                    }
-
-                    // Verificar si todos los documentos del lote fueron procesados
-                    bool todosProcesados = cdcs.All(cdc => resultadosPorCdc.ContainsKey(cdc));
-                    _log.LogInformation($"Documentos procesados: {resultadosPorCdc.Count}/{cdcs.Count}");
-                    
-                    return todosProcesados;
-                }
-                
-                return estado != "Procesamiento";
+                return estado == "Aprobado" || estado == "Rechazado" || estado == "Aprobado con Observaciones";
             }
             else
             {
-                _log.LogWarning($"Error HTTP en consulta de lote: {response.StatusCode}");
+                _log.LogWarning($"Error HTTP en consulta con rEnviConsLoteDe: {response.StatusCode}");
                 _log.LogWarning(resultXml);
                 return false;
             }
         }
         catch (Exception ex)
         {
-            _log.LogError($"Error al consultar estado del lote: {ex.Message}");
+            _log.LogError($"Error al consultar con rEnviConsLoteDe: {ex.Message}");
             return false;
         }
     }
     
-    private async Task<(byte[] certificadoBytes, string contraseña)> ObtenerCertificadoActivo()
+    public async Task<(byte[] certificadoBytes, string contraseña)> ObtenerCertificadoActivo()
     {
         try
         {

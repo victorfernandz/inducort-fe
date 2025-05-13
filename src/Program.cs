@@ -56,6 +56,15 @@ class Program
                         return new EnvioSifenService(cfg.Sifen.Url, loggerSifen, cfg, logger, sapService);
                     });
 
+                    services.AddSingleton<CancelarDocumento>(sp =>
+                    {
+                        var logger = sp.GetRequiredService<ILogger<CancelarDocumento>>();
+                        var loggerSifen = sp.GetRequiredService<LoggerSifenService>();
+                        var config = sp.GetRequiredService<Config>();
+                        var sapService = sp.GetRequiredService<SAPServiceLayer>();
+                        return new CancelarDocumento(logger, loggerSifen, config, sapService);
+                    });
+
                     // Registrar servicio principal que arranca la lógica del sistema
                     services.AddHostedService<SAPCDCService>();
 

@@ -200,4 +200,59 @@ public class GenerarXML
             throw new Exception($"Error al generar el XML: {ex.Message}", ex);
         }
     }
+/*
+    public static string FirmarDesdePreGenerado(string dRucReceptor, byte[] certificadoBytes, string contraseñaCertificado)
+    {
+        try
+        {
+            string carpetaDebug = "XML";
+            Directory.CreateDirectory(carpetaDebug);
+
+            string rutaPreFirma = Path.Combine(carpetaDebug, "debug_pre_firma.xml");
+
+            if (!File.Exists(rutaPreFirma))
+                throw new FileNotFoundException("No se encontró el archivo debug_pre_firma.xml", rutaPreFirma);
+
+            XmlDocument xmlDoc = new XmlDocument { PreserveWhitespace = true };
+            xmlDoc.Load(rutaPreFirma);
+
+            var nsManager = new XmlNamespaceManager(xmlDoc.NameTable);
+            nsManager.AddNamespace("s", "http://ekuatia.set.gov.py/sifen/xsd");
+
+            var deNode = xmlDoc.SelectSingleNode("//s:DE", nsManager) as XmlElement;
+            if (deNode == null)
+                throw new Exception("No se encontró el nodo <DE>");
+
+            string cdc = deNode.GetAttribute("Id");
+            var root = xmlDoc.DocumentElement;
+            root.Attributes.RemoveNamedItem("xmlns");
+            root.Attributes.RemoveNamedItem("xmlns:xsi");
+            root.Attributes.RemoveNamedItem("xmlns:xsd");
+            root.Attributes.RemoveNamedItem("xsi:schemaLocation");
+
+            root.SetAttribute("xmlns", "http://ekuatia.set.gov.py/sifen/xsd");
+
+            XmlAttribute xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
+            xmlnsXsi.Value = "http://www.w3.org/2001/XMLSchema-instance";
+            root.Attributes.Append(xmlnsXsi);
+
+            XmlAttribute schemaLocation = xmlDoc.CreateAttribute("xsi", "schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
+            schemaLocation.Value = "http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd";
+            root.Attributes.Append(schemaLocation);
+
+            // Aplicar firma
+            SifenSigner.FirmarXml(xmlDoc, cdc, dRucReceptor, certificadoBytes, contraseñaCertificado);
+
+            // Guardar como Documento_{cdc}.xml con normalización
+            string rutaFirmado = Path.Combine(carpetaDebug, $"Documento_{cdc}.xml");
+            string xmlNormalizado = EnvioSifenService.NormalizarXmlFirmado(xmlDoc.OuterXml, quitarDeclaracionXml: true);
+            File.WriteAllText(rutaFirmado, xmlNormalizado, new UTF8Encoding(false));
+
+            return cdc;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Error en FirmarDesdePreGenerado", ex);
+        }
+    } */
 }

@@ -134,4 +134,57 @@ public class SifenSigner
             return null;
         }
     }
+
+    public static XmlDocument FirmarEvento(XmlDocument xmlDoc, string referenceId, X509Certificate2 certificado)
+    {
+        XmlNamespaceManager nsMgr = new XmlNamespaceManager(xmlDoc.NameTable);
+        nsMgr.AddNamespace("s", "http://ekuatia.set.gov.py/sifen/xsd");
+
+        XmlElement rEve = (XmlElement)xmlDoc.SelectSingleNode("//s:rEve", nsMgr);
+        if (rEve == null)
+            throw new Exception("No se encontró el nodo <rEve> para firmar.");
+
+        // CORRECCIÓN: El atributo Id NO debe tener # como prefijo
+        rEve.SetAttribute("Id", referenceId);
+
+        SignedXml signedXml = new SignedXmlWithId(xmlDoc);
+        signedXml.SigningKey = certificado.GetRSAPrivateKey();
+
+        // CORRECCIÓN: Añadir # a la referencia, pero no incluirlo en el atributo Id
+        Reference reference = new Reference("#" + referenceId);
+
+        reference.AddTransform(new XmlDsigEnvelopedSignatureTransform());
+        reference.AddTransform(new XmlDsigExcC14NTransform());
+        reference.DigestMethod = SignedXml.XmlDsigSHA256Url;
+
+        signedXml.AddReference(reference);
+
+        signedXml.SignedInfo.CanonicalizationMethod = SignedXml.XmlDsigExcC14NTransformUrl;
+        signedXml.SignedInfo.SignatureMethod = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+
+        KeyInfo keyInfo = new KeyInfo();
+        KeyInfoX509Data x509Data = new KeyInfoX509Data(certificado);
+        
+        // Agregar la información adicional de X509IssuerSerial
+        try {
+            x509Data.AddIssuerSerial(certificado.Issuer, certificado.SerialNumber);
+        } catch {
+            // Si falla, continuar sin esta información
+        }
+        
+        keyInfo.AddClause(x509Data);
+        signedXml.KeyInfo = keyInfo;
+
+        signedXml.ComputeSignature();
+        XmlElement xmlDigitalSignature = signedXml.GetXml();
+
+        // Insertar la firma como hermano de rEve
+        XmlNode rGesEve = rEve.ParentNode;
+        if (rGesEve != null)
+        {
+            rGesEve.AppendChild(xmlDoc.ImportNode(xmlDigitalSignature, true));
+        }
+
+        return xmlDoc;
+    }
 }

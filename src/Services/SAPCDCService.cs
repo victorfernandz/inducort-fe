@@ -1,11 +1,7 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text;
 using Newtonsoft.Json;
-using System.Xml;
 using System.Globalization;
 
 public class SAPCDCService : BackgroundService
@@ -15,10 +11,11 @@ public class SAPCDCService : BackgroundService
     private readonly FacturaService _facturaService;
     private readonly EmpresaService _empresaService;
     private readonly EnvioSifenService _envioService;
+    private readonly CancelarDocumento _cancelarDocumento;
     private EmpresaInfo _empresaInfo;
     private readonly Config _config;
 
-    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, EmpresaService empresaService, EnvioSifenService envioService, LoggerSifenService loggerSifen, Config config)
+    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, EmpresaService empresaService, EnvioSifenService envioService, Config config,  CancelarDocumento cancelarDocumento)
     {
         _logger = logger;
         _sapServiceLayer = sapServiceLayer;
@@ -26,6 +23,7 @@ public class SAPCDCService : BackgroundService
         _empresaService = empresaService;
         _envioService = envioService;
         _config = config;
+        _cancelarDocumento = cancelarDocumento;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -83,6 +81,9 @@ public class SAPCDCService : BackgroundService
 
                 // Procesar Facturas sin CDC
                 await ProcesarFacturasSinCDC(stoppingToken);
+
+            //    await _cancelarDocumento.CancelarDocumentoAsync("01801055660001001000000122025050610243584827");
+
             }
             catch (Exception ex)
             {
@@ -292,7 +293,6 @@ public class SAPCDCService : BackgroundService
                 // Se extraer el Dígito Verificador (dv)
                 int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
                 Console.WriteLine(dv);
-                // Convertir el tipo de documento a entero y luego a string para eliminar los ceros iniciales
                 string xmlTiDE = Convert.ToInt32(factura.U_CDOC).ToString();
 
             //    bool actualizado = await _facturaService.ActualizarCDC(factura.DocEntry, cdc);
@@ -302,36 +302,33 @@ public class SAPCDCService : BackgroundService
                     _logger.LogInformation($"CDC generado y actualizado: {cdc}");   
 */
                     // Generar XML
-                    string rutaXml = $"XML/Documento_{cdc}.xml"; 
-        //            Console.WriteLine(rutaXml);
+                    string rutaXml = $"XML/Documento_{cdc}.xml";                   
 
                     GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
                         _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento, 
                         _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, 
                         U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
-                        _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado);
+                        _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado); 
             /*    }
                 else
                 {
                     _logger.LogWarning($"No se pudo actualizar el CDC para la factura {factura.DocEntry}");
                 } */
-                //string rutaXmlFirmado = $"XML/Documento_{cdc}.xml";
+
                 try
                 {
                     string rutaXmlFirmado = $"XML/Documento_{cdc}.xml";
                     string xmlFirmadoFinal = File.ReadAllText(rutaXmlFirmado);
-                //    xmlFirmadoFinal = EnvioSifenService.NormalizarXmlFirmado(xmlFirmadoFinal);
 
                     tipoDocumentoLote ??= xmlTiDE;
 
                     if (_config.Sifen.Url.ToLower().Contains("test"))
                     {
-            //            string respuesta = await _envioService.EnviarDocumentoSincrono(cdc, "FacturaElectronica");
-
+            //           string respuesta = await _envioService.EnviarDocumentoSincrono(cdc, "FacturaElectronica");
                     }
                     else
                     {
-                        loteDocumentos.Add((cdc, xmlFirmadoFinal));
+                       loteDocumentos.Add((cdc, xmlFirmadoFinal));
 
                         if (loteDocumentos.Count == 3)
                         {

@@ -1,6 +1,4 @@
-using System.Diagnostics.Contracts;
-
-public class Factura
+public class NotaCredito
 {
     public int DocEntry { get; set; }
     public string U_EXX_FE_CDC { get; set; }
@@ -18,9 +16,10 @@ public class Factura
     public int iCondOpe { get; set; }
     public int iCondCred { get; set; }
     public decimal dTiCam { get; set; }
+    public string U_NUMFC { get; set; }
+    public int U_TIMFC { get; set; }
     public BusinessPartner BusinessPartner { get; set; }
     public Currencies Currencies { get; set; }
-    public GPagCred OperacionCredito { get; set; }
     public List<Item> Items { get; set; } = new List<Item>();
-    public GPaConEIni PagoContado { get; set; }
+
 }
