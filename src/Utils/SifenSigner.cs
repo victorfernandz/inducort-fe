@@ -8,7 +8,7 @@ using System.Security.Cryptography.Xml;
 
 public class SifenSigner
 {
-    public static void FirmarXml(XmlDocument xmlDoc, string cdc, string dRucReceptor, byte[] certificadoBytes, string contraseñaCertificado)
+    public static void FirmarXml(XmlDocument xmlDoc, string cdc, string dRucReceptor, byte[] certificadoBytes, string contraseñaCertificado, int iNatRec)
     {
         var cert = new X509Certificate2(certificadoBytes, contraseñaCertificado, X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
         var privateKey = cert.GetRSAPrivateKey();
@@ -49,12 +49,12 @@ public class SifenSigner
 
         // Obtener el DigestValue generado
         string digestValueReal = xmlDigitalSignature.GetElementsByTagName("DigestValue")[0]?.InnerText;
-        InsertarQRCode(xmlDoc, cdc, dRucReceptor, digestValueReal);
+        InsertarQRCode(xmlDoc, cdc, dRucReceptor, digestValueReal, iNatRec);
 
         Console.WriteLine("Firma aplicada correctamente con QR");
     }
 
-    private static void InsertarQRCode(XmlDocument xmlDoc, string cdc, string dRucRec, string digestBase64)
+    private static void InsertarQRCode(XmlDocument xmlDoc, string cdc, string dRucRec, string digestBase64, int iNatRec)
     {
         try
         {
@@ -72,17 +72,34 @@ public class SifenSigner
             var config = Config.LoadConfig();
             string idCSC = config.Sifen.IdCSC;
             string csc = config.Sifen.CSC;
+            string? cadenaQR = null;
 
-            string cadenaQR =
-                $"nVersion=150" +
-                $"&Id={cdc}" +
-                $"&dFeEmiDE={fechaHex}" +
-                $"&dRucRec={dRucRec}" +
-                $"&dTotGralOpe={totalGral}" +
-                $"&dTotIVA={totalIVA}" +
-                $"&cItems={cItems}" +
-                $"&DigestValue={digestHex}" +
-                $"&IdCSC={idCSC}";
+            if (iNatRec == 1)
+            {
+                cadenaQR =
+                    $"nVersion=150" +
+                    $"&Id={cdc}" +
+                    $"&dFeEmiDE={fechaHex}" +
+                    $"&dRucRec={dRucRec}" +
+                    $"&dTotGralOpe={totalGral}" +
+                    $"&dTotIVA={totalIVA}" +
+                    $"&cItems={cItems}" +
+                    $"&DigestValue={digestHex}" +
+                    $"&IdCSC={idCSC}";
+            }
+            else
+            {
+                cadenaQR =
+                    $"nVersion=150" +
+                    $"&Id={cdc}" +
+                    $"&dFeEmiDE={fechaHex}" +
+                    $"&dNumIDRec={dRucRec}" +
+                    $"&dTotGralOpe={totalGral}" +
+                    $"&dTotIVA={totalIVA}" +
+                    $"&cItems={cItems}" +
+                    $"&DigestValue={digestHex}" +
+                    $"&IdCSC={idCSC}";
+            }
 
             string cadenaParaHash = cadenaQR + csc;
             string cHashQR;
@@ -93,7 +110,16 @@ public class SifenSigner
                 cHashQR = BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
             }
 
-            string urlQR = "https://ekuatia.set.gov.py/consultas/qr?" + cadenaQR + "&cHashQR=" + cHashQR;
+            string? urlQR = null;
+
+            if (iNatRec == 1)
+            {
+                urlQR = "https://ekuatia.set.gov.py/consultas/qr?" + cadenaQR + "&cHashQR=" + cHashQR;
+            }
+            else
+            {
+                urlQR = "https://ekuatia.set.gov.py/consultas-test/qr?" + cadenaQR + "&cHashQR=" + cHashQR;
+            }
 
             XmlElement gCamFuFD = xmlDoc.CreateElement("gCamFuFD", xmlDoc.DocumentElement.NamespaceURI);
             XmlElement dCarQR = xmlDoc.CreateElement("dCarQR", xmlDoc.DocumentElement.NamespaceURI);

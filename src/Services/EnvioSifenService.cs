@@ -5,7 +5,6 @@ using System.Security.Cryptography.X509Certificates;
 using System.Net.Http.Headers;
 using System.Security.Authentication;
 using Newtonsoft.Json;
-using System.Xml.Schema;
 using System.Xml;
 public class EnvioSifenService 
 {
@@ -107,8 +106,6 @@ public class EnvioSifenService
             loteDoc.AppendChild(xmlDecl);
 
             XmlElement rootElement = loteDoc.CreateElement("rLoteDE", "");
-        /*    rootElement.SetAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
-            rootElement.SetAttribute("xsi:schemaLocation", "http://ekuatia.set.gov.py/sifen/xsd siRecepLoteDE_v150.xsd"); */
             loteDoc.AppendChild(rootElement);
 
             foreach (var (cdc, xmlFirmado) in documentosFirmados)
@@ -169,17 +166,6 @@ public class EnvioSifenService
             File.WriteAllText(Path.Combine(debugDir, $"lote_base64_{dId}.txt"), base64Zip);
 
             // Construir SOAP
-       /*     StringBuilder sb = new StringBuilder();
-            sb.Append("<soap:Envelope xmlns:soap=\"http://www.w3.org/2003/05/soap-envelope\">");
-            sb.Append("<soap:Header/>"); // evitar problemas con autenticación
-            sb.Append("<soap:Body>");
-            sb.Append("<rEnvioLote xmlns=\"http://ekuatia.set.gov.py/sifen/xsd\">");
-            sb.Append($"<dId>{dId}</dId>");
-            sb.Append($"<xDE>{base64Zip}</xDE>");
-            sb.Append("</rEnvioLote>");
-            sb.Append("</soap:Body>");
-            sb.Append("</soap:Envelope>"); */
-
             string sb = $@"<soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"" xmlns:xsd=""http://ekuatia.set.gov.py/sifen/xsd""><soap:Header/>
     <soap:Body><xsd:rEnvioLote>
             <xsd:dId>{dId}</xsd:dId>
@@ -195,8 +181,7 @@ public class EnvioSifenService
             soapContent.Headers.Add("SOAPAction", "");
             soapContent.Headers.ContentType.Parameters.Clear();
             soapContent.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
-            //soapContent.Headers.Add("SOAPAction", "\"http://ekuatia.set.gov.py/sifen/xsd/siRecepLoteDE\"");
-
+            
             string fullUrl = "de/ws/async/recibe-lote.wsdl";
 
             var response = await _httpClient.PostAsync(fullUrl, soapContent);
@@ -296,13 +281,16 @@ public class EnvioSifenService
                 ns.AddNamespace("env", "http://www.w3.org/2003/05/soap-envelope");
                 ns.AddNamespace("ns2", "http://ekuatia.set.gov.py/sifen/xsd");
 
-                string estado = xmlDoc.SelectSingleNode("//ns2:dEstRes", ns)?.InnerText;
-                string codigo = xmlDoc.SelectSingleNode("//ns2:dCodRes", ns)?.InnerText;
-                string mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgRes", ns)?.InnerText;
+                string? estado = xmlDoc.SelectSingleNode("//ns2:dEstRes", ns)?.InnerText;
+                string? codigo = xmlDoc.SelectSingleNode("//ns2:dCodRes", ns)?.InnerText;
+                string? mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgRes", ns)?.InnerText;
 
                 _log.LogInformation($"Resultado consulta lote - Estado: {estado}, Código: {codigo}, Mensaje: {mensaje}");
 
                 return estado == "Aprobado" || estado == "Rechazado" || estado == "Aprobado con Observaciones";
+
+     //           _logger.RegistrarDocumento(_baseDatos, cdc, xmlFirmado, estado, tipoDocumento, "rEnviConsLoteDe", fechaCreacion, fechaEnvio, fechaRespuesta, mensajeRespuesta, codigoRespuesta);
+
             }
             else
             {
@@ -363,8 +351,8 @@ public class EnvioSifenService
             var certificado = certificadosArray[0];
             
             // Obtener los datos del certificado y contraseña
-            string certificadoBase64 = certificado["U_ARCHIVO"].ToString();
-            string contraseñaBase64 = certificado["U_PWD"].ToString();
+            string? certificadoBase64 = certificado["U_ARCHIVO"].ToString();
+            string? contraseñaBase64 = certificado["U_PWD"].ToString();
             
             byte[] certificadoBytes = Convert.FromBase64String(certificadoBase64);
             string contraseña = Encoding.UTF8.GetString(Convert.FromBase64String(contraseñaBase64));

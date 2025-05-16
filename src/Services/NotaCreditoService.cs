@@ -21,7 +21,7 @@ public class NotaCreditoService
             "Currencies($select=Code,Name,DocumentsCode) " + 
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
             "CreditNotes/DocCurrency eq Currencies/Code and (CreditNotes/U_EXX_FE_CDC eq null or CreditNotes/U_EXX_FE_CDC eq '') and " +
-            "CreditNotes/DocDate eq '20250130'";
+            "CreditNotes/DocDate eq '20250516'";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))

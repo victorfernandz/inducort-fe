@@ -12,11 +12,10 @@ public class SAPCDCService : BackgroundService
     private readonly NotaCreditoService _notaCreditoService;
     private readonly EmpresaService _empresaService;
     private readonly EnvioSifenService _envioService;
-    private readonly CancelarDocumento _cancelarDocumento;
     private EmpresaInfo _empresaInfo;
     private readonly Config _config;
 
-    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, NotaCreditoService notaCreditoService, EmpresaService empresaService, EnvioSifenService envioService, Config config,  CancelarDocumento cancelarDocumento)
+    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, NotaCreditoService notaCreditoService, EmpresaService empresaService, EnvioSifenService envioService, Config config)
     {
         _logger = logger;
         _sapServiceLayer = sapServiceLayer;
@@ -25,7 +24,6 @@ public class SAPCDCService : BackgroundService
         _empresaService = empresaService;
         _envioService = envioService;
         _config = config;
-        _cancelarDocumento = cancelarDocumento;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -36,7 +34,7 @@ public class SAPCDCService : BackgroundService
         {
             try
             {
-                _logger.LogInformation("Buscando facturas sin CDC en SAP...");
+                _logger.LogInformation("Buscando documentos sin CDC en SAP...");
                 
                 //Login
                 bool loggedIn = await _sapServiceLayer.Login();
@@ -82,11 +80,10 @@ public class SAPCDCService : BackgroundService
                 }
 
                 // Procesar Facturas sin CDC
-        //        await ProcesarFacturasSinCDC(stoppingToken);
+                await ProcesarFacturasSinCDC(stoppingToken);
+
+                // Procesar Notas de crédito sin CDC
                 await ProcesarNotaCreditoSinCDC(stoppingToken);
-
-            //    await _cancelarDocumento.CancelarDocumentoAsync("01801055660001001000000122025050610243584827");
-
             }
             catch (Exception ex)
             {
@@ -120,16 +117,30 @@ public class SAPCDCService : BackgroundService
             foreach (var factura in facturas) 
             {
                 string rucCompleto = factura.BusinessPartner.FederalTaxID;
-                string cMoneOpe = factura.Currencies.cMoneOpe;
-                string dDesMoneOpe = factura.Currencies.dDesMoneOpe;
-                decimal dTiCam = factura.dTiCam;
-                string CardName = factura.BusinessPartner.dNomRec;
                 string[] rucPartes = rucCompleto.Split('-');
-                string dRucReceptor = rucPartes.Length > 0 ? rucPartes[0] : "";//.PadLeft(8, '0') : "00000000";
-                int dDVReceptor = rucPartes.Length > 1 ? int.Parse(rucPartes[1]) : 0;
                 int U_CRSI = factura.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2;
                 int U_TIPCONT = factura.BusinessPartner.iTiContRec;
                 int U_EXX_FE_TipoOperacion = factura.BusinessPartner.iTiOpe;
+                string? dRucReceptor = null;
+                int? dDVReceptor = null;
+                string? iTipIDRec = null;
+                string? dNumIDRec = null;
+
+                if (U_CRSI == 1)
+                {
+                    dRucReceptor = rucPartes.Length > 0 ? rucPartes[0] : "";//.PadLeft(8, '0') : "00000000";
+                    dDVReceptor = rucPartes.Length > 1 ? int.Parse(rucPartes[1]) : 0;
+                }
+                else
+                {
+                    iTipIDRec = factura.BusinessPartner.iTipIDRec == "CEDULA" ? "1" : "2";
+                    dNumIDRec = rucPartes.Length > 0 ? rucPartes[0] : "";
+                }
+
+                string cMoneOpe = factura.Currencies.cMoneOpe;
+                string dDesMoneOpe = factura.Currencies.dDesMoneOpe;
+                decimal dTiCam = factura.dTiCam;
+                string CardName = factura.BusinessPartner.dNomRec;                
                 string Country = factura.BusinessPartner.cPaisRec;
                 string DescPais = factura.BusinessPartner.dDesPaisRe;
                 string iTiDE = factura.U_CDOC;
@@ -295,26 +306,27 @@ public class SAPCDCService : BackgroundService
                 Console.WriteLine(dv);
                 string xmlTiDE = Convert.ToInt32(factura.U_CDOC).ToString();
 
-            //    bool actualizado = await _facturaService.ActualizarCDC(factura.DocEntry, cdc);
+                //Actualizar CDC del documento
+/*                bool actualizado = await _facturaService.ActualizarCDC(factura.DocEntry, cdc);
 
-    /*    if (actualizado)
-                {
+                if (actualizado)
+                { */
                     _logger.LogInformation($"CDC generado y actualizado: {cdc}");   
-*/
+
                     // Generar XML
                     string rutaXml = $"XML/Documento_{cdc}.xml";                   
 
                     GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
                         _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento, 
                         _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, 
-                        U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
+                        U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, iTipIDRec, dNumIDRec, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
                         _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado); 
-            /*    }
+/*                }
                 else
                 {
                     _logger.LogWarning($"No se pudo actualizar el CDC para la factura {factura.DocEntry}");
-                } */
-
+                } 
+*/
                 try
                 {
                     string rutaXmlFirmado = $"XML/Documento_{cdc}.xml";
@@ -324,7 +336,12 @@ public class SAPCDCService : BackgroundService
 
                     if (_config.Sifen.Url.ToLower().Contains("test"))
                     {
-            //           string respuesta = await _envioService.EnviarDocumentoSincrono(cdc, "FacturaElectronica");
+                        loteDocumentos.Add((cdc, xmlFirmadoFinal));
+                        
+                        await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote);
+                            _logger.LogInformation("Lote de 3 documentos enviado.");
+                            loteDocumentos.Clear();
+                            tipoDocumentoLote = null;
                     }
                     else
                     {
@@ -354,7 +371,7 @@ public class SAPCDCService : BackgroundService
             }
 
             // Si quedó un lote incompleto
-            if (loteDocumentos.Count > 0 && !_config.Sifen.Url.ToLower().Contains("test"))
+            if (loteDocumentos.Count > 0)// && !_config.Sifen.Url.ToLower().Contains("test"))
             {
                 await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote);
                 _logger.LogInformation($"Lote final de {loteDocumentos.Count} documento(s) enviado.");
@@ -385,16 +402,30 @@ public class SAPCDCService : BackgroundService
             foreach (var notaCredito in notasCredito) 
             {
                 string rucCompleto = notaCredito.BusinessPartner.FederalTaxID;
+                string[] rucPartes = rucCompleto.Split('-');
+                int U_CRSI = notaCredito.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2;
+                int U_TIPCONT = notaCredito.BusinessPartner.iTiContRec;
+                int U_EXX_FE_TipoOperacion = notaCredito.BusinessPartner.iTiOpe;
+                string? dRucReceptor = null;
+                int? dDVReceptor = null;
+                string? iTipIDRec = null;
+                string? dNumIDRec = null;
+
+                if (U_CRSI == 1)
+                {
+                    dRucReceptor = rucPartes.Length > 0 ? rucPartes[0] : "";//.PadLeft(8, '0') : "00000000";
+                    dDVReceptor = rucPartes.Length > 1 ? int.Parse(rucPartes[1]) : 0;
+                }
+                else
+                {
+                    iTipIDRec = notaCredito.BusinessPartner.iTipIDRec;
+                    dNumIDRec = rucPartes.Length > 0 ? rucPartes[0] : "";
+                }
+
                 string cMoneOpe = notaCredito.Currencies.cMoneOpe;
                 string dDesMoneOpe = notaCredito.Currencies.dDesMoneOpe;
                 decimal dTiCam = notaCredito.dTiCam;
                 string CardName = notaCredito.BusinessPartner.dNomRec;
-                string[] rucPartes = rucCompleto.Split('-');
-                string dRucReceptor = rucPartes.Length > 0 ? rucPartes[0] : "";
-                int dDVReceptor = rucPartes.Length > 1 ? int.Parse(rucPartes[1]) : 0;
-                int U_CRSI = notaCredito.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2;
-                int U_TIPCONT = notaCredito.BusinessPartner.iTiContRec;
-                int U_EXX_FE_TipoOperacion = notaCredito.BusinessPartner.iTiOpe;
                 string Country = notaCredito.BusinessPartner.cPaisRec;
                 string DescPais = notaCredito.BusinessPartner.dDesPaisRe;
                 string iTiDE = notaCredito.U_CDOC == "03" ? "05" : notaCredito.U_CDOC;
@@ -569,8 +600,8 @@ public class SAPCDCService : BackgroundService
                 string? dDMoneTiPag = null;
                 int? dTiCamTiPag = null;
 
-                List<GCuotas> cuotasList = null;
-                string plazoCredito = null;
+                List<GCuotas>? cuotasList = null;
+                string? plazoCredito = null;
 
                 // Calcular subtotales y totales usando el helper
                 var totalesFactura = Totalizador.CalcularTotalesFactura(itemsList, notaCredito.dTiCam, notaCredito.Currencies.cMoneOpe);
@@ -583,8 +614,11 @@ public class SAPCDCService : BackgroundService
                 int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
                 string xmlTiDE = Convert.ToInt32(iTiDE).ToString();
 
-                //    bool actualizado = await _facturaService.ActualizarCDC(factura.DocEntry, cdc);
-    /*    if (actualizado)
+
+                // Actualizamos en SAP el cdc del documento
+    //            bool actualizado = await _notaCreditoService.ActualizarCDC(notaCredito.DocEntry, cdc);
+                
+    /*            if (actualizado)
                 {
                     _logger.LogInformation($"CDC generado y actualizado: {cdc}");   
    */
@@ -594,15 +628,15 @@ public class SAPCDCService : BackgroundService
                     GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
                         _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento, 
                         _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, 
-                        U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
+                        U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, iTipIDRec, dNumIDRec, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
                         _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado,
                         iMotEmi, dCdCDERef, dFecEmiDI, dNTimDI, dEstDocAso, dPExpDocAso, dNumDocAso, iTipDocAso, iTipoDocAso); 
-         /*    }
+    /*            }
                 else
                 {
-                    _logger.LogWarning($"No se pudo actualizar el CDC para la factura {factura.DocEntry}");
-                } */
-
+                    _logger.LogWarning($"No se pudo actualizar el CDC para la factura {notaCredito.DocEntry}");
+                }
+    */
                 try
                 {
                     string rutaXmlFirmado = $"XML/Documento_{cdc}.xml";

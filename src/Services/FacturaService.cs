@@ -17,7 +17,7 @@ public class FacturaService
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies) " + 
             "?$expand=Invoices($select=DocEntry,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," + 
-            "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion), " +
+            "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID), " +
             "Currencies($select=Code,Name,DocumentsCode) " + 
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and (Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
@@ -120,6 +120,7 @@ public class FacturaService
                     iTiContRec = primeraEntrada.BusinessPartners.U_TIPCONT,
                     iTiOpe = primeraEntrada.BusinessPartners.U_EXX_FE_TipoOperacion,
                     iNatRec = primeraEntrada.BusinessPartners.U_CRSI ?? "",
+                    iTipIDRec = primeraEntrada.BusinessPartners.U_CRID,
                     cPaisRec = codigoReportePais ?? "",
                     dDesPaisRe = descripcionPais,
                 },

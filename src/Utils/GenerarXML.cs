@@ -9,7 +9,7 @@ public class GenerarXML
 {
     public static void SerializarDocumentoElectronico(string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
         string? iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
-        string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int dDVReceptor, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag, 
+        string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int? dDVReceptor, string? iTipIDRec, string? dNumIDRec, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag, 
         string? cMoneTiPag, string? dDMoneTiPag, decimal? dTiCamTiPag,
         List<ActividadEconomica> actividades, List<ObligacionAfectada>? obligaciones = null, List<GCuotas>? cuotas = null, List<Item> items = null, string plazoCredito = null, GTotSub totales = null,
         byte[]? certificadoBytes = null, string? contraseñaCertificado = null,
@@ -26,7 +26,7 @@ public class GenerarXML
 
             DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, dFecFirma, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, 
                 dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, actividadPrincipal.Codigo, actividadPrincipal.Descripcion, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucReceptor,
-                dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
+                dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
 
                 // Campos adicionales solo para Nota de Crédito
             iTiDE == "5" ? iMotEmi : null,
@@ -186,7 +186,14 @@ public class GenerarXML
                 }
                 Console.WriteLine("XML guardado antes de firmar: " + rutaDebug);
 
-                SifenSigner.FirmarXml(xmlDoc, cdc, dRucReceptor, certificadoBytes, contraseñaCertificado);
+                if (iNatRec == 1)
+                {
+                    SifenSigner.FirmarXml(xmlDoc, cdc, dRucReceptor, certificadoBytes, contraseñaCertificado, iNatRec);
+                }
+                else
+                {
+                    SifenSigner.FirmarXml(xmlDoc, cdc, dNumIDRec, certificadoBytes, contraseñaCertificado, iNatRec);
+                }                
             }
 
             XmlWriterSettings settings = new XmlWriterSettings
@@ -215,149 +222,4 @@ public class GenerarXML
             throw new Exception($"Error al generar el XML: {ex.Message}", ex);
         }
     }
-/*
-    public static void SerializarNotaCredito(
-    string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE,
-    int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
-    string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont,
-    string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi,
-    string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE,
-    int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec,
-    string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred,
-    List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones,
-    List<GCuotas> cuotas, List<Item> items, string plazoCredito, GTotSub totales,
-    byte[] certificadoBytes, string contraseñaCertificado,
-    int iTipDocAso, int? dCdCDERef, int? dNTimDI, string? dEstDocAso, string? dPExpDocAso,
-    string? dNumDocAso, int? iTipoDocAso, DateTime? dFecEmiDI, int iMotEmi)
-    {
-        var actividadPrincipal = actividades.First();
-
-        var documento = new DocumentoElectronico(cdc, dv, dFecFirma, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc,
-            dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas,
-            cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE,
-            actividadPrincipal.Codigo, actividadPrincipal.Descripcion,
-            iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec,
-            dTiCam, iIndPres, iCondOpe, iCondCred,
-            99, 0, "PYG", "Guaran\u00ed", null, // Valores default para pago
-            iTipDocAso, dCdCDERef, dNTimDI, dEstDocAso, dPExpDocAso, dNumDocAso, iTipoDocAso, dFecEmiDI, iMotEmi);
-
-        // Agrega resto de datos (actividades, obligaciones, items, cuotas, totales...)
-        if (actividades.Count > 1)
-        {
-            for (int i = 1; i < actividades.Count; i++)
-            {
-                documento.DE.CamposGenerales.GrupoCamposEmisor.ActividadesEconomicas
-                    .Add(new GActEco(actividades[i].Codigo, actividades[i].Descripcion));
-            }
-        }
-
-        if (obligaciones != null)
-        {
-            foreach (var obl in obligaciones)
-            {
-                documento.DE.CamposGenerales.OperacionComercial.ObligacionesAfectadas
-                    .Add(new GOblAfe(obl.Codigo, obl.Descripcion));
-            }
-        }
-
-        if (items != null && items.Any())
-        {
-            documento.DE.CamposEspecificosTipoDocumento.Items.Clear();
-            foreach (var item in items)
-            {
-                var valorItem = new GValorItem
-                {
-                    PrecioUnitario = item.dPUniProSer,
-                    TipoCambioIt = item.dTiCamIt,
-                    TotalBrutoItem = item.dTotBruOpeItem,
-                    ValorRestaItem = new GValorRestaItem { TotalOperacionItem = item.dTotBruOpeItem },
-                    MonedaOperacion = cMoneOpe,
-                    EsTipoCambioGlobal = true // por default
-                };
-
-                var camposIVA = new GCamIVA
-                {
-                    AfectacionIVA = item.iAfecIVA,
-                    DescripcionAfectacionIVA = item.dDesAfecIVA,
-                    ProporcionIVA = item.dPropIVA,
-                    TasaIVA = (int)item.dTasaIVA,
-                    BaseGravadaIVA = item.dBasGravIVA,
-                    LiquidacionIVA = item.dLiqIVAItem,
-                    BaseExenta = item.dBasExe
-                };
-
-                documento.DE.CamposEspecificosTipoDocumento.Items.Add(new GCamItem
-                {
-                    CodigoItem = item.dCodInt,
-                    DescripcionItem = item.dDesProSer,
-                    UnidadMedida = item.cUniMed > 0 ? item.cUniMed : 77,
-                    DescripcionUnidadMedida = string.IsNullOrWhiteSpace(item.dDesUniMed) ? "UNI" : item.dDesUniMed,
-                    CantidadProducto = item.dCantProSer,
-                    ValorItem = valorItem,
-                    CamposIVA = camposIVA
-                });
-            }
-        }
-
-        documento.DE.CamposTotalesSubtotales = totales;
-
-        // Serialización y firma igual que método original...
-        // (copiar desde el método principal si es necesario)
-    }
-
-/*
-    public static string FirmarDesdePreGenerado(string dRucReceptor, byte[] certificadoBytes, string contraseñaCertificado)
-    {
-        try
-        {
-            string carpetaDebug = "XML";
-            Directory.CreateDirectory(carpetaDebug);
-
-            string rutaPreFirma = Path.Combine(carpetaDebug, "debug_pre_firma.xml");
-
-            if (!File.Exists(rutaPreFirma))
-                throw new FileNotFoundException("No se encontró el archivo debug_pre_firma.xml", rutaPreFirma);
-
-            XmlDocument xmlDoc = new XmlDocument { PreserveWhitespace = true };
-            xmlDoc.Load(rutaPreFirma);
-
-            var nsManager = new XmlNamespaceManager(xmlDoc.NameTable);
-            nsManager.AddNamespace("s", "http://ekuatia.set.gov.py/sifen/xsd");
-
-            var deNode = xmlDoc.SelectSingleNode("//s:DE", nsManager) as XmlElement;
-            if (deNode == null)
-                throw new Exception("No se encontró el nodo <DE>");
-
-            string cdc = deNode.GetAttribute("Id");
-            var root = xmlDoc.DocumentElement;
-            root.Attributes.RemoveNamedItem("xmlns");
-            root.Attributes.RemoveNamedItem("xmlns:xsi");
-            root.Attributes.RemoveNamedItem("xmlns:xsd");
-            root.Attributes.RemoveNamedItem("xsi:schemaLocation");
-
-            root.SetAttribute("xmlns", "http://ekuatia.set.gov.py/sifen/xsd");
-
-            XmlAttribute xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
-            xmlnsXsi.Value = "http://www.w3.org/2001/XMLSchema-instance";
-            root.Attributes.Append(xmlnsXsi);
-
-            XmlAttribute schemaLocation = xmlDoc.CreateAttribute("xsi", "schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
-            schemaLocation.Value = "http://ekuatia.set.gov.py/sifen/xsd siRecepDE_v150.xsd";
-            root.Attributes.Append(schemaLocation);
-
-            // Aplicar firma
-            SifenSigner.FirmarXml(xmlDoc, cdc, dRucReceptor, certificadoBytes, contraseñaCertificado);
-
-            // Guardar como Documento_{cdc}.xml con normalización
-            string rutaFirmado = Path.Combine(carpetaDebug, $"Documento_{cdc}.xml");
-            string xmlNormalizado = EnvioSifenService.NormalizarXmlFirmado(xmlDoc.OuterXml, quitarDeclaracionXml: true);
-            File.WriteAllText(rutaFirmado, xmlNormalizado, new UTF8Encoding(false));
-
-            return cdc;
-        }
-        catch (Exception ex)
-        {
-            throw new Exception("Error en FirmarDesdePreGenerado", ex);
-        }
-    } */
 }

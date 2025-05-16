@@ -29,15 +29,15 @@ public class DocumentoElectronico // Nodo Padre AA001
 */
     public DocumentoElectronico(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string? iTipTra, string cMoneOpe,
         string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
-        string dEmailE, string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag,
-        string cMoneTiPag, string dDMoneTiPag, decimal? dTiCamTiPag,
+        string dEmailE, string cActEco, string dDesActEco, int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag,
+        string cMoneTiPag, string dDMoneTiPag, decimal? dTiCamTiPag, string? iTipIDRec, string? dNumIDRec,
 
         // campos opcionales solo para NC
         int? iMotEmi = null, string? dCdCDERef = null, DateTime? dFecEmiDI = null, int? dNTimDI = null, string? dEstDocAso = null, string? dPExpDocAso = null, string? dNumDocAso = null, int? iTipoDocAso = null, int? iTipDocAso = null) 
    
     {
         DE = new DEContent(cdc, dv, dFecFirma, dSisFact, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, 
-            cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
+            cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
             iMotEmi, dCdCDERef, dFecEmiDI, dNTimDI, dEstDocAso, dPExpDocAso, dNumDocAso, iTipoDocAso, iTipDocAso);
     }
 }
@@ -92,8 +92,8 @@ public class DEContent // Nodo padre AA001
 
     public DEContent(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string? iTipTra, string cMoneOpe, string dDesMoneOpe,
         string dRucEm,int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE,
-        string cActEco, string dDesActEco, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag,
-        string cMoneTiPag, string dDMoneTiPag, decimal? dTiCamTiPag,
+        string cActEco, string dDesActEco, int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag,
+        string cMoneTiPag, string dDMoneTiPag, decimal? dTiCamTiPag, string? iTipIDRec, string? dNumIDRec,
         // campos opcionales solo para NC
         int? iMotEmi = null, string? dCdCDERef = null, DateTime? dFecEmiDI = null, int? dNTimDI = null, string? dEstDocAso = null, string? dPExpDocAso = null, string? dNumDocAso = null, int? iTipoDocAso = null, int? iTipDocAso = null)
 
@@ -106,7 +106,7 @@ public class DEContent // Nodo padre AA001
         GrupoTimbrado = new GTimb(iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT);
             
         CamposGenerales = new GDatGralOpe(dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE,
-            iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam);
+            iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iTipIDRec, dNumIDRec);
             
         // Agregar la actividad económica si se proporcionó
         if (!string.IsNullOrEmpty(cActEco))
@@ -238,7 +238,8 @@ public class GDatGralOpe // Nodo padre A001
 
     // Constructor para una sola actividad económica
     public GDatGralOpe(DateTime dFeEmiDE, string? iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi,
-        string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec, decimal dTiCam,
+        string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec, decimal dTiCam,
+        string? iTipIDRec, string? dNumIDRec,
         List<ActividadEconomica> actividades = null, List<ObligacionAfectada> obligaciones = null)
     {
         FechaHoraEmision = dFeEmiDE;
@@ -253,7 +254,7 @@ public class GDatGralOpe // Nodo padre A001
             }
         }
 
-        GrupoDatosReceptor = new GDatRec(iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec);
+        GrupoDatosReceptor = new GDatRec(iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, iTipIDRec, dNumIDRec);
     }
 }
 
@@ -461,29 +462,85 @@ public class GDatRec // Nodo padre D001
     public string DescPaisReceptor { get; set; }
 
     [XmlElement("iTiContRec")]
-    public int TipoContReceptor { get; set; }
+    public int? TipoContReceptor { get; set; }
 
     [XmlElement("dRucRec")]
-    public string RucReceptor { get; set; }
+    public string? RucReceptor { get; set; }
 
     [XmlElement("dDVRec")]
-    public int DVReceptor { get; set; }
+    public int? DVReceptor { get; set; }
+
+    [XmlElement("iTipIDRec")]
+    public string? TipoDocumentoReceptor { get; set; }
+
+    [XmlElement("dDTipIDRec")]
+    public string? DescrTipoDocReceptor { get; set; }
+
+    [XmlElement("dNumIDRec")]
+    public string? NumeroDocReceptr { get; set; }
 
     [XmlElement("dNomRec")]
     public string NombreReceptor { get; set; }
 
+    public bool ShouldSerializeRucReceptor()
+    {
+        return NaturalezaReceptor == 1;
+    }
+
+    public bool ShouldSerializeDVReceptor()
+    {
+        return NaturalezaReceptor == 1;
+    }
+
+    public bool ShouldSerializeTipoDocumentoReceptor()
+    {
+        return NaturalezaReceptor == 2;
+    }
+
+    public bool ShouldSerializeDescrTipoDocReceptor()
+    {
+        return NaturalezaReceptor == 2;
+    }
+
+    public bool ShouldSerializeNumeroDocReceptr()
+    {
+        return NaturalezaReceptor == 2;
+    }
+
+    public bool ShouldSerializeTipoContReceptor()
+    {
+        return NaturalezaReceptor == 1;
+    }
+
+    public string ObtenerDescrTipoDocumento(string? iTipIDRec)
+    {
+        return iTipIDRec switch
+        {
+            "1" => "Cédula paraguaya",
+            "2" => "Pasaporte",
+            "3" => "Cédula extranjera",
+            "4" => "Carnet de residencia",
+            "5" => "Innominado",
+            "6" => "Tarjeta Diplomática de exoneración fiscal",
+            null => null
+        };
+    }
+
     public GDatRec(){}
 
-    public GDatRec (int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int dDVRec)
+    public GDatRec (int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec, string? iTipIDRec, string? dNumIDRec)
     {
         NaturalezaReceptor = iNatRec;
         TipoOperacion = iTiOpe;
         PaisReceptor = cPaisRec;
         DescPaisReceptor = dDesPaisRe;
-        TipoContReceptor = iTiContRec;	
+        TipoContReceptor = iTiContRec;
         RucReceptor = dRucRec;
         DVReceptor = dDVRec;
         NombreReceptor = dNomRec;
+        TipoDocumentoReceptor = iTipIDRec;
+        DescrTipoDocReceptor = ObtenerDescrTipoDocumento(iTipIDRec);
+        NumeroDocReceptr = dNumIDRec;
     }
 }
 

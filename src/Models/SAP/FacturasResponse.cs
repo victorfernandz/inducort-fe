@@ -46,6 +46,7 @@ public class BusinessPartnerData
     public string FederalTaxID { get; set; } 
     public int U_TIPCONT { get; set; } // Tipo Contribuyente
     public string U_CRSI { get; set; }  // Naturaleza del SN
+    public string U_CRID { get; set; } // Tipo identificación
     public int U_EXX_FE_TipoOperacion { get; set; }
 
     public List<BPAddressInfo> BPAddresses { get; set; }
