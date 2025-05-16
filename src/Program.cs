@@ -31,6 +31,7 @@ class Program
                     services.AddSingleton<SAPServiceLayer>();
                     services.AddSingleton<EmpresaService>();
                     services.AddSingleton<FacturaService>();
+                    services.AddSingleton<NotaCreditoService>();
 
                     // Registrar el servicio de logger para SAP_SIFEN
                     services.AddSingleton<LoggerSifenService>(sp =>

@@ -8,11 +8,14 @@ using System.Globalization;
 public class GenerarXML
 {
     public static void SerializarDocumentoElectronico(string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
-        string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
-        string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int dDVReceptor, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred, int iTiPago, decimal dMonTiPag, 
-        string cMoneTiPag, string dDMoneTiPag, decimal? dTiCamTiPag,
-        List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones = null, List<GCuotas> cuotas = null, List<Item> items = null, string plazoCredito = null, GTotSub totales = null,
-        byte[] certificadoBytes = null, string contraseñaCertificado = null)
+        string? iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
+        string dEmailE, int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int dDVReceptor, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag, 
+        string? cMoneTiPag, string? dDMoneTiPag, decimal? dTiCamTiPag,
+        List<ActividadEconomica> actividades, List<ObligacionAfectada>? obligaciones = null, List<GCuotas>? cuotas = null, List<Item> items = null, string plazoCredito = null, GTotSub totales = null,
+        byte[]? certificadoBytes = null, string? contraseñaCertificado = null,
+        // campos opcionales solo para NC
+        int? iMotEmi = null, string? dCdCDERef = null, DateTime? dFecEmiDI = null, int? dNTimDI = null, string? dEstDocAso = null, string? dPExpDocAso = null, string? dNumDocAso = null, int? iTipDocAso = null, int? iTipoDocAso = null)
+    
     {
         try
         {
@@ -23,7 +26,19 @@ public class GenerarXML
 
             DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, dFecFirma, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, 
                 dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, actividadPrincipal.Codigo, actividadPrincipal.Descripcion, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucReceptor,
-                dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag);
+                dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
+
+                // Campos adicionales solo para Nota de Crédito
+            iTiDE == "5" ? iMotEmi : null,
+            iTiDE == "5" ? dCdCDERef : null,
+            iTiDE == "5" ? dFecEmiDI : null,
+            iTiDE == "5" ? dNTimDI : null,
+            iTiDE == "5" ? dEstDocAso : null,
+            iTiDE == "5" ? dPExpDocAso : null,
+            iTiDE == "5" ? dNumDocAso : null,
+            iTiDE == "5" ? iTipoDocAso : null,
+            iTiDE == "5" ? iTipDocAso : null
+        );
 
             // Agregar actividades económicas adicionales
             if (actividades.Count > 1)
@@ -200,6 +215,96 @@ public class GenerarXML
             throw new Exception($"Error al generar el XML: {ex.Message}", ex);
         }
     }
+/*
+    public static void SerializarNotaCredito(
+    string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE,
+    int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
+    string iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont,
+    string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi,
+    string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE,
+    int iNatRec, int iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec,
+    string dRucRec, int dDVRec, decimal dTiCam, int iIndPres, int iCondOpe, int iCondCred,
+    List<ActividadEconomica> actividades, List<ObligacionAfectada> obligaciones,
+    List<GCuotas> cuotas, List<Item> items, string plazoCredito, GTotSub totales,
+    byte[] certificadoBytes, string contraseñaCertificado,
+    int iTipDocAso, int? dCdCDERef, int? dNTimDI, string? dEstDocAso, string? dPExpDocAso,
+    string? dNumDocAso, int? iTipoDocAso, DateTime? dFecEmiDI, int iMotEmi)
+    {
+        var actividadPrincipal = actividades.First();
+
+        var documento = new DocumentoElectronico(cdc, dv, dFecFirma, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc,
+            dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas,
+            cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE,
+            actividadPrincipal.Codigo, actividadPrincipal.Descripcion,
+            iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec,
+            dTiCam, iIndPres, iCondOpe, iCondCred,
+            99, 0, "PYG", "Guaran\u00ed", null, // Valores default para pago
+            iTipDocAso, dCdCDERef, dNTimDI, dEstDocAso, dPExpDocAso, dNumDocAso, iTipoDocAso, dFecEmiDI, iMotEmi);
+
+        // Agrega resto de datos (actividades, obligaciones, items, cuotas, totales...)
+        if (actividades.Count > 1)
+        {
+            for (int i = 1; i < actividades.Count; i++)
+            {
+                documento.DE.CamposGenerales.GrupoCamposEmisor.ActividadesEconomicas
+                    .Add(new GActEco(actividades[i].Codigo, actividades[i].Descripcion));
+            }
+        }
+
+        if (obligaciones != null)
+        {
+            foreach (var obl in obligaciones)
+            {
+                documento.DE.CamposGenerales.OperacionComercial.ObligacionesAfectadas
+                    .Add(new GOblAfe(obl.Codigo, obl.Descripcion));
+            }
+        }
+
+        if (items != null && items.Any())
+        {
+            documento.DE.CamposEspecificosTipoDocumento.Items.Clear();
+            foreach (var item in items)
+            {
+                var valorItem = new GValorItem
+                {
+                    PrecioUnitario = item.dPUniProSer,
+                    TipoCambioIt = item.dTiCamIt,
+                    TotalBrutoItem = item.dTotBruOpeItem,
+                    ValorRestaItem = new GValorRestaItem { TotalOperacionItem = item.dTotBruOpeItem },
+                    MonedaOperacion = cMoneOpe,
+                    EsTipoCambioGlobal = true // por default
+                };
+
+                var camposIVA = new GCamIVA
+                {
+                    AfectacionIVA = item.iAfecIVA,
+                    DescripcionAfectacionIVA = item.dDesAfecIVA,
+                    ProporcionIVA = item.dPropIVA,
+                    TasaIVA = (int)item.dTasaIVA,
+                    BaseGravadaIVA = item.dBasGravIVA,
+                    LiquidacionIVA = item.dLiqIVAItem,
+                    BaseExenta = item.dBasExe
+                };
+
+                documento.DE.CamposEspecificosTipoDocumento.Items.Add(new GCamItem
+                {
+                    CodigoItem = item.dCodInt,
+                    DescripcionItem = item.dDesProSer,
+                    UnidadMedida = item.cUniMed > 0 ? item.cUniMed : 77,
+                    DescripcionUnidadMedida = string.IsNullOrWhiteSpace(item.dDesUniMed) ? "UNI" : item.dDesUniMed,
+                    CantidadProducto = item.dCantProSer,
+                    ValorItem = valorItem,
+                    CamposIVA = camposIVA
+                });
+            }
+        }
+
+        documento.DE.CamposTotalesSubtotales = totales;
+
+        // Serialización y firma igual que método original...
+        // (copiar desde el método principal si es necesario)
+    }
+
 /*
     public static string FirmarDesdePreGenerado(string dRucReceptor, byte[] certificadoBytes, string contraseñaCertificado)
     {

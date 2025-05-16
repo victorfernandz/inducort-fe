@@ -9,17 +9,19 @@ public class SAPCDCService : BackgroundService
     private readonly ILogger<SAPCDCService> _logger;
     private readonly SAPServiceLayer _sapServiceLayer;
     private readonly FacturaService _facturaService;
+    private readonly NotaCreditoService _notaCreditoService;
     private readonly EmpresaService _empresaService;
     private readonly EnvioSifenService _envioService;
     private readonly CancelarDocumento _cancelarDocumento;
     private EmpresaInfo _empresaInfo;
     private readonly Config _config;
 
-    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, EmpresaService empresaService, EnvioSifenService envioService, Config config,  CancelarDocumento cancelarDocumento)
+    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, NotaCreditoService notaCreditoService, EmpresaService empresaService, EnvioSifenService envioService, Config config,  CancelarDocumento cancelarDocumento)
     {
         _logger = logger;
         _sapServiceLayer = sapServiceLayer;
         _facturaService = facturaService;
+        _notaCreditoService = notaCreditoService;
         _empresaService = empresaService;
         _envioService = envioService;
         _config = config;
@@ -80,7 +82,8 @@ public class SAPCDCService : BackgroundService
                 }
 
                 // Procesar Facturas sin CDC
-                await ProcesarFacturasSinCDC(stoppingToken);
+        //        await ProcesarFacturasSinCDC(stoppingToken);
+                await ProcesarNotaCreditoSinCDC(stoppingToken);
 
             //    await _cancelarDocumento.CancelarDocumentoAsync("01801055660001001000000122025050610243584827");
 
@@ -114,7 +117,7 @@ public class SAPCDCService : BackgroundService
             string tipoDocumentoLote = null;
 
             //Consulta las facturas sin CDC
-            foreach (var factura in facturas)
+            foreach (var factura in facturas) 
             {
                 string rucCompleto = factura.BusinessPartner.FederalTaxID;
                 string cMoneOpe = factura.Currencies.cMoneOpe;
@@ -182,7 +185,6 @@ public class SAPCDCService : BackgroundService
                 {
                     foreach (var item in factura.Items)
                     {                           
-                        // Calculate the total for this line
                         decimal totalBruto = item.dCantProSer * item.dPUniProSer;
                         int tasaIVA = 0;
 
@@ -195,7 +197,6 @@ public class SAPCDCService : BackgroundService
                             tasaIVA = 10;
                         }
                         
-                        // Default values for IVA related fields
                         string descAfectacionIVA = "Gravado IVA";
                         int afectacionIVA = 1;
                         int proporcionIVA = 100;
@@ -252,7 +253,6 @@ public class SAPCDCService : BackgroundService
                             baseExenta = Math.Round((100 * totalBruto * (100 - proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)),8);
                         }
 
-                        // Create transformed item
                         itemsList.Add(new Item
                         {
                             dCodInt = item.dCodInt,
@@ -310,6 +310,294 @@ public class SAPCDCService : BackgroundService
                         U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
                         _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado); 
             /*    }
+                else
+                {
+                    _logger.LogWarning($"No se pudo actualizar el CDC para la factura {factura.DocEntry}");
+                } */
+
+                try
+                {
+                    string rutaXmlFirmado = $"XML/Documento_{cdc}.xml";
+                    string xmlFirmadoFinal = File.ReadAllText(rutaXmlFirmado);
+
+                    tipoDocumentoLote ??= xmlTiDE;
+
+                    if (_config.Sifen.Url.ToLower().Contains("test"))
+                    {
+            //           string respuesta = await _envioService.EnviarDocumentoSincrono(cdc, "FacturaElectronica");
+                    }
+                    else
+                    {
+                       loteDocumentos.Add((cdc, xmlFirmadoFinal));
+
+                        if (loteDocumentos.Count == 3)
+                        {
+                            await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote);
+                            _logger.LogInformation("Lote de 3 documentos enviado.");
+                            loteDocumentos.Clear();
+                            tipoDocumentoLote = null;
+                        }
+                    }
+
+                    _logger.LogInformation($"Documento con CDC {cdc} enviado a SIFEN correctamente.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error al preparar/enviar documento con CDC {cdc}: {ex.Message}");
+                    _logger.LogError($"StackTrace: {ex.StackTrace}");
+
+                    string errorPath = "Errors";
+                    Directory.CreateDirectory(errorPath);
+                    File.WriteAllText(Path.Combine(errorPath, $"error_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.log"),
+                        $"CDC: {cdc}\nError: {ex.Message}\nStackTrace: {ex.StackTrace}");
+                }
+            }
+
+            // Si quedó un lote incompleto
+            if (loteDocumentos.Count > 0 && !_config.Sifen.Url.ToLower().Contains("test"))
+            {
+                await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote);
+                _logger.LogInformation($"Lote final de {loteDocumentos.Count} documento(s) enviado.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error en ProcesarFacturasSinCDC: {ex.Message}");
+            _logger.LogError($"StackTrace: {ex.StackTrace}");
+        }
+    }
+    
+    private async Task ProcesarNotaCreditoSinCDC(CancellationToken stoppingToken)
+    {
+        try
+        {
+            _logger.LogInformation("Procesando Notas de crédito sin CDC...");
+            var notasCredito = await _notaCreditoService.GetNotaCreditoSinCDC();
+            _logger.LogInformation($"Se encontraron {notasCredito.Count} Notas de crédito sin CDC.");
+
+            // Obtener el certificado digital activo
+            var (certificadoBytes, contraseñaCertificado) = await ObtenerCertificadoActivo();
+
+            var loteDocumentos = new List<(string cdc, string xmlFirmadoFinal)>();
+            string tipoDocumentoLote = null;
+
+            //Consulta las Notas de crédito sin CDC
+            foreach (var notaCredito in notasCredito) 
+            {
+                string rucCompleto = notaCredito.BusinessPartner.FederalTaxID;
+                string cMoneOpe = notaCredito.Currencies.cMoneOpe;
+                string dDesMoneOpe = notaCredito.Currencies.dDesMoneOpe;
+                decimal dTiCam = notaCredito.dTiCam;
+                string CardName = notaCredito.BusinessPartner.dNomRec;
+                string[] rucPartes = rucCompleto.Split('-');
+                string dRucReceptor = rucPartes.Length > 0 ? rucPartes[0] : "";
+                int dDVReceptor = rucPartes.Length > 1 ? int.Parse(rucPartes[1]) : 0;
+                int U_CRSI = notaCredito.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2;
+                int U_TIPCONT = notaCredito.BusinessPartner.iTiContRec;
+                int U_EXX_FE_TipoOperacion = notaCredito.BusinessPartner.iTiOpe;
+                string Country = notaCredito.BusinessPartner.cPaisRec;
+                string DescPais = notaCredito.BusinessPartner.dDesPaisRe;
+                string iTiDE = notaCredito.U_CDOC == "03" ? "05" : notaCredito.U_CDOC;
+                string dEst = notaCredito.U_EST;
+                string dPunExp = notaCredito.U_PDE;
+                string dNumDoc = notaCredito.FolioNum.PadLeft(7, '0');
+                DateTime dFeIniT = DateTime.ParseExact(notaCredito.U_FITE, "yyyy-MM-dd", null);
+                int dNumTim = notaCredito.U_TIM;    
+                int iTipEmi = 1; // Siempre fijo en 1
+
+                int iMotEmi = notaCredito.iMotEmi;
+                int iTipDocAso = notaCredito.iTipDocAso;
+                string? dEstDocAso = null;
+                string? dPExpDocAso = null;
+                string? dNumDocAso = null;
+                int? iTipoDocAso = null;
+                string? dCdCDERef = null;
+                int? dNTimDI = null;
+                DateTime? dFecEmiDI = null;
+
+                string notacreditoReferencia = notaCredito.U_NUMFC; 
+
+                if (!string.IsNullOrWhiteSpace(notacreditoReferencia))
+                {
+                    string[] partesNotaCredito = notacreditoReferencia.Split('-');
+
+                    if (iTipDocAso == 1)
+                    {
+                        string? EST = partesNotaCredito.Length > 0 ? partesNotaCredito[0] : null;
+                        string? PDE = partesNotaCredito.Length > 1 ? partesNotaCredito[1] : null;
+                        string? Folio = partesNotaCredito.Length > 2 ? partesNotaCredito[2] : null;
+
+                        var datos = await _notaCreditoService.ObtenerCDCFactura(EST, PDE, Folio, rucCompleto);
+
+                        dCdCDERef = datos.dCdCDERef;
+                        
+                    }
+                    else
+                    {
+                        dEstDocAso = partesNotaCredito.Length > 0 ? partesNotaCredito[0] : null;
+                        dPExpDocAso = partesNotaCredito.Length > 1 ? partesNotaCredito[1] : null;
+                        dNumDocAso = partesNotaCredito.Length > 2 ? partesNotaCredito[2] : null;
+                        iTipoDocAso = 1;
+
+                        var datos = await _notaCreditoService.ObtenerCDCFactura(dEstDocAso, dPExpDocAso, dNumDocAso, rucCompleto);
+
+                        dNTimDI = datos.dNTimDI;
+                        dFecEmiDI = datos.dFecEmiDI;
+                        dCdCDERef = null;
+                    }
+                }
+                
+                DateTime fecha = DateTime.ParseExact(notaCredito.DocDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+                TimeSpan hora = TimeSpan.Zero;
+
+                if (notaCredito.DocTime > 0)
+                {
+                    int horaInt = notaCredito.DocTime;
+
+                    int horas = horaInt / 10000;
+                    int minutos = (horaInt % 10000) / 100;
+                    int segundos = horaInt % 100;
+
+                    hora = new TimeSpan(horas, minutos, segundos);
+                }
+
+                DateTime dFeEmiDE = fecha.Date.Add(hora);
+
+                string fechaFormatoCDC = dFeEmiDE.ToString("yyyyMMdd");
+                DateTime dFecFirma = DateTime.Now;
+
+                // Procesamiento de líneas de items
+                List<Item> itemsList = new List<Item>();
+                if (notaCredito.Items != null && notaCredito.Items.Any())
+                {
+                    foreach (var item in notaCredito.Items)
+                    {                           
+                        decimal totalBruto = item.dCantProSer * item.dPUniProSer;
+                        int tasaIVA = 0;
+
+                        if (item.dTasaIVA == 5 || item.dTasaIVA == 1.5m)
+                        {
+                            tasaIVA = 5;
+                        }
+                        else if (item.dTasaIVA == 10)
+                        {
+                            tasaIVA = 10;
+                        }
+                        
+                        string descAfectacionIVA = "Gravado IVA";
+                        int afectacionIVA = 1;
+                        int proporcionIVA = 100;
+                        
+                        if (item.taxCode != null && item.taxCode.Equals("IVA_EXE", StringComparison.OrdinalIgnoreCase))
+                        {
+                            afectacionIVA = 3;
+                            descAfectacionIVA = "Exento";
+                            proporcionIVA = 0;
+                        }
+                        else if (item.taxCode != null && item.taxCode.Equals("IVA_IMB", StringComparison.OrdinalIgnoreCase))
+                        {
+                            afectacionIVA = 4;
+                            descAfectacionIVA = "Gravado parcial (Grav- Exento)";
+                            proporcionIVA = 30;
+                        }
+                        else if (item.taxCode?.Contains("IVA_5", StringComparison.OrdinalIgnoreCase) == true ||
+                            (item.taxCode != null && item.taxCode.Equals("IVA_10", StringComparison.OrdinalIgnoreCase)))                                
+                        {
+                            afectacionIVA = 1;
+                            descAfectacionIVA = "Gravado IVA";
+                            proporcionIVA = 100;
+                        }
+
+                        decimal baseGravadaIVA = 0;
+
+                        if (tasaIVA == 10 && (afectacionIVA == 1 || afectacionIVA == 4)) 
+                        {
+                            baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)),8);
+                        }
+                        else if ((tasaIVA == 5 || item.dTasaIVA == 1.5m) && (afectacionIVA == 1 || afectacionIVA == 4)) 
+                        {
+                            baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)),8);
+                        }
+                        else if (tasaIVA == 0 && (afectacionIVA == 2 || afectacionIVA == 3)) 
+                        {
+                            baseGravadaIVA = 0;
+                        }
+
+                        decimal liquidacionIVA = 0;
+
+                        if (afectacionIVA != 2 && afectacionIVA != 3)
+                        {
+                            decimal tasaDecimal = tasaIVA / 100m;
+                            liquidacionIVA = Math.Round(baseGravadaIVA * tasaDecimal, 8);
+                        }
+
+                        decimal baseExenta = 0;
+
+                        if (afectacionIVA == 4)
+                        {
+                            baseExenta = Math.Round((100 * totalBruto * (100 - proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)),8);
+                        }
+
+                        itemsList.Add(new Item
+                        {
+                            dCodInt = item.dCodInt,
+                            dDesProSer = item.dDesProSer,
+                            dCantProSer = item.dCantProSer,
+                            dPUniProSer = item.dPUniProSer,
+                            cUniMed = item.cUniMed,
+                            dDesUniMed = item.dDesUniMed,
+                            dTiCamIt = item.dTiCamIt,
+                            dTotBruOpeItem = totalBruto,
+                            iAfecIVA = afectacionIVA,
+                            dDesAfecIVA = descAfectacionIVA,
+                            dPropIVA = proporcionIVA,
+                            dTasaIVA = tasaIVA,
+                            dBasGravIVA = baseGravadaIVA,
+                            dLiqIVAItem = liquidacionIVA,
+                            dBasExe = baseExenta,
+                        });
+                    }
+                }
+
+                int? iIndPres = null;
+                int? iCondOpe = null; 
+                int? iCondCred = null;
+                string? iTipTra = null;
+                int? iTiPago = null;
+                int? dMonTiPag = null;
+                string? cMoneTiPag = null;
+                string? dDMoneTiPag = null;
+                int? dTiCamTiPag = null;
+
+                List<GCuotas> cuotasList = null;
+                string plazoCredito = null;
+
+                // Calcular subtotales y totales usando el helper
+                var totalesFactura = Totalizador.CalcularTotalesFactura(itemsList, notaCredito.dTiCam, notaCredito.Currencies.cMoneOpe);
+        
+                // Se genera el Código de Control (CDC)     
+                string dCodSeg = GenerarCodigoSeguridad();
+
+                string cdc = GenerarCDC.GenerarCodigoCDC(iTiDE, _empresaInfo.Ruc, _empresaInfo.Dv.ToString(), dEst, dPunExp, dNumDoc, _empresaInfo.TipoContribuyente.ToString(), fechaFormatoCDC, iTipEmi.ToString(), dCodSeg);
+                // Se extraer el Dígito Verificador (dv)
+                int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
+                string xmlTiDE = Convert.ToInt32(iTiDE).ToString();
+
+                //    bool actualizado = await _facturaService.ActualizarCDC(factura.DocEntry, cdc);
+    /*    if (actualizado)
+                {
+                    _logger.LogInformation($"CDC generado y actualizado: {cdc}");   
+   */
+                    // Generar XML
+                    string rutaXml = $"XML/Documento_{cdc}.xml";                   
+
+                    GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,  
+                        _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento, 
+                        _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, 
+                        U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag,
+                        _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado,
+                        iMotEmi, dCdCDERef, dFecEmiDI, dNTimDI, dEstDocAso, dPExpDocAso, dNumDocAso, iTipDocAso, iTipoDocAso); 
+         /*    }
                 else
                 {
                     _logger.LogWarning($"No se pudo actualizar el CDC para la factura {factura.DocEntry}");

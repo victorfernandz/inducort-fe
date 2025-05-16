@@ -310,12 +310,7 @@ public class FacturaService
                 string queryDirecciones = $"BusinessPartners('{cardCode}')/BPAddresses";
 
                 // Usando el método auxiliar para obtener la respuesta
-                var jsonResponse = await HttpHelper.GetStringAsync(
-                    _httpClient, 
-                    queryDirecciones, 
-                    _logger, 
-                    $"Error al obtener direcciones para {cardCode}"
-                );
+                var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDirecciones, _logger, $"Error al obtener direcciones para {cardCode}");
 
                 if (string.IsNullOrEmpty(jsonResponse))
                 {
@@ -328,7 +323,6 @@ public class FacturaService
                 if (responseObj == null || responseObj.BPAddresses == null || !responseObj.BPAddresses.Any())
                 {
                     _logger.LogWarning($"No se encontraron direcciones para {cardCode}.");
-                    Console.WriteLine($"No se encontraron direcciones para {cardCode}.");
                     continue;
                 }
 
@@ -347,11 +341,10 @@ public class FacturaService
             catch (Exception ex)
             {
                 _logger.LogError($"Error al procesar direcciones para {cardCode}: {ex.Message}");
-                Console.WriteLine($"Error al procesar direcciones para {cardCode}: {ex.Message}");
+                
                 if (ex.InnerException != null)
                 {
                     _logger.LogError($"Error interno: {ex.InnerException.Message}");
-                    Console.WriteLine($"Error interno: {ex.InnerException.Message}");
                 }
             }
         }

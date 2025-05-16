@@ -19,11 +19,9 @@ public class CreditNotesData
     public int DocTime { get; set; }
     public string U_FITE { get; set; }
     public int U_TIM { get; set; }
-    public string U_EXX_FE_TipoTran { get; set; }
-    public int U_EXX_FE_IndPresencia { get; set; }
-    public int PaymentGroupCode { get; set; }
-    public int NumberOfInstallments { get; set; }
     public decimal DocRate { get; set; }
     public string U_NUMFC { get; set; }
     public int U_TIMFC { get; set; }
+    public int U_DASO { get; set; }
+    public int U_EXX_FE_MotEmision { get; set; }
 }

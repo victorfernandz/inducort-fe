@@ -11,13 +11,18 @@ public class NotaCredito
     public int DocTime { get; set; }
     public int U_TIM { get; set; }
     public string U_FITE { get; set; }
-    public string iTipTra { get; set; }
-    public int iIndPres { get; set; }
-    public int iCondOpe { get; set; }
-    public int iCondCred { get; set; }
     public decimal dTiCam { get; set; }
+    public int iMotEmi { get; set; }
+    public int iTipDocAso { get; set; }
+    public string dCdCDERef { get; set; }
+    public int dNTimDI { get; set; }
+    public string dEstDocAso { get; set; }
+    public string dPExpDocAso { get; set; }    
+    public string dNumDocAso { get; set; }
+    public int iTipoDocAso { get; set; }
+    public string dDTipoDocAso { get; set; }
+    public DateTime dFecEmiDI { get; set; }
     public string U_NUMFC { get; set; }
-    public int U_TIMFC { get; set; }
     public BusinessPartner BusinessPartner { get; set; }
     public Currencies Currencies { get; set; }
     public List<Item> Items { get; set; } = new List<Item>();
