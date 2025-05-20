@@ -6,33 +6,33 @@ using System.Net.Http.Headers;
 using System.Security.Authentication;
 using Newtonsoft.Json;
 using System.Xml;
-public class EnvioSifenService 
+public class EnvioSifenService
 {
     private HttpClient _httpClient;
     private readonly LoggerSifenService _logger;
     private readonly string _baseDatos;
     private readonly ILogger _log;
     private readonly SAPServiceLayer _sapServiceLayer;
-    
+
     public EnvioSifenService(string baseUrl, LoggerSifenService logger, Config config, ILogger log, SAPServiceLayer sapServiceLayer = null)
     {
         _logger = logger;
         _baseDatos = config.SapServiceLayer.CompanyDB;
         _log = log;
         _sapServiceLayer = sapServiceLayer;
-        
+
         var handler = new HttpClientHandler
         {
             SslProtocols = SslProtocols.Tls12,
             ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
         };
-        
+
         _httpClient = new HttpClient(handler)
         {
             BaseAddress = new Uri(baseUrl),
             Timeout = TimeSpan.FromMinutes(2)
         };
-        
+
         _log.LogInformation($"EnvioSifenService inicializado con URL base: {baseUrl}");
     }
 
@@ -70,8 +70,8 @@ public class EnvioSifenService
             return Encoding.UTF8.GetString(ms.ToArray()).TrimStart('\r', '\n');
         }
     }
-    
-    public async Task<string> EnviarDocumentoAsincronico(List<(string cdc, string xmlFirmado)> documentosFirmados, string tipoDocumento)
+
+    public async Task<string> EnviarDocumentoAsincronico(List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados, string tipoDocumento, string xmlTiDE)
     {
         if (documentosFirmados.Count < 1 || documentosFirmados.Count > 50)
             throw new Exception("El lote debe contener entre 1 y 50 documentos.");
@@ -108,7 +108,7 @@ public class EnvioSifenService
             XmlElement rootElement = loteDoc.CreateElement("rLoteDE", "");
             loteDoc.AppendChild(rootElement);
 
-            foreach (var (cdc, xmlFirmado) in documentosFirmados)
+            foreach (var (docEntry, cdc, xmlFirmado) in documentosFirmados)
             {
                 try
                 {
@@ -173,7 +173,7 @@ public class EnvioSifenService
         </xsd:rEnvioLote>
     </soap:Body>
 </soap:Envelope>";
-    
+
             string soapEnvelope = sb.ToString();
             File.WriteAllText(Path.Combine(debugDir, $"soap_request_lote_{dId}.xml"), soapEnvelope);
 
@@ -181,7 +181,7 @@ public class EnvioSifenService
             soapContent.Headers.Add("SOAPAction", "");
             soapContent.Headers.ContentType.Parameters.Clear();
             soapContent.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
-            
+
             string fullUrl = "de/ws/async/recibe-lote.wsdl";
 
             var response = await _httpClient.PostAsync(fullUrl, soapContent);
@@ -200,32 +200,47 @@ public class EnvioSifenService
 
                 string codRes = xmlDoc.SelectSingleNode("//ns2:dCodRes", ns)?.InnerText;
                 string nroLote = xmlDoc.SelectSingleNode("//ns2:dProtConsLote", ns)?.InnerText;
+                string? mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgRes", ns)?.InnerText;
 
                 if (!string.IsNullOrEmpty(codRes)) codigoRespuesta = codRes;
                 if (!string.IsNullOrEmpty(nroLote)) numeroLote = nroLote;
 
                 _log.LogInformation($"Código respuesta: {codigoRespuesta}, Número lote: {numeroLote}");
+
+                foreach (var (docEntry, cdc, xmlFirmado) in documentosFirmados)
+                {
+                    try
+                    {
+                        _logger.RegistrarDocumento(_baseDatos, cdc, dId, numeroLote, xmlFirmado, estado, tipoDocumento, "siRecepLoteDE", fechaCreacion, fechaEnvio, fechaRespuesta, mensaje, codigoRespuesta);
+
+                        if (_sapServiceLayer != null)
+                        {
+                            if (docEntry != -1)
+                            {
+                                bool actualizado = await ActualizarDocumento(xmlTiDE, docEntry, cdc, estado, codigoRespuesta, mensaje);
+                                _log.LogInformation($"Documento {tipoDocumento} con CDC {cdc} actualizado en SAP: {actualizado}");
+                            }
+                            else
+                            {
+                                _log.LogWarning($"No se encontró docEntry para CDC {cdc}, tipo {tipoDocumento}");
+                            }
+                        }
+                    }
+                    catch (Exception dbEx)
+                    {
+                        _log.LogError($"Error al registrar CDC {cdc}: {dbEx.Message}");
+                    }
+                }
             }
             catch (Exception ex)
             {
                 _log.LogWarning($"Error al analizar respuesta XML: {ex.Message}");
             }
 
-            foreach (var (cdc, xmlFirmado) in documentosFirmados)
-            {
-                try
-                {
-                    _logger.RegistrarDocumento(_baseDatos, cdc, xmlFirmado, estado, tipoDocumento, "siRecepLoteDE", fechaCreacion, fechaEnvio, fechaRespuesta, mensajeRespuesta, codigoRespuesta);
-                }
-                catch (Exception dbEx)
-                {
-                    _log.LogError($"Error al registrar CDC {cdc}: {dbEx.Message}");
-                }
-            }
-
             if (!string.IsNullOrEmpty(numeroLote))
             {
-                bool consultaExitosa = await ConsultarEstadoLoteAsync(dId, numeroLote);
+                //bool consultaExitosa = await ConsultarEstadoLoteAsync(dId, numeroLote);
+                bool consultaExitosa = await ConsultarEstadoLoteAsync(dId, numeroLote, documentosFirmados, tipoDocumento, mensajeRespuesta, fechaCreacion, fechaEnvio);
                 _log.LogInformation($"Consulta de estado del lote {numeroLote} finalizada: {(consultaExitosa ? "Éxito" : "Incompleta o con error")}");
             }
 
@@ -243,7 +258,8 @@ public class EnvioSifenService
         }
     }
 
-    public async Task<bool> ConsultarEstadoLoteAsync(string dId, string numeroLote)
+    //public async Task<bool> ConsultarEstadoLoteAsync(string dId, string numeroLote)
+    public async Task<bool> ConsultarEstadoLoteAsync(string dId, string numeroLote, List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados, string tipoDocumento, string mensajeRespuesta, DateTime fechaCreacion, DateTime fechaEnvio)
     {
         try
         {
@@ -287,10 +303,28 @@ public class EnvioSifenService
 
                 _log.LogInformation($"Resultado consulta lote - Estado: {estado}, Código: {codigo}, Mensaje: {mensaje}");
 
+                DateTime? fechaRespuesta = DateTime.Now;
+
+                foreach (var (docEntry, cdc, xmlFirmado) in documentosFirmados)
+                {
+                    try
+                    {
+                        _logger.RegistrarDocumento(_baseDatos, cdc, dId, numeroLote, xmlFirmado, estado, tipoDocumento, "consultaLoteDE", fechaCreacion, fechaEnvio, fechaRespuesta, mensaje, codigo);
+
+                        if (_sapServiceLayer != null && docEntry != -1)
+                        {
+                            bool actualizado = await ActualizarDocumento(tipoDocumento, docEntry, cdc, estado, codigo, mensaje);
+                            
+                            _log.LogInformation($"Documento {tipoDocumento} con CDC {cdc} actualizado tras consulta: {actualizado}");
+                        }
+                    }
+                    catch (Exception exReg)
+                    {
+                        _log.LogError($"Error al registrar resultado de consulta para CDC {cdc}: {exReg.Message}");
+                    }
+                }
+
                 return estado == "Aprobado" || estado == "Rechazado" || estado == "Aprobado con Observaciones";
-
-     //           _logger.RegistrarDocumento(_baseDatos, cdc, xmlFirmado, estado, tipoDocumento, "rEnviConsLoteDe", fechaCreacion, fechaEnvio, fechaRespuesta, mensajeRespuesta, codigoRespuesta);
-
             }
             else
             {
@@ -305,7 +339,7 @@ public class EnvioSifenService
             return false;
         }
     }
-    
+
     public async Task<(byte[] certificadoBytes, string contraseña)> ObtenerCertificadoActivo()
     {
         try
@@ -314,49 +348,49 @@ public class EnvioSifenService
             {
                 throw new InvalidOperationException("SAPServiceLayer no está disponible para obtener el certificado");
             }
-            
+
             // Consultar el certificado activo
             string query = "U_CERTIFICADOS?$filter=U_ACTIVO eq 'Y'";
-            
+
             var response = await _sapServiceLayer.GetHttpClient().GetAsync(query);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _log.LogError($"Error al consultar certificados: {response.StatusCode}");
                 throw new Exception($"Error al consultar certificados: {response.StatusCode}");
             }
-            
+
             var jsonResponse = await response.Content.ReadAsStringAsync();
-            
+
             if (string.IsNullOrEmpty(jsonResponse))
             {
                 throw new Exception("No se pudo obtener respuesta del servicio de certificados");
             }
-            
+
             var responseObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
-            
+
             if (responseObj == null || !responseObj.ContainsKey("value"))
             {
                 throw new Exception("Formato de respuesta inválido al obtener certificado");
             }
-            
+
             var certificadosArray = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(responseObj["value"].ToString());
-            
+
             if (certificadosArray == null || certificadosArray.Count == 0)
             {
                 throw new Exception("No se encontró un certificado activo");
             }
-            
+
             // Tomar el primer certificado activo
             var certificado = certificadosArray[0];
-            
+
             // Obtener los datos del certificado y contraseña
             string? certificadoBase64 = certificado["U_ARCHIVO"].ToString();
             string? contraseñaBase64 = certificado["U_PWD"].ToString();
-            
+
             byte[] certificadoBytes = Convert.FromBase64String(certificadoBase64);
             string contraseña = Encoding.UTF8.GetString(Convert.FromBase64String(contraseñaBase64));
-            
+
             _log.LogInformation($"Certificado obtenido correctamente: {certificado["Name"]}");
             return (certificadoBytes, contraseña);
         }
@@ -370,37 +404,37 @@ public class EnvioSifenService
             throw new Exception("Error al obtener certificado digital", ex);
         }
     }
-    
+
     private void ConfigurarCertificadoCliente(byte[] certificadoBytes, string contraseña)
     {
         try
         {
             // Cargar el certificado
             var certificado = new X509Certificate2(certificadoBytes, contraseña, X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
-            
+
             var handler = new HttpClientHandler
             {
                 SslProtocols = SslProtocols.Tls12,
                 ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true,
                 ClientCertificates = { certificado }
             };
-            
+
             var nuevoHttpClient = new HttpClient(handler)
             {
                 BaseAddress = _httpClient.BaseAddress,
                 Timeout = _httpClient.Timeout
             };
-            
+
             foreach (var header in _httpClient.DefaultRequestHeaders)
             {
                 nuevoHttpClient.DefaultRequestHeaders.Add(header.Key, header.Value);
             }
-            
+
             var clienteAnterior = _httpClient;
             _httpClient = nuevoHttpClient;
-            
+
             clienteAnterior.Dispose();
-            
+
             _log.LogInformation($"Certificado cliente configurado: {certificado.Subject}, válido desde {certificado.NotBefore} hasta {certificado.NotAfter}");
         }
         catch (Exception ex)
@@ -408,5 +442,50 @@ public class EnvioSifenService
             _log.LogError($"Error al configurar certificado cliente: {ex.Message}");
             throw;
         }
+    }
+    
+    public async Task<bool> ActualizarDocumento(string xmlTiDE, int docEntry, string cdc, string estadoSifen, string codigoRespuesta, string descripcionRespuesta)
+    {
+        string estadoInternoSAP = estadoSifen.ToUpper() switch
+        {
+            "ENVIADO" => "ENV",
+            "RECHAZADO" => "NAU",
+            "AUTORIZADO" => "AUT",
+            "OFFLINE" => "OFF"
+        };
+
+        var requestBody = new
+        {
+            U_EXX_FE_CDC = cdc,
+            U_EXX_FE_Estado = estadoInternoSAP,
+            U_EXX_FE_CODERR = codigoRespuesta,
+            U_EXX_FE_DESERR = descripcionRespuesta,
+            U_EXX_FE_FECAUT = DateTime.Now
+    //        U_EXX_FE_QR = QR
+        };
+
+        var content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
+
+        HttpClient sapClient = _sapServiceLayer.GetHttpClient();
+
+        HttpResponseMessage response;
+
+        if (xmlTiDE == "1" || xmlTiDE == "01")
+        {
+            response = await sapClient.PatchAsync($"Invoices({docEntry})", content);
+        }
+        else
+        {
+            response = await sapClient.PatchAsync($"CreditNotes({docEntry})", content);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            string errorContent = await response.Content.ReadAsStringAsync();
+            _log.LogError($"Error al actualizar documento {docEntry} en SAP. Estado: {estadoSifen}, Código: {estadoInternoSAP}");
+            _log.LogError($"Respuesta del Service Layer: {errorContent}");
+        }
+
+        return response.IsSuccessStatusCode;
     }
 }

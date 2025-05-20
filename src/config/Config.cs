@@ -28,7 +28,7 @@ public class Config
             {
                 throw new InvalidOperationException("Configuración SAP Service Layer no encontrada");
             }
-
+/*
             if (config.HanaDatabase == null)
             {
                 config.HanaDatabase = new HanaDatabaseConfig
@@ -39,7 +39,7 @@ public class Config
                     Schema = "SAP_SIFEN"
                 };
             }
-
+*/
             if (config.Sifen == null ||
                 string.IsNullOrWhiteSpace(config.Sifen.Url) ||
                 string.IsNullOrWhiteSpace(config.Sifen.IdCSC) ||

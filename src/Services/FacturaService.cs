@@ -13,12 +13,83 @@ public class FacturaService
         _logger = logger;
     }
 
+    public async Task<List<Factura>> GetFacturasSinAutorizar()
+    {
+        string queryDocumento =
+            "$crossjoin(Invoices,BusinessPartners,Currencies)" +
+            "?$expand=Invoices($select=DocEntry,DocDate,U_EXX_FE_CDC,U_EXX_FE_Estado,U_CDOC,U_PDE,FolioNumber)," +
+            "BusinessPartners($select=CardCode)," +
+            "Currencies($select=Code)" +
+            "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
+            "Invoices/DocCurrency eq Currencies/Code and " +
+            "Invoices/FolioNumber ne null and " +
+            "Invoices/DocDate ge '20250501' and " +
+            "Invoices/U_EXX_FE_Estado ne 'AUT' and " +
+            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne ''";
+
+        var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
+
+        if (string.IsNullOrEmpty(jsonResponse))
+        {
+            _logger.LogWarning("No se encontraron datos en la respuesta de SAP.");
+            return new List<Factura>();
+        }
+
+        var rawJson = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
+        if (rawJson == null || !rawJson.ContainsKey("value"))
+        {
+            _logger.LogWarning("No se encontraron datos en la respuesta de SAP.");
+            return new List<Factura>();
+        }
+
+        var facturasJson = rawJson["value"].ToString();
+        var facturaResponses = JsonConvert.DeserializeObject<List<FacturaResponse>>(facturasJson);
+
+        if (facturaResponses == null || facturaResponses.Count == 0)
+        {
+            _logger.LogWarning("No se pudieron deserializar las facturas sin procesar.");
+            return new List<Factura>();
+        }
+
+        var facturasValidas = facturaResponses
+            .Where(f => f.Invoices != null)
+            .ToList();
+
+        if (facturasValidas.Count < facturaResponses.Count)
+        {
+            _logger.LogWarning($"Se detectaron {facturaResponses.Count - facturasValidas.Count} entradas con Invoices nulo. Se ignorarán.");
+        }
+
+        var facturasAgrupadas = facturasValidas.GroupBy(f => f.Invoices.DocEntry);
+        var facturasList = new List<Factura>();
+
+        foreach (var group in facturasAgrupadas)
+        {
+            var first = group.First();
+
+            var factura = new Factura
+            {
+                DocEntry = first.Invoices.DocEntry,
+                DocDate = first.Invoices.DocDate,
+                U_EXX_FE_CDC = first.Invoices.U_EXX_FE_CDC,
+                U_CDOC = first.Invoices.U_CDOC,
+        //        U_PDE = first.Invoices.U_PDE,
+                FolioNum = first.Invoices.FolioNumber
+        //        U_EST = first.Invoices.U_EXX_FE_Estado
+            };
+
+            facturasList.Add(factura);
+        }
+
+        return facturasList;
+    }
+
     public async Task<List<Factura>> GetFacturasSinCDC()
     {
-        string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies) " + 
-            "?$expand=Invoices($select=DocEntry,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," + 
-            "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID), " +
-            "Currencies($select=Code,Name,DocumentsCode) " + 
+        string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
+            "?$expand=Invoices($select=DocEntry,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," +
+            "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID)," +
+            "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and (Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
             "Invoices/DocDate eq '20250506'";
@@ -55,7 +126,7 @@ public class FacturaService
         var cardCode = facturasResponse.Select(f => f.BusinessPartners.CardCode).Distinct().ToList();
         var direcciones = await GetDireccionesSocioNegocio(cardCode);
         var paises = direcciones.Select(d => d.Country).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
-        
+
         // Crear diccionarios para nombres y códigos de países
         var nombresCodigosPaises = new Dictionary<string, (string Nombre, string CodigoReporte)>();
 
@@ -74,7 +145,7 @@ public class FacturaService
             var docEntry = facturaGroup.Key;
             // Tomar la primera entrada para obtener la información general de la factura
             var primeraEntrada = facturaGroup.Value.First();
-            
+
             if (primeraEntrada.Invoices == null || primeraEntrada.BusinessPartners == null || primeraEntrada.Currencies == null)
             {
                 continue;
@@ -102,7 +173,7 @@ public class FacturaService
                 CardCode = primeraEntrada.Invoices.CardCode ?? "",
                 U_EST = primeraEntrada.Invoices.U_EST ?? "",
                 U_PDE = primeraEntrada.Invoices.U_PDE ?? "",
-                FolioNum = primeraEntrada.Invoices.FolioNumber ?? "", 
+                FolioNum = primeraEntrada.Invoices.FolioNumber ?? "",
                 DocDate = primeraEntrada.Invoices.DocDate,
                 DocTime = await ObtenerDocTimePorDocEntry(docEntry),
                 U_TIM = primeraEntrada.Invoices.U_TIM,
@@ -143,7 +214,7 @@ public class FacturaService
             // Normalizar la condición de operación y condición de crédito
             int condicionOperacion = factura.iCondOpe == -1 ? 1 : 2;
             int condicionCredito = factura.iCondCred == 1 ? 1 : 2;
-            
+
             // Solo inicializar la operación de crédito si la condición de operación es crédito (2)
             if (condicionOperacion == 2)
             {
@@ -153,19 +224,19 @@ public class FacturaService
                 {
                     plazoCredito = await ObtenerPlazoCredito(factura.DocEntry);
                 }
-                
+
                 int? cantidadCuotas = condicionCredito == 2 ? factura.iCondCred : null;
-                
+
                 // Inicializar la operación de crédito
                 factura.OperacionCredito = new GPagCred(condicionCredito, plazoCredito, cantidadCuotas);
-                
+
                 // Si es por cuotas, obtener las cuotas
                 if (condicionCredito == 2)
                 {
                     try
                     {
                         var cuotasResponse = await GetCuotasFactura(factura.DocEntry);
-                        
+
                         if (cuotasResponse != null && cuotasResponse.Any())
                         {
                             foreach (var cuota in cuotasResponse)
@@ -174,14 +245,14 @@ public class FacturaService
                                 {
                                     // Determinar el monto de la cuota
                                     decimal montoCuota = cuota.TotalFC > 0 ? cuota.TotalFC : cuota.Total;
-                                    
+
                                     var nuevaCuota = new GCuotas(
                                         factura.Currencies.cMoneOpe,         // Moneda de la cuota
                                         factura.Currencies.dDesMoneOpe,      // Descripción de la moneda
                                         montoCuota,                          // Monto de la cuota
                                         fechaVencimiento                     // Fecha de vencimiento
                                     );
-                                    
+
                                     factura.OperacionCredito.Cuotas.Add(nuevaCuota);
                                 }
                                 else

@@ -170,13 +170,13 @@ public class SifenSigner
         if (rEve == null)
             throw new Exception("No se encontró el nodo <rEve> para firmar.");
 
-        // CORRECCIÓN: El atributo Id NO debe tener # como prefijo
+        // El atributo Id NO debe tener # como prefijo
         rEve.SetAttribute("Id", referenceId);
 
         SignedXml signedXml = new SignedXmlWithId(xmlDoc);
         signedXml.SigningKey = certificado.GetRSAPrivateKey();
 
-        // CORRECCIÓN: Añadir # a la referencia, pero no incluirlo en el atributo Id
+        // Añadir # a la referencia, pero no incluirlo en el atributo Id
         Reference reference = new Reference("#" + referenceId);
 
         reference.AddTransform(new XmlDsigEnvelopedSignatureTransform());
@@ -192,10 +192,12 @@ public class SifenSigner
         KeyInfoX509Data x509Data = new KeyInfoX509Data(certificado);
         
         // Agregar la información adicional de X509IssuerSerial
-        try {
+        try
+        {
             x509Data.AddIssuerSerial(certificado.Issuer, certificado.SerialNumber);
-        } catch {
-            // Si falla, continuar sin esta información
+        }
+        catch
+        {
         }
         
         keyInfo.AddClause(x509Data);

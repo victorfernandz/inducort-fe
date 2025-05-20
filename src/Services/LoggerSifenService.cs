@@ -22,7 +22,7 @@ public class LoggerSifenService
         Directory.CreateDirectory(_respuestasPath);
     }
 
-    public void RegistrarDocumento(string baseDatos, string cdc, string xmlFirmado, string estado, string tipoDocumento, string servicio, DateTime fechaCreacion, DateTime fechaEnvio, DateTime? fechaRespuesta, string mensajeRespuesta, string codigoRespuesta = "")
+    public void RegistrarDocumento(string baseDatos, string cdc, string dId, string lote, string xmlFirmado, string estado, string tipoDocumento, string servicio, DateTime fechaCreacion, DateTime fechaEnvio, DateTime? fechaRespuesta, string mensajeRespuesta, string codigoRespuesta = "")
     {
         try
         {
@@ -77,7 +77,7 @@ public class LoggerSifenService
 
                     _logger?.LogWarning($"No se pudo analizar XML: {exXml.Message}");
                 }
-                
+
                 if (string.IsNullOrEmpty(dCodRes) && mensajeRespuesta.Contains("|Codigo:"))
                 {
                     int startCodigo = mensajeRespuesta.IndexOf("|Codigo:") + 8;
@@ -87,12 +87,12 @@ public class LoggerSifenService
                         dCodRes = mensajeRespuesta.Substring(startCodigo, endCodigo - startCodigo);
                     }
                 }
-                
+
                 if (string.IsNullOrEmpty(dMsgRes) && mensajeRespuesta.Contains("|Mensaje:"))
                 {
                     int startMsg = mensajeRespuesta.IndexOf("|Mensaje:") + 9;
-                    int endMsg = (mensajeRespuesta.IndexOf("|", startMsg) > 0) 
-                        ? mensajeRespuesta.IndexOf("|", startMsg) 
+                    int endMsg = (mensajeRespuesta.IndexOf("|", startMsg) > 0)
+                        ? mensajeRespuesta.IndexOf("|", startMsg)
                         : mensajeRespuesta.Length;
                     if (endMsg > startMsg)
                     {
@@ -115,10 +115,12 @@ public class LoggerSifenService
                 {
                     command.CommandText = @"
                         INSERT INTO SAP_SIFEN.DOCUMENTOS_SIFEN
-                        (BASE_DATOS, CDC, XML, ESTADO, DCODRES, TIPO_DOCUMENTO, SERVICIO, FECHA_CREACION, FECHA_ENVIO, FECHA_RESPUESTA, MENSAJE_RESPUESTA, RESPUESTA_BRUTA)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                        (BASE_DATOS, DID, LOTE, CDC, XML, ESTADO, DCODRES, TIPO_DOCUMENTO, SERVICIO, FECHA_CREACION, FECHA_ENVIO, FECHA_RESPUESTA, MENSAJE_RESPUESTA, RESPUESTA_BRUTA)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
                     command.Parameters.AddWithValue("@BASE_DATOS", baseDatos);
+                    command.Parameters.AddWithValue("@DID", dId);
+                    command.Parameters.AddWithValue("@LOTE", lote);
                     command.Parameters.AddWithValue("@CDC", cdc);
                     command.Parameters.AddWithValue("@XML", xmlFirmado);
                     command.Parameters.AddWithValue("@ESTADO", dEstRes);
@@ -165,4 +167,25 @@ public class LoggerSifenService
             throw;
         }
     }
+    
+    public (string dId, string lote) ObtenerLotePorCDC(string cdc)
+    {
+        using var conn = new OdbcConnection(_connectionString);
+        conn.Open();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT DID, LOTE FROM SAP_SIFEN.DOCUMENTOS_SIFEN WHERE CDC = ? ORDER BY FECHA_CREACION DESC";
+        cmd.Parameters.AddWithValue("@CDC", cdc);
+
+        using var reader = cmd.ExecuteReader();
+        if (reader.Read())
+        {
+            string dId = reader["DID"]?.ToString();
+            string lote = reader["LOTE"]?.ToString();
+            return (dId, lote);
+        }
+
+        return (null, null);
+    }
+
 }
