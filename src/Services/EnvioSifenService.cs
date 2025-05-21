@@ -112,7 +112,8 @@ public class EnvioSifenService
             {
                 try
                 {
-                    string rutaArchivoFirmado = $"XML/Documento_{cdc}.xml";
+                    string basePath = AppDomain.CurrentDomain.BaseDirectory;
+                    string rutaArchivoFirmado = Path.Combine(basePath, "XML", $"Documento_{cdc}.xml");
                     File.Copy(rutaArchivoFirmado, Path.Combine(debugDir, $"rDE_completo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), true);
 
                     string xmlNormalizado = NormalizarXmlFirmado(xmlFirmado);
@@ -198,8 +199,8 @@ public class EnvioSifenService
                 var ns = new XmlNamespaceManager(xmlDoc.NameTable);
                 ns.AddNamespace("ns2", "http://ekuatia.set.gov.py/sifen/xsd");
 
-                string codRes = xmlDoc.SelectSingleNode("//ns2:dCodRes", ns)?.InnerText;
-                string nroLote = xmlDoc.SelectSingleNode("//ns2:dProtConsLote", ns)?.InnerText;
+                string? codRes = xmlDoc.SelectSingleNode("//ns2:dCodRes", ns)?.InnerText;
+                string? nroLote = xmlDoc.SelectSingleNode("//ns2:dProtConsLote", ns)?.InnerText;
                 string? mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgRes", ns)?.InnerText;
 
                 if (!string.IsNullOrEmpty(codRes)) codigoRespuesta = codRes;
@@ -240,7 +241,7 @@ public class EnvioSifenService
             if (!string.IsNullOrEmpty(numeroLote))
             {
                 //bool consultaExitosa = await ConsultarEstadoLoteAsync(dId, numeroLote);
-                bool consultaExitosa = await ConsultarEstadoLoteAsync(dId, numeroLote, documentosFirmados, tipoDocumento, mensajeRespuesta, fechaCreacion, fechaEnvio);
+                bool consultaExitosa = await ConsultarEstadoLoteAsync(dId, numeroLote, documentosFirmados, tipoDocumento, fechaCreacion, fechaEnvio);
                 _log.LogInformation($"Consulta de estado del lote {numeroLote} finalizada: {(consultaExitosa ? "Éxito" : "Incompleta o con error")}");
             }
 
@@ -259,7 +260,7 @@ public class EnvioSifenService
     }
 
     //public async Task<bool> ConsultarEstadoLoteAsync(string dId, string numeroLote)
-    public async Task<bool> ConsultarEstadoLoteAsync(string dId, string numeroLote, List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados, string tipoDocumento, string mensajeRespuesta, DateTime fechaCreacion, DateTime fechaEnvio)
+    public async Task<bool> ConsultarEstadoLoteAsync(string dId, string numeroLote, List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados, string tipoDocumento, DateTime fechaCreacion, DateTime fechaEnvio)
     {
         try
         {
@@ -290,41 +291,68 @@ public class EnvioSifenService
 
             if (response.IsSuccessStatusCode)
             {
-                XmlDocument xmlDoc = new XmlDocument();
-                xmlDoc.LoadXml(resultXml);
-
-                var ns = new XmlNamespaceManager(xmlDoc.NameTable);
-                ns.AddNamespace("env", "http://www.w3.org/2003/05/soap-envelope");
-                ns.AddNamespace("ns2", "http://ekuatia.set.gov.py/sifen/xsd");
-
-                string? estado = xmlDoc.SelectSingleNode("//ns2:dEstRes", ns)?.InnerText;
-                string? codigo = xmlDoc.SelectSingleNode("//ns2:dCodRes", ns)?.InnerText;
-                string? mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgRes", ns)?.InnerText;
-
-                _log.LogInformation($"Resultado consulta lote - Estado: {estado}, Código: {codigo}, Mensaje: {mensaje}");
-
-                DateTime? fechaRespuesta = DateTime.Now;
-
-                foreach (var (docEntry, cdc, xmlFirmado) in documentosFirmados)
+                if (!resultXml.TrimStart().StartsWith("<"))
                 {
-                    try
-                    {
-                        _logger.RegistrarDocumento(_baseDatos, cdc, dId, numeroLote, xmlFirmado, estado, tipoDocumento, "consultaLoteDE", fechaCreacion, fechaEnvio, fechaRespuesta, mensaje, codigo);
-
-                        if (_sapServiceLayer != null && docEntry != -1)
-                        {
-                            bool actualizado = await ActualizarDocumento(tipoDocumento, docEntry, cdc, estado, codigo, mensaje);
-                            
-                            _log.LogInformation($"Documento {tipoDocumento} con CDC {cdc} actualizado tras consulta: {actualizado}");
-                        }
-                    }
-                    catch (Exception exReg)
-                    {
-                        _log.LogError($"Error al registrar resultado de consulta para CDC {cdc}: {exReg.Message}");
-                    }
+                    _log.LogError("La respuesta del servicio no es XML válido:");
+                    _log.LogError(resultXml);
+                    return false;
                 }
 
-                return estado == "Aprobado" || estado == "Rechazado" || estado == "Aprobado con Observaciones";
+                try
+                {
+                    XmlDocument xmlDoc = new XmlDocument();
+                    xmlDoc.LoadXml(resultXml);
+
+                    var ns = new XmlNamespaceManager(xmlDoc.NameTable);
+                    ns.AddNamespace("env", "http://www.w3.org/2003/05/soap-envelope");
+                    ns.AddNamespace("ns2", "http://ekuatia.set.gov.py/sifen/xsd");
+
+                    string? estado = xmlDoc.SelectSingleNode("//ns2:dEstRes", ns)?.InnerText;
+                    string? codigo = "";
+                    string? mensaje = "";
+
+                    if (estado == null)
+                    {
+                        estado = "Offline";
+                        codigo = xmlDoc.SelectSingleNode("//ns2:dCodResLot", ns)?.InnerText;
+                        mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgResLot", ns)?.InnerText;
+                    }
+                    else
+                    {
+                        codigo = xmlDoc.SelectSingleNode("//ns2:dCodRes", ns)?.InnerText;
+                        mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgRes", ns)?.InnerText;
+
+                        _log.LogInformation($"Resultado consulta lote - Estado: {estado}, Código: {codigo}, Mensaje: {mensaje}");
+                    }
+
+                    DateTime? fechaRespuesta = DateTime.Now;
+
+                    foreach (var (docEntry, cdc, xmlFirmado) in documentosFirmados)
+                    {
+                        try
+                        {
+                            _logger.RegistrarDocumento(_baseDatos, cdc, dId, numeroLote, xmlFirmado, estado, tipoDocumento, "consultaLoteDE", fechaCreacion, fechaEnvio, fechaRespuesta, mensaje, codigo);
+
+                            if (_sapServiceLayer != null && docEntry != -1)
+                            {
+                                bool actualizado = await ActualizarDocumento(tipoDocumento, docEntry, cdc, estado, codigo, mensaje);
+                                _log.LogInformation($"Documento {tipoDocumento} con CDC {cdc} actualizado tras consulta: {actualizado}");
+                            }
+                        }
+                        catch (Exception exReg)
+                        {
+                            _log.LogError($"Error al registrar resultado de consulta para CDC {cdc}: {exReg.Message}");
+                        }
+                    }
+
+                    return estado == "Aprobado" || estado == "Rechazado" || estado == "Aprobado con Observaciones";
+                }
+                catch (XmlException xex)
+                {
+                    _log.LogError($"La respuesta no es un XML válido. Excepción: {xex.Message}");
+                    _log.LogError(resultXml);
+                    return false;
+                }
             }
             else
             {
@@ -405,7 +433,7 @@ public class EnvioSifenService
         }
     }
 
-    private void ConfigurarCertificadoCliente(byte[] certificadoBytes, string contraseña)
+    public void ConfigurarCertificadoCliente(byte[] certificadoBytes, string contraseña)
     {
         try
         {
@@ -450,8 +478,9 @@ public class EnvioSifenService
         {
             "ENVIADO" => "ENV",
             "RECHAZADO" => "NAU",
-            "AUTORIZADO" => "AUT",
-            "OFFLINE" => "OFF"
+            "APROBADO" => "AUT",
+            "OFFLINE" => "OFF",
+            null => "OFF"
         };
 
         var requestBody = new
@@ -470,7 +499,7 @@ public class EnvioSifenService
 
         HttpResponseMessage response;
 
-        if (xmlTiDE == "1" || xmlTiDE == "01")
+        if (xmlTiDE == "1")
         {
             response = await sapClient.PatchAsync($"Invoices({docEntry})", content);
         }

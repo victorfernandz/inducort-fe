@@ -28,7 +28,7 @@ public class GDatGralOpe // Nodo padre A001
     public GDatGralOpe(){}
 
     public GDatGralOpe(DateTime dFeEmiDE, string? iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi,
-        string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec, decimal dTiCam,
+        string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string? dRucRec, int? dDVRec, decimal dTiCam,
         string? iTipIDRec, string? dNumIDRec,
         List<ActividadEconomica> actividades = null, List<ObligacionAfectada> obligaciones = null)
     {
@@ -318,7 +318,7 @@ public class GDatRec // Nodo padre D001
 
     public GDatRec(){}
 
-    public GDatRec (int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec, string? iTipIDRec, string? dNumIDRec)
+    public GDatRec (int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string? dRucRec, int? dDVRec, string? iTipIDRec, string? dNumIDRec)
     {
         NaturalezaReceptor = iNatRec;
         TipoOperacion = iTiOpe;

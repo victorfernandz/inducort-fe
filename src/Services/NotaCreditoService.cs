@@ -16,12 +16,12 @@ public class NotaCreditoService
     public async Task<List<NotaCredito>> GetNotaCreditoSinCDC()
     {
         string queryDocumento = "$crossjoin(CreditNotes,BusinessPartners,Currencies) " + 
-            "?$expand=CreditNotes($select=DocEntry,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision)," + 
+            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision)," + 
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion), " +
             "Currencies($select=Code,Name,DocumentsCode) " + 
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
             "CreditNotes/DocCurrency eq Currencies/Code and (CreditNotes/U_EXX_FE_CDC eq null or CreditNotes/U_EXX_FE_CDC eq '') and " +
-            "CreditNotes/DocDate eq '20250516'";
+            "CreditNotes/DocDate ge '20250516' and CreditNotes/FolioNumber ne null";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))
@@ -97,6 +97,7 @@ public class NotaCreditoService
             var notaCredito = new NotaCredito
             {
                 DocEntry = primeraEntrada.CreditNotes.DocEntry,
+                DocType = primeraEntrada.CreditNotes.DocType,
                 U_EXX_FE_CDC = primeraEntrada.CreditNotes.U_EXX_FE_CDC ?? "",
                 U_CDOC = primeraEntrada.CreditNotes.U_CDOC?.PadLeft(2, '0'),
                 CardCode = primeraEntrada.CreditNotes.CardCode ?? "",
@@ -189,7 +190,7 @@ public class NotaCreditoService
                         {
                             notaCredito.Items.Add(new Item
                             {
-                                dCodInt = linea.ItemCode,
+                                dCodInt = notaCredito.DocType == "S" ? "1" : linea.ItemCode,
                                 dDesProSer = linea.ItemDescription,
                                 dCantProSer = linea.Quantity,
                                 dPUniProSer = linea.PriceAfterVAT,
@@ -336,7 +337,7 @@ public class NotaCreditoService
     {
         try
         {
-            string query = $"Invoices?$select=DocDate,U_TIM,U_EXX_FE_CDC&$filter=FederalTaxID eq '{rucCompleto}' and U_EST eq '{dEstDocAso}' and U_PDE eq '{dPExpDocAso}' and FolioNumber eq {dNumDocAso}";
+            string query = $"CreditNotes?$select=DocDate,U_TIM,U_EXX_FE_CDC&$filter=FederalTaxID eq '{rucCompleto}' and U_EST eq '{dEstDocAso}' and U_PDE eq '{dPExpDocAso}' and FolioNumber eq {dNumDocAso}";
             var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, "Error al obtener datos de factura referenciada");
 
         if (string.IsNullOrWhiteSpace(jsonResponse))

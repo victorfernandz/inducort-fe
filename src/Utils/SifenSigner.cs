@@ -112,13 +112,13 @@ public class SifenSigner
 
             string? urlQR = null;
 
-            if (iNatRec == 1)
+            if (config.Sifen.Url.ToLower().Contains("test"))
             {
-                urlQR = "https://ekuatia.set.gov.py/consultas/qr?" + cadenaQR + "&cHashQR=" + cHashQR;
+                urlQR = "https://ekuatia.set.gov.py/consultas-test/qr?" + cadenaQR + "&cHashQR=" + cHashQR;
             }
             else
             {
-                urlQR = "https://ekuatia.set.gov.py/consultas-test/qr?" + cadenaQR + "&cHashQR=" + cHashQR;
+                urlQR = "https://ekuatia.set.gov.py/consultas/qr?" + cadenaQR + "&cHashQR=" + cHashQR;
             }
 
             XmlElement gCamFuFD = xmlDoc.CreateElement("gCamFuFD", xmlDoc.DocumentElement.NamespaceURI);

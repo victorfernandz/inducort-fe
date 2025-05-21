@@ -252,7 +252,7 @@ public class GPagCred // Nodo padre E600
     public string DescripcionCondicionCredito { get; set; }
 
     [XmlElement("dPlazoCre")]
-    public string PlazoCredito { get; set; }
+    public string? PlazoCredito { get; set; }
 
     [XmlElement("dCuotas")]
     public int? CantidadCuotas { get; set; }
@@ -265,7 +265,7 @@ public class GPagCred // Nodo padre E600
         Cuotas = new List<GCuotas>();
     }
 
-    public GPagCred(int iCondCred, string dPlazoCre, int? dCuotas = null)
+    public GPagCred(int iCondCred, string? dPlazoCre, int? dCuotas = null)
     {
         CondicionCredito = iCondCred;
         DescripcionCondicionCredito = ObtenerDescripcionCondicionCredito(iCondCred);

@@ -3,7 +3,9 @@ using System.Diagnostics.Contracts;
 public class Factura
 {
     public int DocEntry { get; set; }
+    public string DocType { get; set; }
     public string U_EXX_FE_CDC { get; set; }
+    public string U_EXX_FE_Estado { get; set; }
     public string U_CDOC { get; set; }
     public string CardCode { get; set; }
     public string U_EST { get; set; }
@@ -18,9 +20,9 @@ public class Factura
     public int iCondOpe { get; set; }
     public int iCondCred { get; set; }
     public decimal dTiCam { get; set; }
-    public BusinessPartner BusinessPartner { get; set; }
-    public Currencies Currencies { get; set; }
-    public GPagCred OperacionCredito { get; set; }
+    public BusinessPartner? BusinessPartner { get; set; }
+    public Currencies? Currencies { get; set; }
+    public GPagCred? OperacionCredito { get; set; }
     public List<Item> Items { get; set; } = new List<Item>();
-    public GPaConEIni PagoContado { get; set; }
+    public GPaConEIni? PagoContado { get; set; }
 }

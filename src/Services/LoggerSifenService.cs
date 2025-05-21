@@ -1,6 +1,6 @@
 using System;
 using System.Data.Odbc;
-using System.IO;
+using System.Data;
 using System.Text;
 using System.Xml;
 using Microsoft.Extensions.Logging;
@@ -110,6 +110,10 @@ public class LoggerSifenService
             using (var connection = new OdbcConnection(_connectionString))
             {
                 connection.Open();
+                
+                DateTime fechaValidaCreacion = fechaCreacion.Year < 1970 ? DateTime.Now : fechaCreacion;
+                DateTime fechaValidaEnvio = fechaEnvio.Year < 1970 ? DateTime.Now : fechaEnvio;
+                DateTime fechaValidaRespuesta = fechaRespuesta.HasValue && fechaRespuesta.Value.Year >= 1970 ? fechaRespuesta.Value : DateTime.Now;
 
                 using (var command = connection.CreateCommand())
                 {
@@ -118,20 +122,43 @@ public class LoggerSifenService
                         (BASE_DATOS, DID, LOTE, CDC, XML, ESTADO, DCODRES, TIPO_DOCUMENTO, SERVICIO, FECHA_CREACION, FECHA_ENVIO, FECHA_RESPUESTA, MENSAJE_RESPUESTA, RESPUESTA_BRUTA)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-                    command.Parameters.AddWithValue("@BASE_DATOS", baseDatos);
-                    command.Parameters.AddWithValue("@DID", dId);
-                    command.Parameters.AddWithValue("@LOTE", lote);
-                    command.Parameters.AddWithValue("@CDC", cdc);
-                    command.Parameters.AddWithValue("@XML", xmlFirmado);
-                    command.Parameters.AddWithValue("@ESTADO", dEstRes);
-                    command.Parameters.AddWithValue("@DCODRES", dCodRes);
-                    command.Parameters.AddWithValue("@TIPO_DOCUMENTO", tipoDocumento);
-                    command.Parameters.AddWithValue("@SERVICIO", servicio);
-                    command.Parameters.AddWithValue("@FECHA_CREACION", fechaCreacion);
-                    command.Parameters.AddWithValue("@FECHA_ENVIO", fechaEnvio);
-                    command.Parameters.AddWithValue("@FECHA_RESPUESTA", fechaRespuesta.HasValue ? (object)fechaRespuesta.Value : DBNull.Value);
-                    command.Parameters.AddWithValue("@MENSAJE_RESPUESTA", string.IsNullOrEmpty(dMsgRes) ? $"Archivo: {nombreArchivo}" : dMsgRes);
-                    command.Parameters.AddWithValue("@RESPUESTA_BRUTA", mensajeRespuesta ?? string.Empty);
+                    void AddAnsiString(string paramName, string value)
+                    {
+                        var param = command.CreateParameter();
+                        param.ParameterName = paramName;
+                        param.DbType = DbType.AnsiString;
+                        param.Value = value ?? "";
+                        command.Parameters.Add(param);
+                    }
+
+                    void AddDate(string paramName, DateTime date)
+                    {
+                        var param = command.CreateParameter();
+                        param.ParameterName = paramName;
+                        param.DbType = DbType.DateTime;
+                        param.Value = date;
+                        command.Parameters.Add(param);
+                    }
+
+                    // Strings ANSI
+                    AddAnsiString("@BASE_DATOS", baseDatos);
+                    AddAnsiString("@DID", dId);
+                    AddAnsiString("@LOTE", lote);
+                    AddAnsiString("@CDC", cdc);
+                    AddAnsiString("@XML", xmlFirmado);
+                    AddAnsiString("@ESTADO", dEstRes); 
+                    AddAnsiString("@DCODRES", dCodRes);
+                    AddAnsiString("@TIPO_DOCUMENTO", tipoDocumento);
+                    AddAnsiString("@SERVICIO", servicio);
+
+                    // Fechas
+                    AddDate("@FECHA_CREACION", fechaValidaCreacion);
+                    AddDate("@FECHA_ENVIO", fechaValidaEnvio);
+                    AddDate("@FECHA_RESPUESTA", fechaValidaRespuesta);
+
+                    // Mensaje y respuesta
+                    AddAnsiString("@MENSAJE_RESPUESTA", string.IsNullOrEmpty(dMsgRes) ? $"Archivo: {nombreArchivo}" : dMsgRes);
+                    AddAnsiString("@RESPUESTA_BRUTA", mensajeRespuesta ?? "");
 
                     command.ExecuteNonQuery();
                     _logger?.LogInformation($"Documento con CDC {cdc} registrado correctamente en la base de datos.");

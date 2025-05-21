@@ -49,7 +49,24 @@ public class Totalizador
             }
             else if (item.iAfecIVA == 2) // Exonerado
             {
-                totales.SubtotalExenta += item.dTotBruOpeItem;
+                totales.SubtotalExonerado += item.dTotBruOpeItem;
+            }
+            else if (item.iAfecIVA == 4) // Exenta
+            {
+                totales.SubtotalExenta += item.dBasExe;
+                
+                if (item.dTasaIVA == 5)
+                {
+                    totales.SubtotalTasa5 += item.dBasGravIVA + item.dLiqIVAItem; //item.dTotBruOpeItem;
+                    totales.TotalGravada5 += item.dBasGravIVA;
+                    totales.LiquidacionIVA5 += item.dLiqIVAItem;
+                }
+                else if (item.dTasaIVA == 10)
+                {
+                    totales.SubtotalTasa10 += item.dTotBruOpeItem;
+                    totales.TotalGravada10 += item.dBasGravIVA;
+                    totales.LiquidacionIVA10 += item.dLiqIVAItem;
+                }
             }
             else // Gravado (iAfecIVA = 1 o 4)
             {

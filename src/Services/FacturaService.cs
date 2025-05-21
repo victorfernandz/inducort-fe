@@ -13,86 +13,17 @@ public class FacturaService
         _logger = logger;
     }
 
-    public async Task<List<Factura>> GetFacturasSinAutorizar()
-    {
-        string queryDocumento =
-            "$crossjoin(Invoices,BusinessPartners,Currencies)" +
-            "?$expand=Invoices($select=DocEntry,DocDate,U_EXX_FE_CDC,U_EXX_FE_Estado,U_CDOC,U_PDE,FolioNumber)," +
-            "BusinessPartners($select=CardCode)," +
-            "Currencies($select=Code)" +
-            "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
-            "Invoices/DocCurrency eq Currencies/Code and " +
-            "Invoices/FolioNumber ne null and " +
-            "Invoices/DocDate ge '20250501' and " +
-            "Invoices/U_EXX_FE_Estado ne 'AUT' and " +
-            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne ''";
-
-        var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
-
-        if (string.IsNullOrEmpty(jsonResponse))
-        {
-            _logger.LogWarning("No se encontraron datos en la respuesta de SAP.");
-            return new List<Factura>();
-        }
-
-        var rawJson = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
-        if (rawJson == null || !rawJson.ContainsKey("value"))
-        {
-            _logger.LogWarning("No se encontraron datos en la respuesta de SAP.");
-            return new List<Factura>();
-        }
-
-        var facturasJson = rawJson["value"].ToString();
-        var facturaResponses = JsonConvert.DeserializeObject<List<FacturaResponse>>(facturasJson);
-
-        if (facturaResponses == null || facturaResponses.Count == 0)
-        {
-            _logger.LogWarning("No se pudieron deserializar las facturas sin procesar.");
-            return new List<Factura>();
-        }
-
-        var facturasValidas = facturaResponses
-            .Where(f => f.Invoices != null)
-            .ToList();
-
-        if (facturasValidas.Count < facturaResponses.Count)
-        {
-            _logger.LogWarning($"Se detectaron {facturaResponses.Count - facturasValidas.Count} entradas con Invoices nulo. Se ignorarán.");
-        }
-
-        var facturasAgrupadas = facturasValidas.GroupBy(f => f.Invoices.DocEntry);
-        var facturasList = new List<Factura>();
-
-        foreach (var group in facturasAgrupadas)
-        {
-            var first = group.First();
-
-            var factura = new Factura
-            {
-                DocEntry = first.Invoices.DocEntry,
-                DocDate = first.Invoices.DocDate,
-                U_EXX_FE_CDC = first.Invoices.U_EXX_FE_CDC,
-                U_CDOC = first.Invoices.U_CDOC,
-        //        U_PDE = first.Invoices.U_PDE,
-                FolioNum = first.Invoices.FolioNumber
-        //        U_EST = first.Invoices.U_EXX_FE_Estado
-            };
-
-            facturasList.Add(factura);
-        }
-
-        return facturasList;
-    }
-
     public async Task<List<Factura>> GetFacturasSinCDC()
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
-            "?$expand=Invoices($select=DocEntry,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," +
+            "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID)," +
             "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
-            "Invoices/DocCurrency eq Currencies/Code and (Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
-            "Invoices/DocDate eq '20250506'";
+            "Invoices/DocCurrency eq Currencies/Code and " +
+        /*    "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
+            "Invoices/DocDate ge '20250506' and Invoices/FolioNumber ne null"; */
+            "Invoices/DocEntry eq 2834";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))
@@ -168,6 +99,7 @@ public class FacturaService
             var factura = new Factura
             {
                 DocEntry = primeraEntrada.Invoices.DocEntry,
+                DocType = primeraEntrada.Invoices.DocType,
                 U_EXX_FE_CDC = primeraEntrada.Invoices.U_EXX_FE_CDC ?? "",
                 U_CDOC = primeraEntrada.Invoices.U_CDOC?.PadLeft(2, '0'),
                 CardCode = primeraEntrada.Invoices.CardCode ?? "",
@@ -219,7 +151,7 @@ public class FacturaService
             if (condicionOperacion == 2)
             {
                 // Obtener el plazo de crédito según la condición
-                string plazoCredito = null;
+                string plazoCredito = "";
                 if (condicionCredito == 1)
                 {
                     plazoCredito = await ObtenerPlazoCredito(factura.DocEntry);
@@ -320,20 +252,20 @@ public class FacturaService
         {
             try
             {
-                var jsonResponseLineas = await responseLineas.Content.ReadAsStringAsync();                    
+                var jsonResponseLineas = await responseLineas.Content.ReadAsStringAsync();
                 var responseObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponseLineas);
 
                 if (responseObj != null && responseObj.ContainsKey("DocumentLines"))
                 {
                     var lineasResponse = JsonConvert.DeserializeObject<List<DocumentLineData>>(responseObj["DocumentLines"].ToString());
-                    
+
                     if (lineasResponse != null)
                     {
                         foreach (var linea in lineasResponse)
                         {
                             factura.Items.Add(new Item
                             {
-                                dCodInt = linea.ItemCode,
+                                dCodInt = factura.DocType == "S" ? "1" : linea.ItemCode,
                                 dDesProSer = linea.ItemDescription,
                                 dCantProSer = linea.Quantity,
                                 dPUniProSer = linea.PriceAfterVAT,
@@ -388,10 +320,10 @@ public class FacturaService
                 {
                     continue;
                 }
-                
+
                 // Deserializar como un objeto JSON dinámico para luego acceder al array BPAddresses
                 var responseObj = JsonConvert.DeserializeObject<BPAddressesWrapper>(jsonResponse);
-                
+
                 if (responseObj == null || responseObj.BPAddresses == null || !responseObj.BPAddresses.Any())
                 {
                     _logger.LogWarning($"No se encontraron direcciones para {cardCode}.");
@@ -400,7 +332,7 @@ public class FacturaService
 
                 // Tomar la primera dirección
                 var primeraDireccion = responseObj.BPAddresses.FirstOrDefault();
-                
+
                 if (primeraDireccion != null)
                 {
                     direcciones.Add(new BusinessPartnerData.BPAddressInfo
@@ -413,7 +345,7 @@ public class FacturaService
             catch (Exception ex)
             {
                 _logger.LogError($"Error al procesar direcciones para {cardCode}: {ex.Message}");
-                
+
                 if (ex.InnerException != null)
                 {
                     _logger.LogError($"Error interno: {ex.InnerException.Message}");
@@ -435,9 +367,9 @@ public class FacturaService
             {
                 return ("", "");
             }
-            
+
             var responseObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
-            
+
             if (responseObj == null || !responseObj.ContainsKey("value"))
             {
                 _logger.LogWarning($"Formato de respuesta inesperado para el país {codigoPais}");
@@ -446,7 +378,7 @@ public class FacturaService
 
             // Acceder al array de resultados
             var valueArray = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(responseObj["value"].ToString());
-            
+
             if (valueArray == null || valueArray.Count == 0)
             {
                 _logger.LogWarning($"No se encontró información para el país {codigoPais}");
@@ -455,9 +387,9 @@ public class FacturaService
 
             // Obtener la información del país
             var paisInfo = valueArray[0];
-            string name = paisInfo.ContainsKey("Name") ? paisInfo["Name"].ToString() : "";
-            string codeForReports = paisInfo.ContainsKey("CodeForReports") ? paisInfo["CodeForReports"].ToString() : "";
-            
+            string? name = paisInfo.ContainsKey("Name") ? paisInfo["Name"].ToString() : "";
+            string? codeForReports = paisInfo.ContainsKey("CodeForReports") ? paisInfo["CodeForReports"].ToString() : "";
+
             return (name, codeForReports);
         }
         catch (Exception ex)
@@ -469,27 +401,27 @@ public class FacturaService
 
     private async Task<List<CuotaResponse>> GetCuotasFactura(int docEntry)
     {
-        try 
-        {           
+        try
+        {
             string query = $"Invoices({docEntry})";
-            
-            var jsonResponse = await HttpHelper.GetStringAsync(_httpClient,query,_logger, $"Error al obtener la factura {docEntry}");
+
+            var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, $"Error al obtener la factura {docEntry}");
 
             if (string.IsNullOrEmpty(jsonResponse))
             {
                 return new List<CuotaResponse>();
             }
-            
+
             if (jsonResponse.Contains("\"DocumentInstallments\""))
             {
                 // Si la respuesta contiene DocumentInstallments, intentar extraerlas
                 var facturaObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
-                
+
                 if (facturaObj != null && facturaObj.ContainsKey("DocumentInstallments"))
                 {
                     var cuotasJson = facturaObj["DocumentInstallments"].ToString();
                     var cuotasList = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(cuotasJson);
-                    
+
                     if (cuotasList != null && cuotasList.Any())
                     {
                         return cuotasList.Select(cuota => new CuotaResponse
@@ -502,8 +434,8 @@ public class FacturaService
                     }
                 }
             }
-            
-            _logger.LogWarning($"No se encontraron las cuotas para la factura {docEntry}");            
+
+            _logger.LogWarning($"No se encontraron las cuotas para la factura {docEntry}");
             return new List<CuotaResponse>();
         }
         catch (Exception ex)
@@ -524,28 +456,28 @@ public class FacturaService
         {
             string query = $"Invoices({docEntry})?$select=PaymentGroupCode";
             var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, $"Error al obtener el código de pago para {docEntry}");
-            
+
             if (string.IsNullOrEmpty(jsonResponse))
             {
                 return null;
             }
-            
+
             var bp = JsonConvert.DeserializeObject<dynamic>(jsonResponse);
-            
+
             // Obtener el código de términos de pago
             int payTermCode = bp.PaymentGroupCode;
-            
+
             // Consultar la descripción de los términos de pago
             query = $"PaymentTermsTypes({payTermCode})";
             jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, $"Error al obtener términos de pago para código {payTermCode}");
-            
+
             if (!string.IsNullOrEmpty(jsonResponse))
             {
                 var payTerm = JsonConvert.DeserializeObject<dynamic>(jsonResponse);
                 string months = payTerm.PaymentTermsGroupName ?? "0";
                 return months;
             }
-            
+
             return null;
         }
         catch (Exception ex)
@@ -587,7 +519,7 @@ public class FacturaService
 
                 if (invoices.Any(i => Convert.ToInt32(i["DocEntry"]) == docEntryFactura))
                 {
-                    string docCurrency = pago.ContainsKey("DocCurrency") ? pago["DocCurrency"]?.ToString() : "PYG";
+                    string? docCurrency = pago.ContainsKey("DocCurrency") ? pago["DocCurrency"]?.ToString() : "PYG";
                     decimal docRate = pago.ContainsKey("DocRate") ? Convert.ToDecimal(pago["DocRate"]) : 1;
 
                     decimal transferSum = pago.ContainsKey("TransferSum") ? Convert.ToDecimal(pago["TransferSum"]) : 0;
@@ -601,7 +533,7 @@ public class FacturaService
                         int tipoPago = transferSum > 0 ? 5 : 1; // Transferencia o Efectivo
 
                         // Normalizar código de moneda
-                        string codigoMonedaNormalizado = docCurrency switch
+                        string? codigoMonedaNormalizado = docCurrency switch
                         {
                             "US$" => "USD",
                             "GS" => "PYG",
@@ -612,7 +544,7 @@ public class FacturaService
                         string queryMoneda = $"Currencies?$select=Name&$filter=Code eq '{docCurrency}'";
                         var jsonMoneda = await HttpHelper.GetStringAsync(_httpClient, queryMoneda, _logger, $"Error al obtener descripción de moneda {docCurrency}");
 
-                        string descripcionMoneda = docCurrency;
+                        string? descripcionMoneda = docCurrency;
                         if (!string.IsNullOrEmpty(jsonMoneda))
                         {
                             var monedaObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonMoneda);
@@ -647,5 +579,75 @@ public class FacturaService
         var response = await _httpClient.PatchAsync($"Invoices({docEntry})", content);
 
         return response.IsSuccessStatusCode;
+    }
+    
+    public async Task<List<Factura>> GetFacturasSinAutorizar()
+    {
+        string queryDocumento =
+            "$crossjoin(Invoices,BusinessPartners,Currencies)" +
+            "?$expand=Invoices($select=DocEntry,DocDate,U_EXX_FE_CDC,U_EXX_FE_Estado,U_CDOC,U_PDE,FolioNumber)," +
+            "BusinessPartners($select=CardCode)," +
+            "Currencies($select=Code)" +
+            "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
+            "Invoices/DocCurrency eq Currencies/Code and " +
+            "Invoices/FolioNumber ne null and " +
+            "Invoices/DocDate ge '20250501' and " +
+            "Invoices/U_EXX_FE_Estado ne 'AUT' and " +
+            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne ''";
+
+        var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
+
+        if (string.IsNullOrEmpty(jsonResponse))
+        {
+            _logger.LogWarning("No se encontraron datos en la respuesta de SAP.");
+            return new List<Factura>();
+        }
+
+        var rawJson = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
+        if (rawJson == null || !rawJson.ContainsKey("value"))
+        {
+            _logger.LogWarning("No se encontraron datos en la respuesta de SAP.");
+            return new List<Factura>();
+        }
+
+        var facturasJson = rawJson["value"].ToString();
+        var facturaResponses = JsonConvert.DeserializeObject<List<FacturaResponse>>(facturasJson);
+
+        if (facturaResponses == null || facturaResponses.Count == 0)
+        {
+            _logger.LogWarning("No se pudieron deserializar las facturas sin procesar.");
+            return new List<Factura>();
+        }
+
+        var facturasValidas = facturaResponses
+            .Where(f => f.Invoices != null)
+            .ToList();
+
+        if (facturasValidas.Count < facturaResponses.Count)
+        {
+            _logger.LogWarning($"Se detectaron {facturaResponses.Count - facturasValidas.Count} entradas con Invoices nulo. Se ignorarán.");
+        }
+
+        var facturasAgrupadas = facturasValidas.GroupBy(f => f.Invoices.DocEntry);
+        var facturasList = new List<Factura>();
+
+        foreach (var group in facturasAgrupadas)
+        {
+            var first = group.First();
+
+            var factura = new Factura
+            {
+                DocEntry = first.Invoices.DocEntry,
+                DocDate = first.Invoices.DocDate,
+                U_EXX_FE_CDC = first.Invoices.U_EXX_FE_CDC,
+                U_CDOC = first.Invoices.U_CDOC,
+                FolioNum = first.Invoices.FolioNumber,
+                U_EXX_FE_Estado = first.Invoices.U_EXX_FE_Estado
+            };
+
+            facturasList.Add(factura);
+        }
+
+        return facturasList;
     }
 }
