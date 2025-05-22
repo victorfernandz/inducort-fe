@@ -14,6 +14,7 @@ public class InvoiceData
     public string DocType { get; set; }
     public string U_EXX_FE_CDC { get; set; }
     public string U_EXX_FE_Estado { get; set; }
+    public string U_EXX_FE_CODERR { get; set; }
     public string U_CDOC { get; set; }
     public string CardCode { get; set; }
     public string U_EST { get; set; }

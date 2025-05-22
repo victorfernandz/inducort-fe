@@ -449,7 +449,6 @@ public class FacturaService
         }
     }
 
-    // Método para obtener la descripción del plazo desde la factura
     private async Task<string> ObtenerPlazoCredito(int docEntry)
     {
         try
@@ -575,7 +574,7 @@ public class FacturaService
     public async Task<List<Factura>> GetFacturasSinAutorizar()
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
-            "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EXX_FE_Estado,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," +
+            "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EXX_FE_Estado,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments, U_EXX_FE_CODERR)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID)," +
             "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
@@ -583,8 +582,8 @@ public class FacturaService
             "Invoices/FolioNumber ne null and " +
             "Invoices/DocDate ge '20250501' and " +
             "Invoices/U_EXX_FE_Estado ne 'AUT' and " +
-            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne '' and " +
-            "Invoices/DocEntry eq 2844";
+            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne '' ";
+    //        "Invoices/DocEntry eq 2844";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))
@@ -663,6 +662,7 @@ public class FacturaService
                 DocType = primeraEntrada.Invoices.DocType,
                 U_EXX_FE_CDC = primeraEntrada.Invoices.U_EXX_FE_CDC ?? "",
                 U_EXX_FE_Estado = primeraEntrada.Invoices.U_EXX_FE_Estado,
+                U_EXX_FE_CODERR = primeraEntrada.Invoices.U_EXX_FE_CODERR,
                 U_CDOC = primeraEntrada.Invoices.U_CDOC?.PadLeft(2, '0'),
                 CardCode = primeraEntrada.Invoices.CardCode ?? "",
                 U_EST = primeraEntrada.Invoices.U_EST ?? "",

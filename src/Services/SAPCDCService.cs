@@ -4,6 +4,7 @@ using System.Text;
 using Newtonsoft.Json;
 using System.Globalization;
 using Org.BouncyCastle.Asn1;
+using System.Data;
 
 public class SAPCDCService : BackgroundService
 {
@@ -83,15 +84,15 @@ public class SAPCDCService : BackgroundService
                 }
 
                 // Procesar Facturas sin CDC
-                await ProcesarFacturasSinCDC(stoppingToken);
+        //        await ProcesarFacturasSinCDC(stoppingToken);
 
                 // Procesar facturas NO Autorizadas
-                await ProcesarFacturasPendientes(stoppingToken);
+        //        await ProcesarFacturasPendientes(stoppingToken);
 
                 // Procesar Notas de crédito sin CDC
                 await ProcesarNotaCreditoSinCDC(stoppingToken);
 
-                //    await ReconsultarNCPendientes(stoppingToken);                
+                await ProcesarNotaCreditoPendiente(stoppingToken);
 
             }
             catch (Exception ex)
@@ -309,10 +310,10 @@ public class SAPCDCService : BackgroundService
                 Console.WriteLine(dCodSeg);
 
                 string cdc = GenerarCDC.GenerarCodigoCDC(iTiDE, _empresaInfo.Ruc, _empresaInfo.Dv.ToString(), dEst, dPunExp, dNumDoc, _empresaInfo.TipoContribuyente.ToString(), fechaFormatoCDC, iTipEmi.ToString(), dCodSeg);
-            //    Console.WriteLine(cdc);
+                //    Console.WriteLine(cdc);
                 // Se extraer el Dígito Verificador (dv)
                 int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
-            //    Console.WriteLine(dv);
+                                                                   //    Console.WriteLine(dv);
                 string xmlTiDE = Convert.ToInt32(factura.U_CDOC).ToString();
 
                 _logger.LogInformation($"CDC generado y actualizado: {cdc}");
@@ -418,7 +419,7 @@ public class SAPCDCService : BackgroundService
                             var (certBytes, certPassword) = await ObtenerCertificadoActivo();
                             string dCodSeg = cdc.Substring(34, 9);
 
-                            await RegenerarXmlFirmado(factura, cdc, dCodSeg, certBytes, certPassword);
+                            await RegenerarXmlFactura(factura, cdc, dCodSeg, certBytes, certPassword);
                             _logger.LogInformation($"XML regenerado para documento rechazado con CDC {cdc}.");
                         }
                         catch (Exception exReg)
@@ -801,6 +802,112 @@ public class SAPCDCService : BackgroundService
         }
     }
 
+    private async Task ProcesarNotaCreditoPendiente(CancellationToken stoppingToken)
+    {
+        try
+        {
+            _logger.LogInformation("Procesando Notas de crédito con CDC en estado pendiente...");
+
+            var notaCreditoPendiente = await _notaCreditoService.GetNotaCreditoSinAutorizar();
+            _logger.LogInformation($"Se econtraron {notaCreditoPendiente.Count} Notas de crédito con CDC en estado pendiente...");
+
+            if (notaCreditoPendiente.Count == 0)
+            {
+                _logger.LogWarning("No se encontraron Notas de crédito pendientes por reconsulta.");
+                return;
+            }
+
+            string basePath = AppDomain.CurrentDomain.BaseDirectory;
+            string xmlDir = Path.Combine(basePath, "XML");
+
+            foreach (var notaCredito in notaCreditoPendiente)
+            {
+                try
+                {
+                    string cdc = notaCredito.U_EXX_FE_CDC;
+                    string archivoXml = $"Documento_{cdc}.xml";
+                    string rutaXmlFirmado = Path.Combine(xmlDir, archivoXml);
+
+                    if (notaCredito.U_EXX_FE_Estado == "NAU")
+                    {
+                        try
+                        {
+                            var (certBytes, certPassword) = await ObtenerCertificadoActivo();
+                            string dCodSeg = cdc.Substring(34, 9);
+
+                            await RegenerarXmlNotaCredito(notaCredito, cdc, dCodSeg, certBytes, certPassword);
+                            _logger.LogInformation($"XML regenerado para documento rechazado con CDC {cdc}.");
+                        }
+                        catch (Exception exReg)
+                        {
+                            _logger.LogError($"Error al regenerar XML para CDC {cdc}: {exReg.Message}");
+                            continue;
+                        }
+
+                        if (!File.Exists(rutaXmlFirmado))
+                        {
+                            _logger.LogWarning($"No se encontró el archivo XML firmado para CDC {cdc} en {rutaXmlFirmado}");
+                            continue;
+                        }
+
+                        string xmlFirmado = File.ReadAllText(rutaXmlFirmado);
+
+                        await _envioService.EnviarDocumentoAsincronico(
+                            new List<(int, string, string)> { (notaCredito.DocEntry, cdc, xmlFirmado) },
+                            notaCredito.U_CDOC,
+                            notaCredito.U_CDOC
+                        );
+
+                        _logger.LogInformation($"Documento con CDC {cdc} reenviado a SIFEN.");
+                    }
+                    else if (notaCredito.U_EXX_FE_Estado == "ENV" || notaCredito.U_EXX_FE_CODERR == "0361" || notaCredito.U_EXX_FE_CODERR == "0301")
+                    {
+                        if (!File.Exists(rutaXmlFirmado))
+                        {
+                            _logger.LogWarning($"No se encontró el archivo XML firmado para CDC {cdc} en {rutaXmlFirmado}");
+                            continue;
+                        }
+
+                        string xmlFirmado = File.ReadAllText(rutaXmlFirmado);
+
+                        var (dId, lote) = _loggerSifen.ObtenerLotePorCDC(cdc);
+                        if (string.IsNullOrEmpty(dId) || string.IsNullOrEmpty(lote))
+                        {
+                            _logger.LogWarning($"No se encontró lote o dId para CDC {cdc}. Omitiendo.");
+                            continue;
+                        }
+
+                        try
+                        {
+                            var (certBytes, certPassword) = await ObtenerCertificadoActivo();
+                            _envioService.ConfigurarCertificadoCliente(certBytes, certPassword);
+                        }
+                        catch (Exception certEx)
+                        {
+                            _logger.LogError($"No se pudo configurar el certificado TLS: {certEx.Message}");
+                            continue;
+                        }
+
+                        await _envioService.ConsultarEstadoLoteAsync(
+                            dId, lote,
+                            new List<(int, string, string)> { (notaCredito.DocEntry, cdc, xmlFirmado) },
+                            notaCredito.U_CDOC,
+                            DateTime.Now, DateTime.Now
+                        );
+                    }
+                }
+                catch (Exception exDoc)
+                {
+                    _logger.LogError($"Error al procesar Nota de crédito pendiente CDC {notaCredito.U_EXX_FE_CDC}: {exDoc.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error general en ProcesarNotaCreditoPendiente: {ex.Message}");
+        }
+    }
+
     private string GenerarCodigoSeguridad()
     {
         Random random = new Random();
@@ -866,8 +973,8 @@ public class SAPCDCService : BackgroundService
             throw new Exception("Error al obtener certificado digital", ex);
         }
     }
-    
-    private async Task RegenerarXmlFirmado(Factura factura, string cdc, string dCodSeg, byte[] certificadoBytes, string contraseñaCertificado)
+
+    private async Task RegenerarXmlFactura(Factura factura, string cdc, string dCodSeg, byte[] certificadoBytes, string contraseñaCertificado)
     {
         string xmlDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML");
         Directory.CreateDirectory(xmlDir);
@@ -881,7 +988,7 @@ public class SAPCDCService : BackgroundService
 
             string backupPath = Path.Combine(backupDir, $"Documento_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml");
             File.Copy(rutaXml, backupPath, true);
-            File.Delete(rutaXml); 
+            File.Delete(rutaXml);
             _logger.LogInformation($"Se guardó respaldo del XML anterior en {backupPath} y se eliminó el archivo original para regeneración.");
         }
 
@@ -1060,6 +1167,249 @@ public class SAPCDCService : BackgroundService
             totales: totalesFactura,
             certificadoBytes: certificadoBytes,
             contraseñaCertificado: contraseñaCertificado
+        );
+    }
+
+    private async Task RegenerarXmlNotaCredito(NotaCredito notaCredito, string cdc, string dCodSeg, byte[] certificadoBytes, string contraseñaCertificado)
+    {
+        string xmlDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML");
+        Directory.CreateDirectory(xmlDir);
+
+        string rutaXml = Path.Combine(xmlDir, $"Documento_{cdc}.xml");
+
+        if (File.Exists(rutaXml))
+        {
+            string backupDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "BackupXml");
+            Directory.CreateDirectory(backupDir);
+
+            string backupPath = Path.Combine(backupDir, $"Documento_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml");
+            File.Copy(rutaXml, backupPath, true);
+            File.Delete(rutaXml);
+            _logger.LogInformation($"Se guardó respaldo del XML anterior en {backupPath} y se eliminó el archivo original para regeneración.");
+        }
+
+        // Obtener ítems y totales actualizados
+        List<Item> itemsList = new List<Item>();
+
+        if (notaCredito.Items != null && notaCredito.Items.Any())
+        {
+            foreach (var item in notaCredito.Items)
+            {
+                decimal totalBruto = item.dCantProSer * item.dPUniProSer;
+                int tasaIVA = 0;
+
+                if (item.dTasaIVA == 5 || item.dTasaIVA == 1.5m)
+                {
+                    tasaIVA = 5;
+                }
+                else if (item.dTasaIVA == 10)
+                {
+                    tasaIVA = 10;
+                }
+
+                string descAfectacionIVA = "Gravado IVA";
+                int afectacionIVA = 1;
+                int proporcionIVA = 100;
+
+                if (item.taxCode != null && item.taxCode.Equals("IVA_EXE", StringComparison.OrdinalIgnoreCase))
+                {
+                    afectacionIVA = 3;
+                    descAfectacionIVA = "Exento";
+                    proporcionIVA = 0;
+                }
+                else if (item.taxCode != null && item.taxCode.Equals("IVA_IMB", StringComparison.OrdinalIgnoreCase))
+                {
+                    afectacionIVA = 4;
+                    descAfectacionIVA = "Gravado parcial (Grav- Exento)";
+                    proporcionIVA = 30;
+                }
+                else if (item.taxCode?.Contains("IVA_5", StringComparison.OrdinalIgnoreCase) == true ||
+                    (item.taxCode != null && item.taxCode.Equals("IVA_10", StringComparison.OrdinalIgnoreCase)))
+                {
+                    afectacionIVA = 1;
+                    descAfectacionIVA = "Gravado IVA";
+                    proporcionIVA = 100;
+                }
+
+                decimal baseGravadaIVA = 0;
+
+                if (tasaIVA == 10 && (afectacionIVA == 1 || afectacionIVA == 4))
+                {
+                    //    baseGravadaIVA = Math.Round((totalBruto * (proporcionIVA / 100)) / 1.1m,8);
+                    baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                }
+                else if ((tasaIVA == 5 || item.dTasaIVA == 1.5m) && (afectacionIVA == 1 || afectacionIVA == 4))
+                {
+                    //    baseGravadaIVA = Math.Round((totalBruto * (proporcionIVA / 100)) / 1.05m,8);
+                    baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                }
+                else if (tasaIVA == 0 && (afectacionIVA == 2 || afectacionIVA == 3))
+                {
+                    baseGravadaIVA = 0;
+                }
+
+                decimal liquidacionIVA = 0;
+
+                if (afectacionIVA != 2 && afectacionIVA != 3)
+                {
+                    decimal tasaDecimal = tasaIVA / 100m;
+                    liquidacionIVA = Math.Round(baseGravadaIVA * tasaDecimal, 8);
+                }
+
+                decimal baseExenta = 0;
+
+                if (afectacionIVA == 4)
+                {
+                    baseExenta = Math.Round((100 * totalBruto * (100 - proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                }
+
+                itemsList.Add(new Item
+                {
+                    dCodInt = notaCredito.DocType == "S" ? "1" : item.dCodInt,
+                    dDesProSer = item.dDesProSer,
+                    dCantProSer = item.dCantProSer,
+                    dPUniProSer = item.dPUniProSer,
+                    cUniMed = item.cUniMed,
+                    dDesUniMed = item.dDesUniMed,
+                    dTiCamIt = item.dTiCamIt,
+                    dTotBruOpeItem = totalBruto,
+                    iAfecIVA = afectacionIVA,
+                    dDesAfecIVA = descAfectacionIVA,
+                    dPropIVA = proporcionIVA,
+                    dTasaIVA = tasaIVA,
+                    dBasGravIVA = baseGravadaIVA,
+                    dLiqIVAItem = liquidacionIVA,
+                    dBasExe = baseExenta,
+                });
+            }
+        }
+
+        // Calcular subtotales y totales usando el helper
+        var totalesFactura = Totalizador.CalcularTotalesFactura(itemsList, notaCredito.dTiCam, notaCredito.Currencies.cMoneOpe);
+
+        // Fecha de emisión y firma
+        DateTime dFecFirma = DateTime.Now;
+        DateTime fecha = DateTime.ParseExact(notaCredito.DocDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        TimeSpan hora = TimeSpan.Zero;
+        if (notaCredito.DocTime > 0)
+        {
+            int horaInt = notaCredito.DocTime;
+            int horas = horaInt / 10000;
+            int minutos = (horaInt % 10000) / 100;
+            int segundos = horaInt % 100;
+            hora = new TimeSpan(horas, minutos, segundos);
+        }
+        DateTime dFeEmiDE = fecha.Date.Add(hora);
+        string iTiDE = int.Parse(notaCredito.U_CDOC).ToString(); // Sacamos el cero
+
+        int iMotEmi = notaCredito.iMotEmi;
+        int iTipDocAso = notaCredito.iTipDocAso;
+        string? dEstDocAso = null;
+        string? dPExpDocAso = null;
+        string? dNumDocAso = null;
+        int? iTipoDocAso = null;
+        string? dCdCDERef = null;
+        int? dNTimDI = null;
+        DateTime? dFecEmiDI = null;
+        string notacreditoReferencia = notaCredito.U_NUMFC;
+
+        if (!string.IsNullOrWhiteSpace(notacreditoReferencia))
+        {
+            string[] partesNotaCredito = notacreditoReferencia.Split('-');
+
+            if (iTipDocAso == 1)
+            {
+                string? EST = partesNotaCredito.Length > 0 ? partesNotaCredito[0] : null;
+                string? PDE = partesNotaCredito.Length > 1 ? partesNotaCredito[1] : null;
+                string? Folio = partesNotaCredito.Length > 2 ? partesNotaCredito[2] : null;
+
+                var datos = await _notaCreditoService.ObtenerCDCFactura(EST, PDE, Folio, notaCredito.BusinessPartner.FederalTaxID);
+
+                dCdCDERef = datos.dCdCDERef;
+
+            }
+            else
+            {
+                dEstDocAso = partesNotaCredito.Length > 0 ? partesNotaCredito[0] : null;
+                dPExpDocAso = partesNotaCredito.Length > 1 ? partesNotaCredito[1] : null;
+                dNumDocAso = partesNotaCredito.Length > 2 ? partesNotaCredito[2] : null;
+                iTipoDocAso = 1;
+
+                var datos = await _notaCreditoService.ObtenerCDCFactura(dEstDocAso, dPExpDocAso, dNumDocAso, notaCredito.BusinessPartner.FederalTaxID);
+
+                dNTimDI = datos.dNTimDI;
+                dFecEmiDI = datos.dFecEmiDI;
+                dCdCDERef = null;
+            }
+        }
+
+        GenerarXML.SerializarDocumentoElectronico(
+            cdc: cdc,
+            dv: int.Parse(cdc[^1..]),
+            dFecFirma: dFecFirma,
+            rutaArchivo: rutaXml,
+            dCodSeg: dCodSeg,
+            iTiDE: iTiDE,
+            dNumTim: notaCredito.U_TIM,
+            dEst: notaCredito.U_EST,
+            dPunExp: notaCredito.U_PDE,
+            dNumDoc: notaCredito.FolioNum.PadLeft(7, '0'),
+            dFeIniT: DateTime.ParseExact(notaCredito.U_FITE, "yyyy-MM-dd", null),
+            dFeEmiDE: dFeEmiDE,
+            iTipTra: null,
+            cMoneOpe: null,
+            dDesMoneOpe: null,
+            dRucEm: _empresaInfo.Ruc,
+            dDVEmi: _empresaInfo.Dv,
+            iTipCont: _empresaInfo.TipoContribuyente,
+            dNomEmi: _empresaInfo.NombreEmpresa,
+            dDirEmi: _empresaInfo.DireccionEmisor,
+            dNumCas: _empresaInfo.NumeroCasaEmisor,
+            cDepEmi: _empresaInfo.CodDepartamento,
+            dDesDepEmi: _empresaInfo.DescDepartamento,
+            cDisEmi: _empresaInfo.CodDistrito,
+            dDesDisEmi: _empresaInfo.DescDistrito,
+            cCiuEmi: _empresaInfo.CodLocalidad,
+            dDesCiuEmi: _empresaInfo.DescLocalidad,
+            dTelEmi: _empresaInfo.TelefEmisor,
+            dEmailE: _empresaInfo.EmailEmisor,
+            iNatRec: notaCredito.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2,
+            iTiContRec: notaCredito.BusinessPartner.iTiContRec,
+            iTiOpe: notaCredito.BusinessPartner.iTiOpe,
+            cPaisRec: notaCredito.BusinessPartner.cPaisRec,
+            dDesPaisRe: notaCredito.BusinessPartner.dDesPaisRe,
+            dNomRec: notaCredito.BusinessPartner.dNomRec,
+            dRucReceptor: notaCredito.BusinessPartner.FederalTaxID.Split('-')[0],
+            dDVReceptor: notaCredito.BusinessPartner.FederalTaxID.Split('-').Length > 1 ? int.Parse(notaCredito.BusinessPartner.FederalTaxID.Split('-')[1]) : 0,
+            dTiCam: notaCredito.dTiCam,
+            iIndPres: null,
+            iCondOpe: null,
+            iCondCred: null,
+            iTiPago: null,
+            dMonTiPag: null,
+            cMoneTiPag: null,
+            dDMoneTiPag: null,
+            dTiCamTiPag: null,
+            iTipIDRec: notaCredito.BusinessPartner.iTipIDRec == "CEDULA" ? "1" : "2",
+            dNumIDRec: notaCredito.BusinessPartner.FederalTaxID.Split('-')[0],
+            actividades: _empresaInfo.ActividadesEconomicas,
+            obligaciones: _empresaInfo.ObligacionesAfectadas,
+            cuotas: null,
+            items: itemsList,
+            plazoCredito: null,
+            totales: totalesFactura,
+            certificadoBytes: certificadoBytes,
+            contraseñaCertificado: contraseñaCertificado,
+            //-----------
+            iMotEmi: iMotEmi,
+            dCdCDERef: dCdCDERef,
+            dFecEmiDI: dFecEmiDI,
+            dNTimDI: dNTimDI,
+            dEstDocAso: dEstDocAso,
+            dPExpDocAso: dPExpDocAso,
+            dNumDocAso: dNumDocAso,
+            iTipDocAso: iTipDocAso,
+            iTipoDocAso: iTipoDocAso
         );
     }
 

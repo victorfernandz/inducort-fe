@@ -15,10 +15,10 @@ public class NotaCreditoService
 
     public async Task<List<NotaCredito>> GetNotaCreditoSinCDC()
     {
-        string queryDocumento = "$crossjoin(CreditNotes,BusinessPartners,Currencies) " + 
-            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision)," + 
+        string queryDocumento = "$crossjoin(CreditNotes,BusinessPartners,Currencies) " +
+            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_CODERR,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion), " +
-            "Currencies($select=Code,Name,DocumentsCode) " + 
+            "Currencies($select=Code,Name,DocumentsCode) " +
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
             "CreditNotes/DocCurrency eq Currencies/Code and (CreditNotes/U_EXX_FE_CDC eq null or CreditNotes/U_EXX_FE_CDC eq '') and " +
             "CreditNotes/DocDate ge '20250516' and CreditNotes/FolioNumber ne null";
@@ -68,13 +68,13 @@ public class NotaCreditoService
         // Lista final de notas de crédito
         var notaCreditoList = new List<NotaCredito>();
 
-         // Procesar cada nota de crédito agrupada con sus líneas
+        // Procesar cada nota de crédito agrupada con sus líneas
         foreach (var notaCreditoGroup in notaCreditoAgrupadas)
         {
             var docEntry = notaCreditoGroup.Key;
             // Tomar la primera entrada para obtener la información general de la nota de crédito
             var primeraEntrada = notaCreditoGroup.Value.First();
-            
+
             if (primeraEntrada.CreditNotes == null || primeraEntrada.BusinessPartners == null || primeraEntrada.Currencies == null)
             {
                 continue;
@@ -103,7 +103,7 @@ public class NotaCreditoService
                 CardCode = primeraEntrada.CreditNotes.CardCode ?? "",
                 U_EST = primeraEntrada.CreditNotes.U_EST ?? "",
                 U_PDE = primeraEntrada.CreditNotes.U_PDE ?? "",
-                FolioNum = primeraEntrada.CreditNotes.FolioNumber ?? "", 
+                FolioNum = primeraEntrada.CreditNotes.FolioNumber ?? "",
                 DocDate = primeraEntrada.CreditNotes.DocDate,
                 DocTime = await ObtenerDocTimePorDocEntry(docEntry),
                 U_TIM = primeraEntrada.CreditNotes.U_TIM,
@@ -177,13 +177,13 @@ public class NotaCreditoService
         {
             try
             {
-                var jsonResponseLineas = await responseLineas.Content.ReadAsStringAsync();                    
+                var jsonResponseLineas = await responseLineas.Content.ReadAsStringAsync();
                 var responseObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponseLineas);
 
                 if (responseObj != null && responseObj.ContainsKey("DocumentLines"))
                 {
                     var lineasResponse = JsonConvert.DeserializeObject<List<DocumentLineData>>(responseObj["DocumentLines"].ToString());
-                    
+
                     if (lineasResponse != null)
                     {
                         foreach (var linea in lineasResponse)
@@ -245,10 +245,10 @@ public class NotaCreditoService
                 {
                     continue;
                 }
-                
+
                 // Deserializar como un objeto JSON dinámico para luego acceder al array BPAddresses
                 var responseObj = JsonConvert.DeserializeObject<BPAddressesWrapper>(jsonResponse);
-                
+
                 if (responseObj == null || responseObj.BPAddresses == null || !responseObj.BPAddresses.Any())
                 {
                     _logger.LogWarning($"No se encontraron direcciones para {cardCode}.");
@@ -257,7 +257,7 @@ public class NotaCreditoService
 
                 // Tomar la primera dirección
                 var primeraDireccion = responseObj.BPAddresses.FirstOrDefault();
-                
+
                 if (primeraDireccion != null)
                 {
                     direcciones.Add(new BusinessPartnerData.BPAddressInfo
@@ -270,7 +270,7 @@ public class NotaCreditoService
             catch (Exception ex)
             {
                 _logger.LogError($"Error al procesar direcciones para {cardCode}: {ex.Message}");
-                
+
                 if (ex.InnerException != null)
                 {
                     _logger.LogError($"Error interno: {ex.InnerException.Message}");
@@ -292,9 +292,9 @@ public class NotaCreditoService
             {
                 return ("", "");
             }
-            
+
             var responseObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
-            
+
             if (responseObj == null || !responseObj.ContainsKey("value"))
             {
                 _logger.LogWarning($"Formato de respuesta inesperado para el país {codigoPais}");
@@ -303,7 +303,7 @@ public class NotaCreditoService
 
             // Acceder al array de resultados
             var valueArray = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(responseObj["value"].ToString());
-            
+
             if (valueArray == null || valueArray.Count == 0)
             {
                 _logger.LogWarning($"No se encontró información para el país {codigoPais}");
@@ -314,7 +314,7 @@ public class NotaCreditoService
             var paisInfo = valueArray[0];
             string name = paisInfo.ContainsKey("Name") ? paisInfo["Name"].ToString() : "";
             string codeForReports = paisInfo.ContainsKey("CodeForReports") ? paisInfo["CodeForReports"].ToString() : "";
-            
+
             return (name, codeForReports);
         }
         catch (Exception ex)
@@ -324,7 +324,6 @@ public class NotaCreditoService
         }
     }
 
-
     public async Task<(string? dCdCDERef, int? dNTimDI, DateTime? dFecEmiDI)> ObtenerCDCFactura(string? dEstDocAso, string? dPExpDocAso, string? dNumDocAso, string? rucCompleto)
     {
         try
@@ -332,33 +331,33 @@ public class NotaCreditoService
             string query = $"Invoices?$select=DocDate,U_TIM,U_EXX_FE_CDC&$filter=FederalTaxID eq '{rucCompleto}' and U_EST eq '{dEstDocAso}' and U_PDE eq '{dPExpDocAso}' and FolioNumber eq {dNumDocAso}";
             var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, "Error al obtener datos de factura referenciada");
 
-        if (string.IsNullOrWhiteSpace(jsonResponse))
-            return (null, null, null);
+            if (string.IsNullOrWhiteSpace(jsonResponse))
+                return (null, null, null);
 
-        var root = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
+            var root = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
 
-        if (root == null || !root.ContainsKey("value"))
-            return (null, null, null);
+            if (root == null || !root.ContainsKey("value"))
+                return (null, null, null);
 
-        var valueArray = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(root["value"].ToString());
+            var valueArray = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(root["value"].ToString());
 
-        if (valueArray == null || valueArray.Count == 0)
-            return (null, null, null);
+            if (valueArray == null || valueArray.Count == 0)
+                return (null, null, null);
 
-        var factura = valueArray[0];
+            var factura = valueArray[0];
 
-        string dCdCDERef = factura.ContainsKey("U_EXX_FE_CDC") ? factura["U_EXX_FE_CDC"]?.ToString() : null;
-        int? dNTimDI = factura.ContainsKey("U_TIM") ? int.Parse(factura["U_TIM"].ToString()) : null;
+            string dCdCDERef = factura.ContainsKey("U_EXX_FE_CDC") ? factura["U_EXX_FE_CDC"]?.ToString() : null;
+            int? dNTimDI = factura.ContainsKey("U_TIM") ? int.Parse(factura["U_TIM"].ToString()) : null;
 
-        DateTime? dFecEmiDI = null;
-        if (factura.ContainsKey("DocDate"))
-        {
-            DateTime parsed;
-            if (DateTime.TryParse(factura["DocDate"].ToString(), out parsed))
-                dFecEmiDI = parsed;
-        }
+            DateTime? dFecEmiDI = null;
+            if (factura.ContainsKey("DocDate"))
+            {
+                DateTime parsed;
+                if (DateTime.TryParse(factura["DocDate"].ToString(), out parsed))
+                    dFecEmiDI = parsed;
+            }
 
-        return (dCdCDERef, dNTimDI, dFecEmiDI);
+            return (dCdCDERef, dNTimDI, dFecEmiDI);
         }
         catch (Exception ex)
         {
@@ -366,4 +365,137 @@ public class NotaCreditoService
             return (null, null, null);
         }
     }
+
+    public async Task<List<NotaCredito>> GetNotaCreditoSinAutorizar()
+    {
+        string queryDocumento = "$crossjoin(CreditNotes,BusinessPartners,Currencies) " +
+            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_Estado,U_EXX_FE_CODERR,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision)," +
+            "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion), " +
+            "Currencies($select=Code,Name,DocumentsCode) " +
+            "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
+            "CreditNotes/DocCurrency eq Currencies/Code and " +
+            "CreditNotes/FolioNumber ne null and " +
+            "CreditNotes/DocDate ge '20250501' and " +
+            "CreditNotes/U_EXX_FE_Estado ne 'AUT' and " +
+            "CreditNotes/U_EXX_FE_CDC ne null and CreditNotes/U_EXX_FE_CDC ne '' ";
+
+        var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
+        if (string.IsNullOrEmpty(jsonResponse))
+        {
+            _logger.LogWarning("No se encontraron datos en la respuesta de SAP.");
+            return new List<NotaCredito>();
+        }
+
+        var rawJson = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonResponse);
+        if (rawJson == null || !rawJson.ContainsKey("value"))
+        {
+            _logger.LogWarning("No se encontraron datos en la respuesta de SAP.");
+            return new List<NotaCredito>();
+        }
+
+        // Obtener la lista de Notas de crédito y deserializar
+        var notaCreditoJson = rawJson["value"].ToString();
+        var notaCreditoResponse = JsonConvert.DeserializeObject<List<NotaCreditoResponse>>(notaCreditoJson);
+
+        if (notaCreditoResponse == null)
+        {
+            _logger.LogWarning("No se pudieron deserializar las notas de crédito.");
+            return new List<NotaCredito>();
+        }
+
+        // Agrupar las respuestas por DocEntry para consolidar todas las líneas de cada nota de crédito
+        var notaCreditoAgrupadas = notaCreditoResponse
+            .GroupBy(n => n.CreditNotes.DocEntry)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var cardCode = notaCreditoResponse.Select(f => f.BusinessPartners.CardCode).Distinct().ToList();
+        var direcciones = await GetDireccionesSocioNegocio(cardCode);
+        var paises = direcciones.Select(d => d.Country).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
+
+        // Crear diccionarios para nombres y códigos de países
+        var nombresCodigosPaises = new Dictionary<string, (string Nombre, string CodigoReporte)>();
+
+        foreach (var pais in paises)
+        {
+            var infoCompleta = await GetInformacionPais(pais);
+            nombresCodigosPaises[pais] = infoCompleta;
+        }
+
+        // Lista final de notas de crédito
+        var notaCreditoList = new List<NotaCredito>();
+
+        // Procesar cada nota de crédito agrupada con sus líneas
+        foreach (var notaCreditoGroup in notaCreditoAgrupadas)
+        {
+            var docEntry = notaCreditoGroup.Key;
+            // Tomar la primera entrada para obtener la información general de la nota de crédito
+            var primeraEntrada = notaCreditoGroup.Value.First();
+
+            if (primeraEntrada.CreditNotes == null || primeraEntrada.BusinessPartners == null || primeraEntrada.Currencies == null)
+            {
+                continue;
+            }
+
+            // Encontrar la dirección para este socio de negocio
+            var direccion = direcciones.FirstOrDefault(d => d.CardCode == primeraEntrada.BusinessPartners.CardCode);
+
+            // Obtener la información del país
+            string descripcionPais = "";
+            string codigoReportePais = "";
+            if (direccion != null && !string.IsNullOrEmpty(direccion.Country) && nombresCodigosPaises.ContainsKey(direccion.Country))
+            {
+                var infoPais = nombresCodigosPaises[direccion.Country];
+                descripcionPais = infoPais.Nombre;
+                codigoReportePais = infoPais.CodigoReporte;
+            }
+
+            // Crear la nota de crédito con los datos generales
+            var notaCredito = new NotaCredito
+            {
+                DocEntry = primeraEntrada.CreditNotes.DocEntry,
+                DocType = primeraEntrada.CreditNotes.DocType,
+                U_EXX_FE_CDC = primeraEntrada.CreditNotes.U_EXX_FE_CDC ?? "",
+                U_EXX_FE_Estado = primeraEntrada.CreditNotes.U_EXX_FE_Estado,
+                U_EXX_FE_CODERR = primeraEntrada.CreditNotes.U_EXX_FE_CODERR,
+                U_CDOC = primeraEntrada.CreditNotes.U_CDOC?.PadLeft(2, '0'),
+                CardCode = primeraEntrada.CreditNotes.CardCode ?? "",
+                U_EST = primeraEntrada.CreditNotes.U_EST ?? "",
+                U_PDE = primeraEntrada.CreditNotes.U_PDE ?? "",
+                FolioNum = primeraEntrada.CreditNotes.FolioNumber ?? "",
+                DocDate = primeraEntrada.CreditNotes.DocDate,
+                DocTime = await ObtenerDocTimePorDocEntry(docEntry),
+                U_TIM = primeraEntrada.CreditNotes.U_TIM,
+                U_FITE = primeraEntrada.CreditNotes.U_FITE,
+                dTiCam = primeraEntrada.CreditNotes.DocRate,
+                iMotEmi = primeraEntrada.CreditNotes.U_EXX_FE_MotEmision,
+                iTipDocAso = primeraEntrada.CreditNotes.U_DASO,
+                U_NUMFC = primeraEntrada.CreditNotes.U_NUMFC,
+
+                BusinessPartner = new BusinessPartner
+                {
+                    CardCode = primeraEntrada.BusinessPartners.CardCode ?? "",
+                    dNomRec = primeraEntrada.BusinessPartners.CardName ?? "",
+                    FederalTaxID = primeraEntrada.BusinessPartners.FederalTaxID ?? "",
+                    iTiContRec = primeraEntrada.BusinessPartners.U_TIPCONT,
+                    iTiOpe = primeraEntrada.BusinessPartners.U_EXX_FE_TipoOperacion,
+                    iNatRec = primeraEntrada.BusinessPartners.U_CRSI ?? "",
+                    cPaisRec = codigoReportePais ?? "",
+                    dDesPaisRe = descripcionPais,
+                },
+                Currencies = new Currencies
+                {
+                    cMoneOpe = primeraEntrada.Currencies.DocumentsCode ?? "",
+                    dDesMoneOpe = primeraEntrada.Currencies.Name ?? ""
+                },
+                Items = new List<Item>()
+            };
+
+            // Obtener las líneas para este DocEntry específico
+            await ObtenerLineasNotaCredito(notaCredito, docEntry);
+            notaCreditoList.Add(notaCredito);
+        }
+
+        return notaCreditoList;
+    }
+
 }
