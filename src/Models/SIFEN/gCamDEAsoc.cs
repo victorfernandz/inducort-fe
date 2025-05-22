@@ -32,8 +32,15 @@ public class GCamDEAsoc // Nodo padre A001
     [XmlElement("dDTipoDocAso")]
     public string? DescTipoDocImpreso { get; set; }
 
-    [XmlElement("dFecEmiDI")]
+    [XmlIgnore]
     public DateTime? FechaEmisionDocImpreso { get; set; }
+
+    [XmlElement("dFecEmiDI")]
+    public string FechaEmisionDocImpresoStr
+    {
+        get => FechaEmisionDocImpreso?.ToString("yyyy-MM-dd");
+        set => FechaEmisionDocImpreso = string.IsNullOrWhiteSpace(value) ? null : DateTime.Parse(value);
+    }
 
     public GCamDEAsoc (){}
 
@@ -109,7 +116,7 @@ public class GCamDEAsoc // Nodo padre A001
         };
     }
 
-    public bool ShouldSerializeFechaEmisionDocImpreso()
+    public bool ShouldSerializeFechaEmisionDocImpresoStr()
     {
         return TipoDocAsociado == 2;
     }

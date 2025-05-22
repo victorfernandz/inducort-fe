@@ -583,8 +583,8 @@ public class FacturaService
             "Invoices/FolioNumber ne null and " +
             "Invoices/DocDate ge '20250501' and " +
             "Invoices/U_EXX_FE_Estado ne 'AUT' and " +
-            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne ''";
-        //    "Invoices/DocEntry eq 2843";
+            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne '' and " +
+            "Invoices/DocEntry eq 2844";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))

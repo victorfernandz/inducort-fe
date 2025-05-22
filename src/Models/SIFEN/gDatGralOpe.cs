@@ -120,6 +120,11 @@ public class GOpeCom // Nodo padre D001
         return MonedaOperacion != "PYG";
     }
 
+    public bool ShouldSerializeTipoCambioStr()
+    {
+        return MonedaOperacion != "PYG";
+    }
+
     private string ObtenerDescripTipoTran(string? iTipTra)
     {
         return iTipTra switch
