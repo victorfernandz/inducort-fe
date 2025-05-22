@@ -83,6 +83,7 @@ public class EnvioSifenService
         Directory.CreateDirectory(debugDir);
         string numeroLote = "";
         string codigoRespuesta = "";
+        
 
         try
         {
@@ -218,7 +219,14 @@ public class EnvioSifenService
                         {
                             if (docEntry != -1)
                             {
-                                bool actualizado = await ActualizarDocumento(xmlTiDE, docEntry, cdc, estado, codigoRespuesta, mensaje);
+                                XmlDocument firmadoDoc = new XmlDocument();
+                                firmadoDoc.PreserveWhitespace = true;
+                                firmadoDoc.LoadXml(xmlFirmado);
+
+                                string? qr = firmadoDoc.GetElementsByTagName("dCarQR")?[0]?.InnerText;
+
+                                bool actualizado = await ActualizarDocumento(xmlTiDE, docEntry, cdc, estado, codigoRespuesta, mensaje, qr);
+
                                 _log.LogInformation($"Documento {tipoDocumento} con CDC {cdc} actualizado en SAP: {actualizado}");
                             }
                             else
@@ -335,7 +343,12 @@ public class EnvioSifenService
 
                             if (_sapServiceLayer != null && docEntry != -1)
                             {
-                                bool actualizado = await ActualizarDocumento(tipoDocumento, docEntry, cdc, estado, codigo, mensaje);
+                                XmlDocument firmadoDoc = new XmlDocument();
+                                firmadoDoc.PreserveWhitespace = true;
+                                firmadoDoc.LoadXml(xmlFirmado);
+
+                                string? qr = firmadoDoc.GetElementsByTagName("dCarQR")?[0]?.InnerText;
+                                bool actualizado = await ActualizarDocumento(tipoDocumento, docEntry, cdc, estado, codigo, mensaje, qr);
                                 _log.LogInformation($"Documento {tipoDocumento} con CDC {cdc} actualizado tras consulta: {actualizado}");
                             }
                         }
@@ -472,7 +485,7 @@ public class EnvioSifenService
         }
     }
     
-    public async Task<bool> ActualizarDocumento(string xmlTiDE, int docEntry, string cdc, string estadoSifen, string codigoRespuesta, string descripcionRespuesta)
+    public async Task<bool> ActualizarDocumento(string xmlTiDE, int docEntry, string cdc, string estadoSifen, string codigoRespuesta, string descripcionRespuesta, string? QR)
     {
         string estadoInternoSAP = estadoSifen.ToUpper() switch
         {
@@ -482,6 +495,13 @@ public class EnvioSifenService
             "OFFLINE" => "OFF",
             null => "OFF"
         };
+        
+        DateTime? fechaAutorizacion = null;
+
+        if (estadoInternoSAP == "AUT")
+        {
+            fechaAutorizacion = DateTime.Now;
+        }
 
         var requestBody = new
         {
@@ -489,8 +509,8 @@ public class EnvioSifenService
             U_EXX_FE_Estado = estadoInternoSAP,
             U_EXX_FE_CODERR = codigoRespuesta,
             U_EXX_FE_DESERR = descripcionRespuesta,
-            U_EXX_FE_FECAUT = DateTime.Now
-    //        U_EXX_FE_QR = QR
+            U_EXX_FE_FECAUT = fechaAutorizacion,
+            U_EXX_FE_QR = QR
         };
 
         var content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
