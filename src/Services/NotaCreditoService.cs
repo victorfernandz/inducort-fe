@@ -202,17 +202,17 @@ public class NotaCreditoService
                     }
                     else
                     {
-                        _logger.LogWarning($"No se pudieron deserializar las líneas de la factura {docEntry}");
+                        _logger.LogWarning($"No se pudieron deserializar las líneas de la Nota de crédito {docEntry}");
                     }
                 }
                 else
                 {
-                    _logger.LogWarning($"No se encontraron líneas para la factura {docEntry}");
+                    _logger.LogWarning($"No se encontraron líneas para la Nota de crédito {docEntry}");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error al procesar las líneas para la factura {docEntry}: {ex.Message}");
+                _logger.LogError($"Error al procesar las líneas para la Nota de crédito {docEntry}: {ex.Message}");
                 if (ex.InnerException != null)
                 {
                     _logger.LogError($"Error interno: {ex.InnerException.Message}");
@@ -222,7 +222,7 @@ public class NotaCreditoService
         else
         {
             var errorContent = await responseLineas.Content.ReadAsStringAsync();
-            _logger.LogError($"Error al obtener líneas para la factura {docEntry}: {responseLineas.StatusCode}");
+            _logger.LogError($"Error al obtener líneas para la Nota de crédito {docEntry}: {responseLineas.StatusCode}");
             _logger.LogError($"Detalles: {errorContent}");
         }
     }
@@ -324,20 +324,12 @@ public class NotaCreditoService
         }
     }
 
-    public async Task<bool> ActualizarCDC(int docEntry, string cdc)
-    {
-        var requestBody = new { U_EXX_FE_CDC = cdc };
-        var content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
-        var response = await _httpClient.PatchAsync($"CreditNotes({docEntry})", content);
-
-        return response.IsSuccessStatusCode;
-    }
 
     public async Task<(string? dCdCDERef, int? dNTimDI, DateTime? dFecEmiDI)> ObtenerCDCFactura(string? dEstDocAso, string? dPExpDocAso, string? dNumDocAso, string? rucCompleto)
     {
         try
         {
-            string query = $"CreditNotes?$select=DocDate,U_TIM,U_EXX_FE_CDC&$filter=FederalTaxID eq '{rucCompleto}' and U_EST eq '{dEstDocAso}' and U_PDE eq '{dPExpDocAso}' and FolioNumber eq {dNumDocAso}";
+            string query = $"Invoices?$select=DocDate,U_TIM,U_EXX_FE_CDC&$filter=FederalTaxID eq '{rucCompleto}' and U_EST eq '{dEstDocAso}' and U_PDE eq '{dPExpDocAso}' and FolioNumber eq {dNumDocAso}";
             var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, "Error al obtener datos de factura referenciada");
 
         if (string.IsNullOrWhiteSpace(jsonResponse))

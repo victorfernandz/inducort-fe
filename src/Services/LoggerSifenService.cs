@@ -74,8 +74,6 @@ public class LoggerSifenService
                     {
                         _logger?.LogWarning($"No se pudo analizar HTML: {exHtml.Message}");
                     }
-
-                    _logger?.LogWarning($"No se pudo analizar XML: {exXml.Message}");
                 }
 
                 if (string.IsNullOrEmpty(dCodRes) && mensajeRespuesta.Contains("|Codigo:"))

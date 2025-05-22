@@ -21,9 +21,9 @@ public class FacturaService
             "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
-        /*    "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and " +
-            "Invoices/DocDate ge '20250506' and Invoices/FolioNumber ne null"; */
-            "Invoices/DocEntry eq 2834";
+            "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and Invoices/U_DOCD eq 'S' and " +
+            "Invoices/DocDate ge '20250506' and Invoices/FolioNumber ne null"; 
+        //    "Invoices/DocEntry eq 2806";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))
@@ -267,7 +267,7 @@ public class FacturaService
                             {
                                 dCodInt = factura.DocType == "S" ? "1" : linea.ItemCode,
                                 dDesProSer = linea.ItemDescription,
-                                dCantProSer = linea.Quantity,
+                                dCantProSer = factura.DocType == "S" ? 1 : linea.Quantity,
                                 dPUniProSer = linea.PriceAfterVAT,
                                 dTiCamIt = linea.Rate,
                                 taxCode = linea.TaxCode,
@@ -571,32 +571,22 @@ public class FacturaService
             return null;
         }
     }
-
-    public async Task<bool> ActualizarCDC(int docEntry, string cdc)
-    {
-        var requestBody = new { U_EXX_FE_CDC = cdc };
-        var content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
-        var response = await _httpClient.PatchAsync($"Invoices({docEntry})", content);
-
-        return response.IsSuccessStatusCode;
-    }
     
     public async Task<List<Factura>> GetFacturasSinAutorizar()
     {
-        string queryDocumento =
-            "$crossjoin(Invoices,BusinessPartners,Currencies)" +
-            "?$expand=Invoices($select=DocEntry,DocDate,U_EXX_FE_CDC,U_EXX_FE_Estado,U_CDOC,U_PDE,FolioNumber)," +
-            "BusinessPartners($select=CardCode)," +
-            "Currencies($select=Code)" +
+        string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
+            "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EXX_FE_Estado,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments)," +
+            "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID)," +
+            "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "Invoices/FolioNumber ne null and " +
             "Invoices/DocDate ge '20250501' and " +
             "Invoices/U_EXX_FE_Estado ne 'AUT' and " +
             "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne ''";
+        //    "Invoices/DocEntry eq 2843";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
-
         if (string.IsNullOrEmpty(jsonResponse))
         {
             _logger.LogWarning("No se encontraron datos en la respuesta de SAP.");
@@ -610,44 +600,180 @@ public class FacturaService
             return new List<Factura>();
         }
 
+        // Obtener la lista de facturas y deserializar
         var facturasJson = rawJson["value"].ToString();
-        var facturaResponses = JsonConvert.DeserializeObject<List<FacturaResponse>>(facturasJson);
+        var facturasResponse = JsonConvert.DeserializeObject<List<FacturaResponse>>(facturasJson);
 
-        if (facturaResponses == null || facturaResponses.Count == 0)
+        if (facturasResponse == null)
         {
-            _logger.LogWarning("No se pudieron deserializar las facturas sin procesar.");
+            _logger.LogWarning("No se pudieron deserializar las facturas.");
             return new List<Factura>();
         }
 
-        var facturasValidas = facturaResponses
-            .Where(f => f.Invoices != null)
-            .ToList();
+        // Agrupar las respuestas por DocEntry para consolidar todas las líneas de cada factura
+        var facturasAgrupadas = facturasResponse
+            .GroupBy(f => f.Invoices.DocEntry)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
-        if (facturasValidas.Count < facturaResponses.Count)
+        var cardCode = facturasResponse.Select(f => f.BusinessPartners.CardCode).Distinct().ToList();
+        var direcciones = await GetDireccionesSocioNegocio(cardCode);
+        var paises = direcciones.Select(d => d.Country).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
+
+        // Crear diccionarios para nombres y códigos de países
+        var nombresCodigosPaises = new Dictionary<string, (string Nombre, string CodigoReporte)>();
+
+        foreach (var pais in paises)
         {
-            _logger.LogWarning($"Se detectaron {facturaResponses.Count - facturasValidas.Count} entradas con Invoices nulo. Se ignorarán.");
+            var infoCompleta = await GetInformacionPais(pais);
+            nombresCodigosPaises[pais] = infoCompleta;
         }
 
-        var facturasAgrupadas = facturasValidas.GroupBy(f => f.Invoices.DocEntry);
+        // Lista final de facturas
         var facturasList = new List<Factura>();
 
-        foreach (var group in facturasAgrupadas)
+        // Procesar cada factura agrupada con sus líneas
+        foreach (var facturaGroup in facturasAgrupadas)
         {
-            var first = group.First();
+            var docEntry = facturaGroup.Key;
+            // Tomar la primera entrada para obtener la información general de la factura
+            var primeraEntrada = facturaGroup.Value.First();
 
+            if (primeraEntrada.Invoices == null || primeraEntrada.BusinessPartners == null || primeraEntrada.Currencies == null)
+            {
+                continue;
+            }
+
+            // Encontrar la dirección para este socio de negocio
+            var direccion = direcciones.FirstOrDefault(d => d.CardCode == primeraEntrada.BusinessPartners.CardCode);
+
+            // Obtener la información del país
+            string descripcionPais = "";
+            string codigoReportePais = "";
+            if (direccion != null && !string.IsNullOrEmpty(direccion.Country) && nombresCodigosPaises.ContainsKey(direccion.Country))
+            {
+                var infoPais = nombresCodigosPaises[direccion.Country];
+                descripcionPais = infoPais.Nombre;
+                codigoReportePais = infoPais.CodigoReporte;
+            }
+
+            // Crear la factura con los datos generales
             var factura = new Factura
             {
-                DocEntry = first.Invoices.DocEntry,
-                DocDate = first.Invoices.DocDate,
-                U_EXX_FE_CDC = first.Invoices.U_EXX_FE_CDC,
-                U_CDOC = first.Invoices.U_CDOC,
-                FolioNum = first.Invoices.FolioNumber,
-                U_EXX_FE_Estado = first.Invoices.U_EXX_FE_Estado
+                DocEntry = primeraEntrada.Invoices.DocEntry,
+                DocType = primeraEntrada.Invoices.DocType,
+                U_EXX_FE_CDC = primeraEntrada.Invoices.U_EXX_FE_CDC ?? "",
+                U_EXX_FE_Estado = primeraEntrada.Invoices.U_EXX_FE_Estado,
+                U_CDOC = primeraEntrada.Invoices.U_CDOC?.PadLeft(2, '0'),
+                CardCode = primeraEntrada.Invoices.CardCode ?? "",
+                U_EST = primeraEntrada.Invoices.U_EST ?? "",
+                U_PDE = primeraEntrada.Invoices.U_PDE ?? "",
+                FolioNum = primeraEntrada.Invoices.FolioNumber ?? "",
+                DocDate = primeraEntrada.Invoices.DocDate,
+                DocTime = await ObtenerDocTimePorDocEntry(docEntry),
+                U_TIM = primeraEntrada.Invoices.U_TIM,
+                U_FITE = primeraEntrada.Invoices.U_FITE,
+                iTipTra = primeraEntrada.Invoices.U_EXX_FE_TipoTran,
+                iIndPres = primeraEntrada.Invoices.U_EXX_FE_IndPresencia,
+                iCondOpe = primeraEntrada.Invoices.PaymentGroupCode,
+                iCondCred = primeraEntrada.Invoices.NumberOfInstallments,
+                dTiCam = primeraEntrada.Invoices.DocRate,
+                BusinessPartner = new BusinessPartner
+                {
+                    CardCode = primeraEntrada.BusinessPartners.CardCode ?? "",
+                    dNomRec = primeraEntrada.BusinessPartners.CardName ?? "",
+                    FederalTaxID = primeraEntrada.BusinessPartners.FederalTaxID ?? "",
+                    iTiContRec = primeraEntrada.BusinessPartners.U_TIPCONT,
+                    iTiOpe = primeraEntrada.BusinessPartners.U_EXX_FE_TipoOperacion,
+                    iNatRec = primeraEntrada.BusinessPartners.U_CRSI ?? "",
+                    iTipIDRec = primeraEntrada.BusinessPartners.U_CRID,
+                    cPaisRec = codigoReportePais ?? "",
+                    dDesPaisRe = descripcionPais,
+                },
+                Currencies = new Currencies
+                {
+                    cMoneOpe = primeraEntrada.Currencies.DocumentsCode ?? "",
+                    dDesMoneOpe = primeraEntrada.Currencies.Name ?? ""
+                },
+                Items = new List<Item>()
             };
 
+            // Obtener las líneas para este DocEntry específico
+            await ObtenerLineasFactura(factura, docEntry);
             facturasList.Add(factura);
         }
 
+        // Inicializar operación de crédito y obtener cuotas para facturas a crédito
+        foreach (var factura in facturasList)
+        {
+            // Normalizar la condición de operación y condición de crédito
+            int condicionOperacion = factura.iCondOpe == -1 ? 1 : 2;
+            int condicionCredito = factura.iCondCred == 1 ? 1 : 2;
+
+            // Solo inicializar la operación de crédito si la condición de operación es crédito (2)
+            if (condicionOperacion == 2)
+            {
+                // Obtener el plazo de crédito según la condición
+                string plazoCredito = "";
+                if (condicionCredito == 1)
+                {
+                    plazoCredito = await ObtenerPlazoCredito(factura.DocEntry);
+                }
+
+                int? cantidadCuotas = condicionCredito == 2 ? factura.iCondCred : null;
+
+                // Inicializar la operación de crédito
+                factura.OperacionCredito = new GPagCred(condicionCredito, plazoCredito, cantidadCuotas);
+
+                // Si es por cuotas, obtener las cuotas
+                if (condicionCredito == 2)
+                {
+                    try
+                    {
+                        var cuotasResponse = await GetCuotasFactura(factura.DocEntry);
+
+                        if (cuotasResponse != null && cuotasResponse.Any())
+                        {
+                            foreach (var cuota in cuotasResponse)
+                            {
+                                if (DateTime.TryParse(cuota.U_FECHAV, out DateTime fechaVencimiento))
+                                {
+                                    // Determinar el monto de la cuota
+                                    decimal montoCuota = cuota.TotalFC > 0 ? cuota.TotalFC : cuota.Total;
+
+                                    var nuevaCuota = new GCuotas(
+                                        factura.Currencies.cMoneOpe,         // Moneda de la cuota
+                                        factura.Currencies.dDesMoneOpe,      // Descripción de la moneda
+                                        montoCuota,                          // Monto de la cuota
+                                        fechaVencimiento                     // Fecha de vencimiento
+                                    );
+
+                                    factura.OperacionCredito.Cuotas.Add(nuevaCuota);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"Advertencia: Formato de fecha inválido en cuota: {cuota.U_FECHAV}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"No se encontraron cuotas para la factura {factura.DocEntry}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Error al obtener cuotas para DocEntry {factura.DocEntry}: {ex.Message}");
+                        if (ex.InnerException != null)
+                        {
+                            _logger.LogError($"Error interno: {ex.InnerException.Message}");
+                        }
+                    }
+                }
+            }
+
+            factura.PagoContado = await GetPagoContado(factura.DocEntry);
+
+        }
         return facturasList;
     }
 }

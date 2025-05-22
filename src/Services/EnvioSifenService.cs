@@ -74,7 +74,7 @@ public class EnvioSifenService
     public async Task<string> EnviarDocumentoAsincronico(List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados, string tipoDocumento, string xmlTiDE)
     {
         if (documentosFirmados.Count < 1 || documentosFirmados.Count > 50)
-            throw new Exception("El lote debe contener entre 1 y 50 documentos.");
+            throw new Exception($"El lote debe contener entre 1 y 50 documentos. Cantidad encontrada: {documentosFirmados.Count}");
 
         var fechaCreacion = DateTime.Now;
         var fechaEnvio = DateTime.Now;
@@ -499,7 +499,7 @@ public class EnvioSifenService
 
         HttpResponseMessage response;
 
-        if (xmlTiDE == "1")
+        if (xmlTiDE == "1" || xmlTiDE == "01")
         {
             response = await sapClient.PatchAsync($"Invoices({docEntry})", content);
         }

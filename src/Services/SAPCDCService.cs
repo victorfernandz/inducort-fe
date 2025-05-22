@@ -309,10 +309,10 @@ public class SAPCDCService : BackgroundService
                 Console.WriteLine(dCodSeg);
 
                 string cdc = GenerarCDC.GenerarCodigoCDC(iTiDE, _empresaInfo.Ruc, _empresaInfo.Dv.ToString(), dEst, dPunExp, dNumDoc, _empresaInfo.TipoContribuyente.ToString(), fechaFormatoCDC, iTipEmi.ToString(), dCodSeg);
-                Console.WriteLine(cdc);
+            //    Console.WriteLine(cdc);
                 // Se extraer el Dígito Verificador (dv)
                 int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
-                Console.WriteLine(dv);
+            //    Console.WriteLine(dv);
                 string xmlTiDE = Convert.ToInt32(factura.U_CDOC).ToString();
 
                 _logger.LogInformation($"CDC generado y actualizado: {cdc}");
@@ -363,7 +363,7 @@ public class SAPCDCService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"Error al preparar/enviar documento con CDC {cdc}: {ex.Message}");
+                    _logger.LogError($"Error al preparar/enviar documento (factura) con CDC {cdc}: {ex.Message}");
                     _logger.LogError($"StackTrace: {ex.StackTrace}");
 
                     string errorPath = "Errors";
@@ -374,7 +374,7 @@ public class SAPCDCService : BackgroundService
             }
 
             // Si quedó un lote incompleto
-            if (loteDocumentos.Count > 0)// && !_config.Sifen.Url.ToLower().Contains("test"))
+            if (loteDocumentos.Count > 0)
             {
                 await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote, facturas.First().U_CDOC);
                 _logger.LogInformation($"Lote final de {loteDocumentos.Count} documento(s) enviado.");
@@ -411,13 +411,12 @@ public class SAPCDCService : BackgroundService
                     string archivoXml = $"Documento_{cdc}.xml";
                     string rutaXmlFirmado = Path.Combine(xmlDir, archivoXml);
 
-                    // Regenerar XML si fue rechazado
                     if (factura.U_EXX_FE_Estado == "NAU")
                     {
                         try
                         {
                             var (certBytes, certPassword) = await ObtenerCertificadoActivo();
-                            string dCodSeg = cdc.Substring(36, 8); 
+                            string dCodSeg = cdc.Substring(34, 9);
 
                             await RegenerarXmlFirmado(factura, cdc, dCodSeg, certBytes, certPassword);
                             _logger.LogInformation($"XML regenerado para documento rechazado con CDC {cdc}.");
@@ -425,45 +424,60 @@ public class SAPCDCService : BackgroundService
                         catch (Exception exReg)
                         {
                             _logger.LogError($"Error al regenerar XML para CDC {cdc}: {exReg.Message}");
-                            continue; 
+                            continue;
                         }
-                    }
 
-                    if (!File.Exists(rutaXmlFirmado))
+                        if (!File.Exists(rutaXmlFirmado))
+                        {
+                            _logger.LogWarning($"No se encontró el archivo XML firmado para CDC {cdc} en {rutaXmlFirmado}");
+                            continue;
+                        }
+
+                        string xmlFirmado = File.ReadAllText(rutaXmlFirmado);
+
+                        await _envioService.EnviarDocumentoAsincronico(
+                            new List<(int, string, string)> { (factura.DocEntry, cdc, xmlFirmado) },
+                            factura.U_CDOC,
+                            factura.U_CDOC
+                        );
+
+                        _logger.LogInformation($"Documento con CDC {cdc} reenviado a SIFEN.");
+                    }
+                    else if (factura.U_EXX_FE_Estado == "ENV" || factura.U_EXX_FE_Estado == "OFF")
                     {
-                        _logger.LogWarning($"No se encontró el archivo XML firmado para CDC {cdc} en {rutaXmlFirmado}");
-                        continue;
+                        if (!File.Exists(rutaXmlFirmado))
+                        {
+                            _logger.LogWarning($"No se encontró el archivo XML firmado para CDC {cdc} en {rutaXmlFirmado}");
+                            continue;
+                        }
+
+                        string xmlFirmado = File.ReadAllText(rutaXmlFirmado);
+
+                        var (dId, lote) = _loggerSifen.ObtenerLotePorCDC(cdc);
+                        if (string.IsNullOrEmpty(dId) || string.IsNullOrEmpty(lote))
+                        {
+                            _logger.LogWarning($"No se encontró lote o dId para CDC {cdc}. Omitiendo.");
+                            continue;
+                        }
+
+                        try
+                        {
+                            var (certBytes, certPassword) = await ObtenerCertificadoActivo();
+                            _envioService.ConfigurarCertificadoCliente(certBytes, certPassword);
+                        }
+                        catch (Exception certEx)
+                        {
+                            _logger.LogError($"No se pudo configurar el certificado TLS: {certEx.Message}");
+                            continue;
+                        }
+
+                        await _envioService.ConsultarEstadoLoteAsync(
+                            dId, lote,
+                            new List<(int, string, string)> { (factura.DocEntry, cdc, xmlFirmado) },
+                            factura.U_CDOC,
+                            DateTime.Now, DateTime.Now
+                        );
                     }
-
-                    string xmlFirmado = File.ReadAllText(rutaXmlFirmado);
-
-                    var (dId, lote) = _loggerSifen.ObtenerLotePorCDC(cdc);
-                    if (string.IsNullOrEmpty(dId) || string.IsNullOrEmpty(lote))
-                    {
-                        _logger.LogWarning($"No se encontró lote o dId para CDC {cdc}. Omitiendo.");
-                        continue;
-                    }
-
-                    _logger.LogWarning($"(CDC={cdc}) dId recuperado: {dId}, Lote recuperado: {lote}");
-
-                    // Configurar certificado TLS
-                    try
-                    {
-                        var (certBytes, certPassword) = await ObtenerCertificadoActivo();
-                        _envioService.ConfigurarCertificadoCliente(certBytes, certPassword);
-                        _logger.LogInformation("Certificado TLS configurado para consulta de estado del lote.");
-                    }
-                    catch (Exception certEx)
-                    {
-                        _logger.LogError($"No se pudo configurar el certificado TLS: {certEx.Message}");
-                        continue;
-                    }
-
-                    // Consultar estado del lote
-                    await _envioService.ConsultarEstadoLoteAsync(dId, lote, new List<(int, string, string)> { (factura.DocEntry, cdc, xmlFirmado) }, factura.U_CDOC,
-                    //    "", // mensajeRespuesta
-                        DateTime.Now, DateTime.Now
-                    );
                 }
                 catch (Exception exDoc)
                 {
@@ -512,7 +526,7 @@ public class SAPCDCService : BackgroundService
                 }
                 else
                 {
-                    iTipIDRec = notaCredito.BusinessPartner.iTipIDRec;
+                    iTipIDRec = notaCredito.BusinessPartner.iTipIDRec == "CEDULA" ? "1" : "2";
                     dNumIDRec = rucPartes.Length > 0 ? rucPartes[0] : "";
                 }
 
@@ -739,7 +753,12 @@ public class SAPCDCService : BackgroundService
 
                     if (_config.Sifen.Url.ToLower().Contains("test"))
                     {
-                        string respuesta = await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote, xmlTiDE);
+                        loteDocumentos.Add((notaCredito.DocEntry, cdc, xmlFirmadoFinal));
+
+                        await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote, xmlTiDE);
+                        _logger.LogInformation("Lote de 3 documentos enviado.");
+                        loteDocumentos.Clear();
+                        tipoDocumentoLote = "";
                     }
                     else
                     {
@@ -758,7 +777,7 @@ public class SAPCDCService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"Error al preparar/enviar documento con CDC {cdc}: {ex.Message}");
+                    _logger.LogError($"Error al preparar/enviar documento (nota de crédito) con CDC {cdc}: {ex.Message}");
                     _logger.LogError($"StackTrace: {ex.StackTrace}");
 
                     string errorPath = "Errors";
@@ -769,7 +788,7 @@ public class SAPCDCService : BackgroundService
             }
 
             // Si quedó un lote incompleto
-            if (loteDocumentos.Count > 0 && !_config.Sifen.Url.ToLower().Contains("test"))
+            if (loteDocumentos.Count > 0)
             {
                 await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote, notasCredito.First().U_CDOC);
                 _logger.LogInformation($"Lote final de {loteDocumentos.Count} documento(s) enviado.");
@@ -777,7 +796,7 @@ public class SAPCDCService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error en ProcesarFacturasSinCDC: {ex.Message}");
+            _logger.LogError($"Error en ProcesarNotaCreditoSinCDC: {ex.Message}");
             _logger.LogError($"StackTrace: {ex.StackTrace}");
         }
     }
@@ -855,14 +874,119 @@ public class SAPCDCService : BackgroundService
 
         string rutaXml = Path.Combine(xmlDir, $"Documento_{cdc}.xml");
 
+        if (File.Exists(rutaXml))
+        {
+            string backupDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "BackupXml");
+            Directory.CreateDirectory(backupDir);
+
+            string backupPath = Path.Combine(backupDir, $"Documento_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml");
+            File.Copy(rutaXml, backupPath, true);
+            File.Delete(rutaXml); 
+            _logger.LogInformation($"Se guardó respaldo del XML anterior en {backupPath} y se eliminó el archivo original para regeneración.");
+        }
+
         // Obtener la info de empresa actual
         if (_empresaInfo == null)
             _empresaInfo = await _empresaService.GetEmpresaInfo();
 
         // Obtener ítems y totales actualizados
-        var totalesFactura = Totalizador.CalcularTotalesFactura(factura.Items, factura.dTiCam, factura.Currencies.cMoneOpe);
-        // Obtener el código de seguridad actual del documento generado
-        //string dCodSeg = cdc.Substring(36, 8); 
+        List<Item> itemsList = new List<Item>();
+
+        if (factura.Items != null && factura.Items.Any())
+        {
+            foreach (var item in factura.Items)
+            {
+                decimal totalBruto = item.dCantProSer * item.dPUniProSer;
+                int tasaIVA = 0;
+
+                if (item.dTasaIVA == 5 || item.dTasaIVA == 1.5m)
+                {
+                    tasaIVA = 5;
+                }
+                else if (item.dTasaIVA == 10)
+                {
+                    tasaIVA = 10;
+                }
+
+                string descAfectacionIVA = "Gravado IVA";
+                int afectacionIVA = 1;
+                int proporcionIVA = 100;
+
+                if (item.taxCode != null && item.taxCode.Equals("IVA_EXE", StringComparison.OrdinalIgnoreCase))
+                {
+                    afectacionIVA = 3;
+                    descAfectacionIVA = "Exento";
+                    proporcionIVA = 0;
+                }
+                else if (item.taxCode != null && item.taxCode.Equals("IVA_IMB", StringComparison.OrdinalIgnoreCase))
+                {
+                    afectacionIVA = 4;
+                    descAfectacionIVA = "Gravado parcial (Grav- Exento)";
+                    proporcionIVA = 30;
+                }
+                else if (item.taxCode?.Contains("IVA_5", StringComparison.OrdinalIgnoreCase) == true ||
+                    (item.taxCode != null && item.taxCode.Equals("IVA_10", StringComparison.OrdinalIgnoreCase)))
+                {
+                    afectacionIVA = 1;
+                    descAfectacionIVA = "Gravado IVA";
+                    proporcionIVA = 100;
+                }
+
+                decimal baseGravadaIVA = 0;
+
+                if (tasaIVA == 10 && (afectacionIVA == 1 || afectacionIVA == 4))
+                {
+                    //    baseGravadaIVA = Math.Round((totalBruto * (proporcionIVA / 100)) / 1.1m,8);
+                    baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                }
+                else if ((tasaIVA == 5 || item.dTasaIVA == 1.5m) && (afectacionIVA == 1 || afectacionIVA == 4))
+                {
+                    //    baseGravadaIVA = Math.Round((totalBruto * (proporcionIVA / 100)) / 1.05m,8);
+                    baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                }
+                else if (tasaIVA == 0 && (afectacionIVA == 2 || afectacionIVA == 3))
+                {
+                    baseGravadaIVA = 0;
+                }
+
+                decimal liquidacionIVA = 0;
+
+                if (afectacionIVA != 2 && afectacionIVA != 3)
+                {
+                    decimal tasaDecimal = tasaIVA / 100m;
+                    liquidacionIVA = Math.Round(baseGravadaIVA * tasaDecimal, 8);
+                }
+
+                decimal baseExenta = 0;
+
+                if (afectacionIVA == 4)
+                {
+                    baseExenta = Math.Round((100 * totalBruto * (100 - proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                }
+
+                itemsList.Add(new Item
+                {
+                    dCodInt = factura.DocType == "S" ? "1" : item.dCodInt,
+                    dDesProSer = item.dDesProSer,
+                    dCantProSer = item.dCantProSer,
+                    dPUniProSer = item.dPUniProSer,
+                    cUniMed = item.cUniMed,
+                    dDesUniMed = item.dDesUniMed,
+                    dTiCamIt = item.dTiCamIt,
+                    dTotBruOpeItem = totalBruto,
+                    iAfecIVA = afectacionIVA,
+                    dDesAfecIVA = descAfectacionIVA,
+                    dPropIVA = proporcionIVA,
+                    dTasaIVA = tasaIVA,
+                    dBasGravIVA = baseGravadaIVA,
+                    dLiqIVAItem = liquidacionIVA,
+                    dBasExe = baseExenta,
+                });
+            }
+        }
+
+        // Calcular subtotales y totales usando el helper
+        var totalesFactura = Totalizador.CalcularTotalesFactura(itemsList, factura.dTiCam, factura.Currencies.cMoneOpe);
 
         // Fecha de emisión y firma
         DateTime dFecFirma = DateTime.Now;
@@ -877,7 +1001,7 @@ public class SAPCDCService : BackgroundService
             hora = new TimeSpan(horas, minutos, segundos);
         }
         DateTime dFeEmiDE = fecha.Date.Add(hora);
-        string iTiDE = factura.U_CDOC;
+        string iTiDE = int.Parse(factura.U_CDOC).ToString(); // Sacamos el cero
 
         GenerarXML.SerializarDocumentoElectronico(
             cdc: cdc,
@@ -919,8 +1043,8 @@ public class SAPCDCService : BackgroundService
             dDVReceptor: factura.BusinessPartner.FederalTaxID.Split('-').Length > 1 ? int.Parse(factura.BusinessPartner.FederalTaxID.Split('-')[1]) : 0,
             dTiCam: factura.dTiCam,
             iIndPres: factura.iIndPres,
-            iCondOpe: factura.iCondOpe,
-            iCondCred: factura.iCondCred,
+            iCondOpe: factura.iCondOpe == -1 ? 1 : 2,
+            iCondCred: factura.iCondCred == 1 ? 1 : 2,
             iTiPago: factura.PagoContado?.TipoPago,
             dMonTiPag: factura.PagoContado?.MontoTipoPago,
             cMoneTiPag: factura.PagoContado?.MonedaTipoPago,
@@ -931,7 +1055,7 @@ public class SAPCDCService : BackgroundService
             actividades: _empresaInfo.ActividadesEconomicas,
             obligaciones: _empresaInfo.ObligacionesAfectadas,
             cuotas: factura.OperacionCredito?.Cuotas,
-            items: factura.Items,
+            items: itemsList,
             plazoCredito: factura.OperacionCredito?.PlazoCredito,
             totales: totalesFactura,
             certificadoBytes: certificadoBytes,
