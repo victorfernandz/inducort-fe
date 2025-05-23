@@ -29,7 +29,7 @@ public class DocumentoElectronico // Nodo Padre AA001
 */
     public DocumentoElectronico(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string? iTipTra, string cMoneOpe,
         string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
-        string dEmailE, string cActEco, string dDesActEco, int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag,
+        string dEmailE, string cActEco, string dDesActEco, int iNatRec, int? iTiContRec, string? dDirRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag,
         string? cMoneTiPag, string? dDMoneTiPag, decimal? dTiCamTiPag, string? iTipIDRec, string? dNumIDRec,
 
         // campos opcionales solo para NC
@@ -37,7 +37,7 @@ public class DocumentoElectronico // Nodo Padre AA001
    
     {
         DE = new DEContent(cdc, dv, dFecFirma, dSisFact, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, 
-            cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
+            cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, cActEco, dDesActEco, iNatRec, iTiContRec, dDirRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
             iMotEmi, dCdCDERef, dFecEmiDI, dNTimDI, dEstDocAso, dPExpDocAso, dNumDocAso, iTipoDocAso, iTipDocAso);
     }
 }
@@ -91,7 +91,7 @@ public class DEContent // Nodo padre AA001
 
     public DEContent(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE, string? iTipTra, string cMoneOpe, string dDesMoneOpe,
         string dRucEm,int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE,
-        string cActEco, string dDesActEco, int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag,
+        string cActEco, string dDesActEco, int iNatRec, int? iTiContRec, string? dDirRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag,
         string? cMoneTiPag, string? dDMoneTiPag, decimal? dTiCamTiPag, string? iTipIDRec, string? dNumIDRec,
         // campos opcionales solo para NC
         int? iMotEmi = null, string? dCdCDERef = null, DateTime? dFecEmiDI = null, int? dNTimDI = null, string? dEstDocAso = null, string? dPExpDocAso = null, string? dNumDocAso = null, int? iTipoDocAso = null, int? iTipDocAso = null)
@@ -105,7 +105,7 @@ public class DEContent // Nodo padre AA001
         GrupoTimbrado = new GTimb(iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT);
             
         CamposGenerales = new GDatGralOpe(dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE,
-            iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iTipIDRec, dNumIDRec);
+            iNatRec, iTiContRec, dDirRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, dTiCam, iTipIDRec, dNumIDRec);
             
         // Agregar la actividad económica si se proporcionó
         if (!string.IsNullOrEmpty(cActEco))

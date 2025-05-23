@@ -11,7 +11,7 @@ public class BusinessPartner
     public string dDesPaisRe { get; set; }
     public string iTipIDRec { get; set; }
     public string dDirRec { get; set; }
-    public int dNumCasRec { get; set; }
+    public int? dNumCasRec { get; set; }
     public int cDepRec { get; set; }
     public string dDesDepRec { get; set; }
     public int cDisRec { get; set; }

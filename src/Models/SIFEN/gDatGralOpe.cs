@@ -28,7 +28,7 @@ public class GDatGralOpe // Nodo padre A001
     public GDatGralOpe(){}
 
     public GDatGralOpe(DateTime dFeEmiDE, string? iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi,
-        string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string? dRucRec, int? dDVRec, decimal dTiCam,
+        string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE, int iNatRec, int? iTiContRec, string? dDirRec, int? dNumCasRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string? dRucRec, int? dDVRec, decimal dTiCam,
         string? iTipIDRec, string? dNumIDRec,
         List<ActividadEconomica> actividades = null, List<ObligacionAfectada> obligaciones = null)
     {
@@ -44,7 +44,7 @@ public class GDatGralOpe // Nodo padre A001
             }
         }
 
-        GrupoDatosReceptor = new GDatRec(iNatRec, iTiContRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, iTipIDRec, dNumIDRec);
+        GrupoDatosReceptor = new GDatRec(iNatRec, iTiContRec, dDirRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, iTipIDRec, dNumIDRec);
     }
 }
 
@@ -277,6 +277,12 @@ public class GDatRec // Nodo padre D001
     [XmlElement("dNomRec")]
     public string NombreReceptor { get; set; }
 
+    [XmlElement("dDirRec")]
+    public string? DireccionReceptor { get; set; }
+
+    [XmlElement("dNumCasRec")]
+    public int? NumCasaRec { get; set; }
+
     public bool ShouldSerializeRucReceptor()
     {
         return NaturalezaReceptor == 1;
@@ -321,9 +327,19 @@ public class GDatRec // Nodo padre D001
         };
     }
 
-    public GDatRec(){}
+    public bool ShouldSerializeDireccionReceptor()
+    {
+        return TipoOperacion == 4;
+    }
 
-    public GDatRec (int iNatRec, int? iTiContRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string? dRucRec, int? dDVRec, string? iTipIDRec, string? dNumIDRec)
+    public bool ShouldSerializeNumCasaRec()
+    {
+        return TipoOperacion == 4; 
+    }
+
+    public GDatRec() { }
+
+    public GDatRec (int iNatRec, int? iTiContRec, string? dDirRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string? dRucRec, int? dDVRec, string? iTipIDRec, string? dNumIDRec)
     {
         NaturalezaReceptor = iNatRec;
         TipoOperacion = iTiOpe;
@@ -336,6 +352,7 @@ public class GDatRec // Nodo padre D001
         TipoDocumentoReceptor = iTipIDRec;
         DescrTipoDocReceptor = ObtenerDescrTipoDocumento(iTipIDRec);
         NumeroDocReceptr = dNumIDRec;
+        DireccionReceptor = dDirRec;
     }
 }
 

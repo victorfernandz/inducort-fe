@@ -84,10 +84,10 @@ public class SAPCDCService : BackgroundService
                 }
 
                 // Procesar Facturas sin CDC
-        //        await ProcesarFacturasSinCDC(stoppingToken);
+                await ProcesarFacturasSinCDC(stoppingToken);
 
                 // Procesar facturas NO Autorizadas
-        //        await ProcesarFacturasPendientes(stoppingToken);
+                await ProcesarFacturasPendientes(stoppingToken);
 
                 // Procesar Notas de crédito sin CDC
                 await ProcesarNotaCreditoSinCDC(stoppingToken);
@@ -154,6 +154,8 @@ public class SAPCDCService : BackgroundService
                 string CardName = factura.BusinessPartner.dNomRec;
                 string Country = factura.BusinessPartner.cPaisRec;
                 string DescPais = factura.BusinessPartner.dDesPaisRe;
+                string dDirRec = factura.BusinessPartner.dDirRec;
+                int? dNumCasRec = factura.BusinessPartner.dNumCasRec;
                 string iTiDE = factura.U_CDOC;
                 string dEst = factura.U_EST;
                 string dPunExp = factura.U_PDE;
@@ -327,7 +329,7 @@ public class SAPCDCService : BackgroundService
 
                 GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
                     _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento,
-                    _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT,
+                    _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, dDirRec, dNumCasRec,
                     U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
                     _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado);
 
@@ -738,9 +740,12 @@ public class SAPCDCService : BackgroundService
 
                 string rutaXml = Path.Combine(xmlDir, $"Documento_{cdc}.xml");
 
+                string dDirRec = notaCredito.BusinessPartner.dDirRec;
+                int? dNumCasRec = notaCredito.BusinessPartner.dNumCasRec;
+
                 GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
                     _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento,
-                    _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT,
+                    _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, dDirRec, dNumCasRec,
                     U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
                     _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado,
                     iMotEmi, dCdCDERef, dFecEmiDI, dNTimDI, dEstDocAso, dPExpDocAso, dNumDocAso, iTipDocAso, iTipoDocAso);
@@ -1110,6 +1115,9 @@ public class SAPCDCService : BackgroundService
         DateTime dFeEmiDE = fecha.Date.Add(hora);
         string iTiDE = int.Parse(factura.U_CDOC).ToString(); // Sacamos el cero
 
+        string dDirRec = factura.BusinessPartner.dDirRec;
+        int? dNumCasRec = factura.BusinessPartner.dNumCasRec;
+
         GenerarXML.SerializarDocumentoElectronico(
             cdc: cdc,
             dv: int.Parse(cdc[^1..]),
@@ -1142,6 +1150,8 @@ public class SAPCDCService : BackgroundService
             dEmailE: _empresaInfo.EmailEmisor,
             iNatRec: factura.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2,
             iTiContRec: factura.BusinessPartner.iTiContRec,
+            dDirRec: dDirRec,
+            dNumCasRec: dNumCasRec,
             iTiOpe: factura.BusinessPartner.iTiOpe,
             cPaisRec: factura.BusinessPartner.cPaisRec,
             dDesPaisRe: factura.BusinessPartner.dDesPaisRe,
@@ -1300,7 +1310,13 @@ public class SAPCDCService : BackgroundService
             hora = new TimeSpan(horas, minutos, segundos);
         }
         DateTime dFeEmiDE = fecha.Date.Add(hora);
-        string iTiDE = int.Parse(notaCredito.U_CDOC).ToString(); // Sacamos el cero
+        //int.Parse(notaCredito.U_CDOC).ToString();
+        string iTiDE = "";
+
+        if (notaCredito.U_CDOC == "3" || notaCredito.U_CDOC == "03")
+        {
+            iTiDE = "5";
+        }
 
         int iMotEmi = notaCredito.iMotEmi;
         int iTipDocAso = notaCredito.iTipDocAso;
@@ -1343,6 +1359,9 @@ public class SAPCDCService : BackgroundService
             }
         }
 
+        string dDirRec = notaCredito.BusinessPartner.dDirRec;
+        int? dNumCasRec = notaCredito.BusinessPartner.dNumCasRec;
+
         GenerarXML.SerializarDocumentoElectronico(
             cdc: cdc,
             dv: int.Parse(cdc[^1..]),
@@ -1357,8 +1376,8 @@ public class SAPCDCService : BackgroundService
             dFeIniT: DateTime.ParseExact(notaCredito.U_FITE, "yyyy-MM-dd", null),
             dFeEmiDE: dFeEmiDE,
             iTipTra: null,
-            cMoneOpe: null,
-            dDesMoneOpe: null,
+            cMoneOpe: notaCredito.Currencies.cMoneOpe,
+            dDesMoneOpe: notaCredito.Currencies.dDesMoneOpe,
             dRucEm: _empresaInfo.Ruc,
             dDVEmi: _empresaInfo.Dv,
             iTipCont: _empresaInfo.TipoContribuyente,
@@ -1375,6 +1394,8 @@ public class SAPCDCService : BackgroundService
             dEmailE: _empresaInfo.EmailEmisor,
             iNatRec: notaCredito.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2,
             iTiContRec: notaCredito.BusinessPartner.iTiContRec,
+            dDirRec: dDirRec,
+            dNumCasRec: dNumCasRec,
             iTiOpe: notaCredito.BusinessPartner.iTiOpe,
             cPaisRec: notaCredito.BusinessPartner.cPaisRec,
             dDesPaisRe: notaCredito.BusinessPartner.dDesPaisRe,

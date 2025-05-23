@@ -85,14 +85,19 @@ public class FacturaService
             // Encontrar la dirección para este socio de negocio
             var direccion = direcciones.FirstOrDefault(d => d.CardCode == primeraEntrada.BusinessPartners.CardCode);
 
-            // Obtener la información del país
+            // Obtener la información del Socio de negocios
             string descripcionPais = "";
             string codigoReportePais = "";
+            string street = "";
+            int? streetNo = 0;
+
             if (direccion != null && !string.IsNullOrEmpty(direccion.Country) && nombresCodigosPaises.ContainsKey(direccion.Country))
             {
                 var infoPais = nombresCodigosPaises[direccion.Country];
                 descripcionPais = infoPais.Nombre;
                 codigoReportePais = infoPais.CodigoReporte;
+                street = direccion.Street;
+                streetNo = direccion.StreetNo;
             }
 
             // Crear la factura con los datos generales
@@ -126,6 +131,8 @@ public class FacturaService
                     iTipIDRec = primeraEntrada.BusinessPartners.U_CRID,
                     cPaisRec = codigoReportePais ?? "",
                     dDesPaisRe = descripcionPais,
+                    dDirRec = street,
+                    dNumCasRec = streetNo
                 },
                 Currencies = new Currencies
                 {
@@ -338,7 +345,9 @@ public class FacturaService
                     direcciones.Add(new BusinessPartnerData.BPAddressInfo
                     {
                         CardCode = cardCode,
-                        Country = primeraDireccion.Country ?? ""
+                        Country = primeraDireccion.Country ?? "",
+                        Street = primeraDireccion.Street ?? "",
+                        StreetNo = primeraDireccion.StreetNo
                     });
                 }
             }
@@ -645,14 +654,19 @@ public class FacturaService
             // Encontrar la dirección para este socio de negocio
             var direccion = direcciones.FirstOrDefault(d => d.CardCode == primeraEntrada.BusinessPartners.CardCode);
 
-            // Obtener la información del país
+            // Obtener la información del Socio de negocios
             string descripcionPais = "";
             string codigoReportePais = "";
+            string street = "";
+            int? streetNo = 0;
+
             if (direccion != null && !string.IsNullOrEmpty(direccion.Country) && nombresCodigosPaises.ContainsKey(direccion.Country))
             {
                 var infoPais = nombresCodigosPaises[direccion.Country];
                 descripcionPais = infoPais.Nombre;
                 codigoReportePais = infoPais.CodigoReporte;
+                street = direccion.Street;
+                streetNo = direccion.StreetNo;
             }
 
             // Crear la factura con los datos generales
@@ -688,6 +702,8 @@ public class FacturaService
                     iTipIDRec = primeraEntrada.BusinessPartners.U_CRID,
                     cPaisRec = codigoReportePais ?? "",
                     dDesPaisRe = descripcionPais,
+                    dDirRec = street,
+                    dNumCasRec = streetNo
                 },
                 Currencies = new Currencies
                 {
