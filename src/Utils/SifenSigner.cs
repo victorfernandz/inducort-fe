@@ -8,7 +8,8 @@ using System.Security.Cryptography.Xml;
 
 public class SifenSigner
 {
-    public static void FirmarXml(XmlDocument xmlDoc, string cdc, string dRucReceptor, byte[] certificadoBytes, string contraseñaCertificado, int iNatRec)
+//    public static void FirmarXml(XmlDocument xmlDoc, string cdc, string dRucReceptor, byte[] certificadoBytes, string contraseñaCertificado, int iNatRec)
+    public static void FirmarXml(XmlDocument xmlDoc, string cdc, string dRucReceptor, byte[] certificadoBytes, string contraseñaCertificado, int iNatRec, SifenConfig sifen)
     {
         var cert = new X509Certificate2(certificadoBytes, contraseñaCertificado, X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
         var privateKey = cert.GetRSAPrivateKey();
@@ -49,12 +50,13 @@ public class SifenSigner
 
         // Obtener el DigestValue generado
         string digestValueReal = xmlDigitalSignature.GetElementsByTagName("DigestValue")[0]?.InnerText;
-        InsertarQRCode(xmlDoc, cdc, dRucReceptor, digestValueReal, iNatRec);
+        //    InsertarQRCode(xmlDoc, cdc, dRucReceptor, digestValueReal, iNatRec);
+        InsertarQRCode(xmlDoc, cdc, dRucReceptor, digestValueReal, iNatRec, sifen);
 
         Console.WriteLine("Firma aplicada correctamente con QR");
     }
 
-    private static void InsertarQRCode(XmlDocument xmlDoc, string cdc, string dRucRec, string digestBase64, int iNatRec)
+    private static void InsertarQRCode(XmlDocument xmlDoc, string cdc, string dRucRec, string digestBase64, int iNatRec, SifenConfig sifen)
     {
         try
         {
@@ -70,8 +72,8 @@ public class SifenSigner
             string digestHex = BitConverter.ToString(digestAsciiBytes).Replace("-", "").ToLower();
 
             var config = Config.LoadConfig();
-            string idCSC = config.Sifen.IdCSC;
-            string csc = config.Sifen.CSC;
+            string idCSC = sifen.IdCSC;
+            string csc = sifen.CSC;
             string? cadenaQR = null;
 
             if (iNatRec == 1)
@@ -112,7 +114,8 @@ public class SifenSigner
 
             string? urlQR = null;
 
-            if (config.Sifen.Url.ToLower().Contains("test"))
+        //    if (config.Sifen.Url.ToLower().Contains("test"))
+            if (sifen.Url.ToLower().Contains("test"))
             {
                 urlQR = "https://ekuatia.set.gov.py/consultas-test/qr?" + cadenaQR + "&cHashQR=" + cHashQR;
             }

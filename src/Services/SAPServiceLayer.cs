@@ -13,12 +13,12 @@ public class SAPServiceLayer
     private string _sessionId;
     private string _routeId;
 
-    public SAPServiceLayer(Config config)
+    public SAPServiceLayer(SapServiceLayerConfig config)
     {
-        _baseUrl = config.SapServiceLayer.Url.TrimEnd('/') + "/";
-        _companyDB = config.SapServiceLayer.CompanyDB;
-        _username = config.SapServiceLayer.UserName;
-        _password = config.SapServiceLayer.Password;
+        _baseUrl = config.Url.TrimEnd('/') + "/";
+        _companyDB = config.CompanyDB;
+        _username = config.UserName;
+        _password = config.Password;
 
         // Para ignorar SSL
         ServicePointManager.ServerCertificateValidationCallback += (sender, cert, chain, sslPolicyErrors) => true;

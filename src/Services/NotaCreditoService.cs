@@ -16,12 +16,12 @@ public class NotaCreditoService
     public async Task<List<NotaCredito>> GetNotaCreditoSinCDC()
     {
         string queryDocumento = "$crossjoin(CreditNotes,BusinessPartners,Currencies) " +
-            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_CODERR,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision)," +
+            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_CODERR,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision,Comments)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion), " +
             "Currencies($select=Code,Name,DocumentsCode) " +
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
-            "CreditNotes/DocCurrency eq Currencies/Code and (CreditNotes/U_EXX_FE_CDC eq null or CreditNotes/U_EXX_FE_CDC eq '') and " +
-            "CreditNotes/DocDate ge '20250516' and CreditNotes/FolioNumber ne null";
+            "CreditNotes/DocCurrency eq Currencies/Code and (CreditNotes/U_EXX_FE_CDC eq null or CreditNotes/U_EXX_FE_CDC eq '') and CreditNotes/U_EXX_FE_Estado eq 'NEN' and " +
+            "CreditNotes/DocDate ge '20250529' and CreditNotes/FolioNumber ne null and CreditNotes/U_DOCD eq 'S'";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))
@@ -191,8 +191,9 @@ public class NotaCreditoService
                             notaCredito.Items.Add(new Item
                             {
                                 dCodInt = notaCredito.DocType == "S" ? "1" : linea.ItemCode,
-                                dDesProSer = linea.ItemDescription,
-                                dCantProSer = linea.Quantity,
+                                //    dDesProSer = linea.ItemDescription,
+                                dDesProSer = notaCredito.DocType == "S" ? linea.Comments : linea.ItemDetails,
+                                dCantProSer = notaCredito.DocType == "S" ? 1 : linea.Quantity,
                                 dPUniProSer = linea.PriceAfterVAT,
                                 dTiCamIt = linea.Rate,
                                 taxCode = linea.TaxCode,
@@ -375,9 +376,9 @@ public class NotaCreditoService
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
             "CreditNotes/DocCurrency eq Currencies/Code and " +
             "CreditNotes/FolioNumber ne null and " +
-            "CreditNotes/DocDate ge '20250501' and " +
+            "CreditNotes/DocDate ge '20250529' and " +
             "CreditNotes/U_EXX_FE_Estado ne 'AUT' and " +
-            "CreditNotes/U_EXX_FE_CDC ne null and CreditNotes/U_EXX_FE_CDC ne '' ";
+            "CreditNotes/U_EXX_FE_CDC ne null and CreditNotes/U_EXX_FE_CDC ne '' and CreditNotes/U_DCOD eq 'S' ";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))

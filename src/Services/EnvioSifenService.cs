@@ -13,11 +13,15 @@ public class EnvioSifenService
     private readonly string _baseDatos;
     private readonly ILogger _log;
     private readonly SAPServiceLayer _sapServiceLayer;
+    private readonly SifenConfig _sifenConfig;
 
     public EnvioSifenService(string baseUrl, LoggerSifenService logger, Config config, ILogger log, SAPServiceLayer sapServiceLayer = null)
     {
         _logger = logger;
-        _baseDatos = config.SapServiceLayer.CompanyDB;
+        //    _baseDatos = config.SapServiceLayer.CompanyDB;
+        _baseDatos = config.SapServiceLayerList[0].CompanyDB;
+        _sifenConfig = config.SapServiceLayerList[0].Sifen;
+
         _log = log;
         _sapServiceLayer = sapServiceLayer;
 
@@ -30,7 +34,7 @@ public class EnvioSifenService
         _httpClient = new HttpClient(handler)
         {
             BaseAddress = new Uri(baseUrl),
-            Timeout = TimeSpan.FromMinutes(2)
+            Timeout = TimeSpan.FromMinutes(10)
         };
 
         _log.LogInformation($"EnvioSifenService inicializado con URL base: {baseUrl}");
@@ -114,7 +118,14 @@ public class EnvioSifenService
                 try
                 {
                     string basePath = AppDomain.CurrentDomain.BaseDirectory;
-                    string rutaArchivoFirmado = Path.Combine(basePath, "XML", $"Documento_{cdc}.xml");
+                    //                    string rutaArchivoFirmado = Path.Combine(basePath, "XML", $"Documento_{cdc}.xml");
+                    string rutaArchivoFirmado = Path.Combine(basePath, "XML", _baseDatos, $"Documento_{cdc}.xml");
+                    //                    File.Copy(rutaArchivoFirmado, Path.Combine(debugDir, $"rDE_completo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), true);
+                    if (!File.Exists(rutaArchivoFirmado))
+                    {
+                        throw new FileNotFoundException($"No se encontró el archivo firmado para CDC {cdc} en {rutaArchivoFirmado}");
+                    }
+
                     File.Copy(rutaArchivoFirmado, Path.Combine(debugDir, $"rDE_completo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), true);
 
                     string xmlNormalizado = NormalizarXmlFirmado(xmlFirmado);
@@ -432,7 +443,7 @@ public class EnvioSifenService
             byte[] certificadoBytes = Convert.FromBase64String(certificadoBase64);
             string contraseña = Encoding.UTF8.GetString(Convert.FromBase64String(contraseñaBase64));
 
-            _log.LogInformation($"Certificado obtenido correctamente: {certificado["Name"]}");
+        //    _log.LogInformation($"Certificado obtenido correctamente: {certificado["Name"]}");
             return (certificadoBytes, contraseña);
         }
         catch (Exception ex)
@@ -476,7 +487,7 @@ public class EnvioSifenService
 
             clienteAnterior.Dispose();
 
-            _log.LogInformation($"Certificado cliente configurado: {certificado.Subject}, válido desde {certificado.NotBefore} hasta {certificado.NotAfter}");
+        //    _log.LogInformation($"Certificado cliente configurado: {certificado.Subject}, válido desde {certificado.NotBefore} hasta {certificado.NotAfter}");
         }
         catch (Exception ex)
         {

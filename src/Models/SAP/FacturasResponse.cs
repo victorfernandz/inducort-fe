@@ -34,6 +34,8 @@ public class DocumentLineData
 {
     public string ItemCode { get; set; }
     public string ItemDescription { get; set; }
+    public string ItemDetails { get; set; }
+    public string Comments { get; set; }
     public decimal Quantity { get; set; }
     public decimal PriceAfterVAT { get; set; }
     public decimal Rate { get; set; }

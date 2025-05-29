@@ -44,7 +44,7 @@ public class GDatGralOpe // Nodo padre A001
             }
         }
 
-        GrupoDatosReceptor = new GDatRec(iNatRec, iTiContRec, dDirRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, iTipIDRec, dNumIDRec);
+        GrupoDatosReceptor = new GDatRec(iNatRec, iTiContRec, dDirRec, dNumCasRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec, dRucRec, dDVRec, iTipIDRec, dNumIDRec);
     }
 }
 
@@ -339,7 +339,7 @@ public class GDatRec // Nodo padre D001
 
     public GDatRec() { }
 
-    public GDatRec (int iNatRec, int? iTiContRec, string? dDirRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string? dRucRec, int? dDVRec, string? iTipIDRec, string? dNumIDRec)
+    public GDatRec(int iNatRec, int? iTiContRec, string? dDirRec, int? dNumCasRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string? dRucRec, int? dDVRec, string? iTipIDRec, string? dNumIDRec)
     {
         NaturalezaReceptor = iNatRec;
         TipoOperacion = iTiOpe;
@@ -353,6 +353,7 @@ public class GDatRec // Nodo padre D001
         DescrTipoDocReceptor = ObtenerDescrTipoDocumento(iTipIDRec);
         NumeroDocReceptr = dNumIDRec;
         DireccionReceptor = dDirRec;
+        NumCasaRec = dNumCasRec;
     }
 }
 

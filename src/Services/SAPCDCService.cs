@@ -3,8 +3,6 @@ using Microsoft.Extensions.Logging;
 using System.Text;
 using Newtonsoft.Json;
 using System.Globalization;
-using Org.BouncyCastle.Asn1;
-using System.Data;
 
 public class SAPCDCService : BackgroundService
 {
@@ -30,8 +28,12 @@ public class SAPCDCService : BackgroundService
         _config = config;
     }
 
+    private SapServiceLayerConfig ActiveSapConfig => _config.SapServiceLayerList[0];
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.CompletedTask;
+        /*
         _logger.LogInformation("Servicio SAPCDC iniciado...");
 
         while (!stoppingToken.IsCancellationRequested)
@@ -106,6 +108,53 @@ public class SAPCDCService : BackgroundService
             }
 
             await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
+        } */
+    }
+    public async Task ProcesarTodoAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation($"Iniciando procesamiento para: {_config.SapServiceLayerList[0].CompanyDB}");
+
+        bool loggedIn = await _sapServiceLayer.Login();
+        if (!loggedIn)
+        {
+            _logger.LogError("No se pudo iniciar sesión en SAP.");
+            return;
+        }
+
+        try
+        {
+            _empresaInfo = await _empresaService.GetEmpresaInfo();
+            if (_empresaInfo == null)
+            {
+                _logger.LogError("No se pudo obtener la información de la empresa.");
+                return;
+            }
+
+            _empresaInfo.ActividadesEconomicas = await _empresaService.GetActividadesEconomicas();
+            if (_empresaInfo.ActividadesEconomicas.Count == 0)
+            {
+                _logger.LogWarning("No se obtuvieron actividades económicas. Se usará un valor predeterminado.");
+                _empresaInfo.ActividadesEconomicas.Add(new ActividadEconomica
+                {
+                    Codigo = "0",
+                    Descripcion = "Actividad no especificada"
+                });
+            }
+
+            _empresaInfo.ObligacionesAfectadas = await _empresaService.GetObligacionesAfectadas();
+
+            await ProcesarFacturasSinCDC(cancellationToken);
+            await ProcesarFacturasPendientes(cancellationToken);
+            await ProcesarNotaCreditoSinCDC(cancellationToken);
+            await ProcesarNotaCreditoPendiente(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error en procesamiento general de {_config.SapServiceLayerList[0].CompanyDB}: {ex.Message}");
+        }
+        finally
+        {
+            await _sapServiceLayer.Logout();
         }
     }
 
@@ -309,25 +358,23 @@ public class SAPCDCService : BackgroundService
 
                 // Se genera el Código de Control (CDC)     
                 string dCodSeg = GenerarCodigoSeguridad();
-                Console.WriteLine(dCodSeg);
-
                 string cdc = GenerarCDC.GenerarCodigoCDC(iTiDE, _empresaInfo.Ruc, _empresaInfo.Dv.ToString(), dEst, dPunExp, dNumDoc, _empresaInfo.TipoContribuyente.ToString(), fechaFormatoCDC, iTipEmi.ToString(), dCodSeg);
-                //    Console.WriteLine(cdc);
                 // Se extraer el Dígito Verificador (dv)
                 int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
-                                                                   //    Console.WriteLine(dv);
                 string xmlTiDE = Convert.ToInt32(factura.U_CDOC).ToString();
 
                 _logger.LogInformation($"CDC generado y actualizado: {cdc}");
 
                 // Generar XML
                 string basePath = AppDomain.CurrentDomain.BaseDirectory;
-                string xmlDir = Path.Combine(basePath, "XML");
+            //    string xmlDir = Path.Combine(basePath, "XML", _config.SapServiceLayer.CompanyDB);
+                string xmlDir = Path.Combine(basePath, "XML", _config.SapServiceLayerList[0].CompanyDB);
+
                 Directory.CreateDirectory(xmlDir);
 
                 string rutaXml = Path.Combine(xmlDir, $"Documento_{cdc}.xml");
 
-                GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
+                GenerarXML.SerializarDocumentoElectronico(ActiveSapConfig.Sifen, cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
                     _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento,
                     _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, dDirRec, dNumCasRec,
                     U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
@@ -335,12 +382,15 @@ public class SAPCDCService : BackgroundService
 
                 try
                 {
-                    string rutaXmlFirmado = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", $"Documento_{cdc}.xml");
+                //    string rutaXmlFirmado = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayer.CompanyDB, $"Documento_{cdc}.xml");
+                    string rutaXmlFirmado = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayerList[0].CompanyDB, $"Documento_{cdc}.xml");
+
                     string xmlFirmadoFinal = File.ReadAllText(rutaXmlFirmado);
 
                     tipoDocumentoLote ??= xmlTiDE;
 
-                    if (_config.Sifen.Url.ToLower().Contains("test"))
+                //    if (_config.Sifen.Url.ToLower().Contains("test"))
+                    if (ActiveSapConfig.Sifen.Url.ToLower().Contains("test"))
                     {
                         loteDocumentos.Add((factura.DocEntry, cdc, xmlFirmadoFinal));
 
@@ -404,7 +454,8 @@ public class SAPCDCService : BackgroundService
             }
 
             string basePath = AppDomain.CurrentDomain.BaseDirectory;
-            string xmlDir = Path.Combine(basePath, "XML");
+        //    string xmlDir = Path.Combine(basePath, "XML", _config.SapServiceLayer.CompanyDB);
+            string xmlDir = Path.Combine(basePath, "XML", _config.SapServiceLayerList[0].CompanyDB);
 
             foreach (var factura in facturasPendientes)
             {
@@ -725,17 +776,10 @@ public class SAPCDCService : BackgroundService
                 int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
                 string xmlTiDE = Convert.ToInt32(iTiDE).ToString();
 
-
-                // Actualizamos en SAP el cdc del documento
-                //            bool actualizado = await _notaCreditoService.ActualizarCDC(notaCredito.DocEntry, cdc);
-
-                /*            if (actualizado)
-                            {
-                                _logger.LogInformation($"CDC generado y actualizado: {cdc}");   
-               */
                 // Generar XML
                 string basePath = AppDomain.CurrentDomain.BaseDirectory;
-                string xmlDir = Path.Combine(basePath, "XML");
+            //    string xmlDir = Path.Combine(basePath, "XML", _config.SapServiceLayer.CompanyDB);
+                string xmlDir = Path.Combine(basePath, "XML", _config.SapServiceLayerList[0].CompanyDB);
                 Directory.CreateDirectory(xmlDir);
 
                 string rutaXml = Path.Combine(xmlDir, $"Documento_{cdc}.xml");
@@ -743,7 +787,7 @@ public class SAPCDCService : BackgroundService
                 string dDirRec = notaCredito.BusinessPartner.dDirRec;
                 int? dNumCasRec = notaCredito.BusinessPartner.dNumCasRec;
 
-                GenerarXML.SerializarDocumentoElectronico(cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
+                GenerarXML.SerializarDocumentoElectronico(ActiveSapConfig.Sifen, cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
                     _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento,
                     _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, dDirRec, dNumCasRec,
                     U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
@@ -752,12 +796,14 @@ public class SAPCDCService : BackgroundService
 
                 try
                 {
-                    string rutaXmlFirmado = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", $"Documento_{cdc}.xml");
+                //    string rutaXmlFirmado = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayer.CompanyDB, $"Documento_{cdc}.xml");
+                    string rutaXmlFirmado = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayerList[0].CompanyDB, $"Documento_{cdc}.xml");
                     string xmlFirmadoFinal = File.ReadAllText(rutaXmlFirmado);
 
                     tipoDocumentoLote ??= xmlTiDE;
 
-                    if (_config.Sifen.Url.ToLower().Contains("test"))
+                //    if (_config.Sifen.Url.ToLower().Contains("test"))
+                    if (ActiveSapConfig.Sifen.Url.ToLower().Contains("test"))
                     {
                         loteDocumentos.Add((notaCredito.DocEntry, cdc, xmlFirmadoFinal));
 
@@ -823,7 +869,8 @@ public class SAPCDCService : BackgroundService
             }
 
             string basePath = AppDomain.CurrentDomain.BaseDirectory;
-            string xmlDir = Path.Combine(basePath, "XML");
+        //    string xmlDir = Path.Combine(basePath, "XML", _config.SapServiceLayer.CompanyDB);
+            string xmlDir = Path.Combine(basePath, "XML", _config.SapServiceLayerList[0].CompanyDB);
 
             foreach (var notaCredito in notaCreditoPendiente)
             {
@@ -981,7 +1028,8 @@ public class SAPCDCService : BackgroundService
 
     private async Task RegenerarXmlFactura(Factura factura, string cdc, string dCodSeg, byte[] certificadoBytes, string contraseñaCertificado)
     {
-        string xmlDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML");
+        //    string xmlDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayer.CompanyDB);
+        string xmlDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayerList[0].CompanyDB);
         Directory.CreateDirectory(xmlDir);
 
         string rutaXml = Path.Combine(xmlDir, $"Documento_{cdc}.xml");
@@ -1118,7 +1166,7 @@ public class SAPCDCService : BackgroundService
         string dDirRec = factura.BusinessPartner.dDirRec;
         int? dNumCasRec = factura.BusinessPartner.dNumCasRec;
 
-        GenerarXML.SerializarDocumentoElectronico(
+        GenerarXML.SerializarDocumentoElectronico(ActiveSapConfig.Sifen,
             cdc: cdc,
             dv: int.Parse(cdc[^1..]),
             dFecFirma: dFecFirma,
@@ -1176,13 +1224,13 @@ public class SAPCDCService : BackgroundService
             plazoCredito: factura.OperacionCredito?.PlazoCredito,
             totales: totalesFactura,
             certificadoBytes: certificadoBytes,
-            contraseñaCertificado: contraseñaCertificado
-        );
+            contraseñaCertificado: contraseñaCertificado);
     }
 
     private async Task RegenerarXmlNotaCredito(NotaCredito notaCredito, string cdc, string dCodSeg, byte[] certificadoBytes, string contraseñaCertificado)
     {
-        string xmlDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML");
+    //    string xmlDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayer.CompanyDB);
+        string xmlDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayerList[0].CompanyDB);
         Directory.CreateDirectory(xmlDir);
 
         string rutaXml = Path.Combine(xmlDir, $"Documento_{cdc}.xml");
@@ -1362,7 +1410,7 @@ public class SAPCDCService : BackgroundService
         string dDirRec = notaCredito.BusinessPartner.dDirRec;
         int? dNumCasRec = notaCredito.BusinessPartner.dNumCasRec;
 
-        GenerarXML.SerializarDocumentoElectronico(
+        GenerarXML.SerializarDocumentoElectronico( ActiveSapConfig.Sifen,
             cdc: cdc,
             dv: int.Parse(cdc[^1..]),
             dFecFirma: dFecFirma,
@@ -1430,8 +1478,7 @@ public class SAPCDCService : BackgroundService
             dPExpDocAso: dPExpDocAso,
             dNumDocAso: dNumDocAso,
             iTipDocAso: iTipDocAso,
-            iTipoDocAso: iTipoDocAso
-        );
+            iTipoDocAso: iTipoDocAso);
     }
 
 }    

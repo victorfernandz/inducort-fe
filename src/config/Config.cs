@@ -1,12 +1,13 @@
+// Archivo: Config.cs
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 
 public class Config
 {
-    public SapServiceLayerConfig SapServiceLayer { get; set; }
+    public List<SapServiceLayerConfig> SapServiceLayerList { get; set; }
     public HanaDatabaseConfig HanaDatabase { get; set; }
-    public SifenConfig Sifen { get; set; }
 
     public static Config LoadConfig()
     {
@@ -22,30 +23,10 @@ public class Config
 
             string json = File.ReadAllText(configPath);
             var config = JsonConvert.DeserializeObject<Config>(json);
-            
-            // Validar configuración mínima requerida
-            if (config.SapServiceLayer == null)
+
+            if (config.SapServiceLayerList == null || config.SapServiceLayerList.Count == 0)
             {
-                throw new InvalidOperationException("Configuración SAP Service Layer no encontrada");
-            }
-/*
-            if (config.HanaDatabase == null)
-            {
-                config.HanaDatabase = new HanaDatabaseConfig
-                {
-                    ServerNode = "192.168.0.5:30015",
-                    UserName = "SYSTEM",
-                    Password = "V1nsoc4!",
-                    Schema = "SAP_SIFEN"
-                };
-            }
-*/
-            if (config.Sifen == null ||
-                string.IsNullOrWhiteSpace(config.Sifen.Url) ||
-                string.IsNullOrWhiteSpace(config.Sifen.IdCSC) ||
-                string.IsNullOrWhiteSpace(config.Sifen.CSC))
-            {
-                throw new InvalidOperationException("Configuración SIFEN no encontrada o incompleta (Url, IdCSC, CSC)");
+                throw new InvalidOperationException("Configuración de bases SAP no encontrada");
             }
 
             return config;
@@ -57,7 +38,6 @@ public class Config
         }
     }
 
-    // Genera una cadena de conexión ODBC para HANA
     public string GetHanaConnectionString()
     {
         if (HanaDatabase == null)
@@ -75,6 +55,7 @@ public class SapServiceLayerConfig
     public string CompanyDB { get; set; }
     public string UserName { get; set; }
     public string Password { get; set; }
+    public SifenConfig Sifen { get; set; }
 }
 
 public class HanaDatabaseConfig

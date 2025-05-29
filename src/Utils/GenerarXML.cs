@@ -7,7 +7,7 @@ using System.Globalization;
 
 public class GenerarXML
 {
-    public static void SerializarDocumentoElectronico(string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
+    public static void SerializarDocumentoElectronico(SifenConfig sifen, string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
         string? iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
         string dEmailE, int iNatRec, int iTiContRec, string dDirRec, int? dNumCasRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int? dDVReceptor, decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag,
         string? cMoneTiPag, string? dDMoneTiPag, decimal? dTiCamTiPag, string? iTipIDRec, string? dNumIDRec, 
@@ -172,6 +172,8 @@ public class GenerarXML
             // Firmar el XML
             if (certificadoBytes != null && !string.IsNullOrEmpty(contraseñaCertificado))
             {
+                var config = Config.LoadConfig();
+            //    var sifenConfig = config.SapServiceLayerList.First().Sifen;
                 string rutaDebug = Path.Combine(Path.GetDirectoryName(rutaArchivo), "debug_pre_firma.xml");
                 using (var fs = new FileStream(rutaDebug, FileMode.Create, FileAccess.Write))
                 using (var writer = XmlWriter.Create(fs, new XmlWriterSettings {
@@ -188,11 +190,13 @@ public class GenerarXML
 
                 if (iNatRec == 1)
                 {
-                    SifenSigner.FirmarXml(xmlDoc, cdc, dRucReceptor, certificadoBytes, contraseñaCertificado, iNatRec);
+                    //SifenSigner.FirmarXml(xmlDoc, cdc, dRucReceptor, certificadoBytes, contraseñaCertificado, iNatRec);
+                    SifenSigner.FirmarXml(xmlDoc, cdc, dRucReceptor, certificadoBytes, contraseñaCertificado, iNatRec, sifen);
+
                 }
                 else
                 {
-                    SifenSigner.FirmarXml(xmlDoc, cdc, dNumIDRec, certificadoBytes, contraseñaCertificado, iNatRec);
+                    SifenSigner.FirmarXml(xmlDoc, cdc, dNumIDRec, certificadoBytes, contraseñaCertificado, iNatRec, sifen);
                 }                
             }
 
