@@ -195,9 +195,9 @@ public class GPaConEIni // Nodo Padre E600
         set => TipoCambioPago = decimal.Parse(value, CultureInfo.InvariantCulture);
     }
 
-    public bool ShouldSerializeTipoCambioPago()
+    public bool ShouldSerializeTipoCambioPagoStr()
     {
-        return TipoCambioPago != null;
+        return MonedaTipoPago != "PYG";
     }
 
     public GPaConEIni() { }

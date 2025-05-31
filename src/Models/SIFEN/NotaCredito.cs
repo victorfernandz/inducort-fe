@@ -26,6 +26,7 @@ public class NotaCredito
     public string dDTipoDocAso { get; set; }
     public DateTime dFecEmiDI { get; set; }
     public string U_NUMFC { get; set; }
+    public string Comments { get; set; }
     public BusinessPartner BusinessPartner { get; set; }
     public Currencies Currencies { get; set; }
     public List<Item> Items { get; set; } = new List<Item>();

@@ -22,7 +22,7 @@ public class FacturaService
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and Invoices/U_DOCD eq 'S' and Invoices/U_EXX_FE_Estado eq 'NEN' and " +
-            "Invoices/DocDate ge '20250529' and Invoices/FolioNumber ne null"; 
+            "Invoices/DocDate ge '20250530' and Invoices/FolioNumber ne null"; 
         //    "Invoices/DocEntry eq 2806";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -120,6 +120,7 @@ public class FacturaService
                 iCondOpe = primeraEntrada.Invoices.PaymentGroupCode,
                 iCondCred = primeraEntrada.Invoices.NumberOfInstallments,
                 dTiCam = primeraEntrada.Invoices.DocRate,
+                Comments = primeraEntrada.Invoices.Comments,
                 BusinessPartner = new BusinessPartner
                 {
                     CardCode = primeraEntrada.BusinessPartners.CardCode ?? "",
@@ -274,7 +275,7 @@ public class FacturaService
                             {
                                 dCodInt = factura.DocType == "S" ? "1" : linea.ItemCode,
                                 //    dDesProSer = linea.ItemDescription,
-                                dDesProSer = factura.DocType == "S" ? linea.Comments : linea.ItemDetails,
+                                dDesProSer = factura.DocType == "S" ? factura.Comments : linea.ItemDetails,
                                 dCantProSer = factura.DocType == "S" ? 1 : linea.Quantity,
                                 dPUniProSer = linea.PriceAfterVAT,
                                 dTiCamIt = linea.Rate,
@@ -584,13 +585,13 @@ public class FacturaService
     public async Task<List<Factura>> GetFacturasSinAutorizar()
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
-            "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EXX_FE_Estado,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments, U_EXX_FE_CODERR)," +
+            "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EXX_FE_Estado,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments, U_EXX_FE_CODERR,Comments)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID)," +
             "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "Invoices/FolioNumber ne null and " +
-            "Invoices/DocDate ge '20250529' and " +
+            "Invoices/DocDate ge '20250530' and " +
             "Invoices/U_EXX_FE_Estado ne 'AUT' and Invoices/U_DOCD eq 'S' and " +
             "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne '' ";
     //        "Invoices/DocEntry eq 2844";
@@ -692,6 +693,7 @@ public class FacturaService
                 iCondOpe = primeraEntrada.Invoices.PaymentGroupCode,
                 iCondCred = primeraEntrada.Invoices.NumberOfInstallments,
                 dTiCam = primeraEntrada.Invoices.DocRate,
+                Comments = primeraEntrada.Invoices.Comments,
                 BusinessPartner = new BusinessPartner
                 {
                     CardCode = primeraEntrada.BusinessPartners.CardCode ?? "",

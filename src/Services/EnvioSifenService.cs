@@ -439,11 +439,12 @@ public class EnvioSifenService
             // Obtener los datos del certificado y contraseña
             string? certificadoBase64 = certificado["U_ARCHIVO"].ToString();
             string? contraseñaBase64 = certificado["U_PWD"].ToString();
+            string? baseDatos = certificado["U_BASE_DATOS"].ToString();
 
             byte[] certificadoBytes = Convert.FromBase64String(certificadoBase64);
             string contraseña = Encoding.UTF8.GetString(Convert.FromBase64String(contraseñaBase64));
 
-        //    _log.LogInformation($"Certificado obtenido correctamente: {certificado["Name"]}");
+            _log.LogInformation($"Certificado obtenido correctamente: {certificado["Name"]} - para la base {baseDatos}");
             return (certificadoBytes, contraseña);
         }
         catch (Exception ex)

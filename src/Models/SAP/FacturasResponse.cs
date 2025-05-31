@@ -7,7 +7,7 @@ public class FacturaResponse
     public BusinessPartnerData BusinessPartners { get; set; }
     public CurrenciesData Currencies { get; set; }
 }
- 
+
 public class InvoiceData
 {
     public int DocEntry { get; set; }
@@ -28,6 +28,7 @@ public class InvoiceData
     public int PaymentGroupCode { get; set; }
     public int NumberOfInstallments { get; set; }
     public decimal DocRate { get; set; }
+    public string Comments { get; set; }
 }
 
 public class DocumentLineData
@@ -35,7 +36,6 @@ public class DocumentLineData
     public string ItemCode { get; set; }
     public string ItemDescription { get; set; }
     public string ItemDetails { get; set; }
-    public string Comments { get; set; }
     public decimal Quantity { get; set; }
     public decimal PriceAfterVAT { get; set; }
     public decimal Rate { get; set; }

@@ -403,7 +403,7 @@ public class SAPCDCService : BackgroundService
                     {
                         loteDocumentos.Add((factura.DocEntry, cdc, xmlFirmadoFinal));
 
-                        if (loteDocumentos.Count == 3)
+                        if (loteDocumentos.Count == 1)
                         {
                             await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote, xmlTiDE);
                             _logger.LogInformation("Lote de 3 documentos enviado.");
@@ -425,13 +425,13 @@ public class SAPCDCService : BackgroundService
                         $"CDC: {cdc}\nError: {ex.Message}\nStackTrace: {ex.StackTrace}");
                 }
             }
-
+/*
             // Si quedó un lote incompleto
             if (loteDocumentos.Count > 0)
             {
                 await _envioService.EnviarDocumentoAsincronico(loteDocumentos, tipoDocumentoLote, facturas.First().U_CDOC);
                 _logger.LogInformation($"Lote final de {loteDocumentos.Count} documento(s) enviado.");
-            }
+            }*/
         }
         catch (Exception ex)
         {

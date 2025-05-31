@@ -21,6 +21,7 @@ public class Factura
     public int iCondOpe { get; set; }
     public int iCondCred { get; set; }
     public decimal dTiCam { get; set; }
+    public string Comments { get; set; }
     public BusinessPartner BusinessPartner { get; set; }
     public Currencies Currencies { get; set; }
     public GPagCred? OperacionCredito { get; set; }
