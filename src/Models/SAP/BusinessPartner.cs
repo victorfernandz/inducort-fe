@@ -18,4 +18,7 @@ public class BusinessPartner
     public string dDesDisRec { get; set; }
     public int cCiuRec { get; set; }
     public string dDesCiuRec { get; set; }
+    public string? dTelRec { get; set; }
+    public string? dCelRec { get; set; }
+    public string? dEmailRec { get; set; }
 }

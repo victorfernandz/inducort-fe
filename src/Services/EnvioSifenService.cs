@@ -327,12 +327,12 @@ public class EnvioSifenService
                     ns.AddNamespace("ns2", "http://ekuatia.set.gov.py/sifen/xsd");
 
                     string? estado = xmlDoc.SelectSingleNode("//ns2:dEstRes", ns)?.InnerText;
-                    string? codigo = "";
+                    string? codigo = xmlDoc.SelectSingleNode("//ns2:dCodResLot", ns)?.InnerText;
                     string? mensaje = "";
 
-                    if (estado == null)
+                    if (codigo == "0361")
                     {
-                        estado = "Offline";
+                        estado = "Enviado";
                         codigo = xmlDoc.SelectSingleNode("//ns2:dCodResLot", ns)?.InnerText;
                         mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgResLot", ns)?.InnerText;
                     }
@@ -444,7 +444,7 @@ public class EnvioSifenService
             byte[] certificadoBytes = Convert.FromBase64String(certificadoBase64);
             string contraseña = Encoding.UTF8.GetString(Convert.FromBase64String(contraseñaBase64));
 
-            _log.LogInformation($"Certificado obtenido correctamente: {certificado["Name"]} - para la base {baseDatos}");
+        //    _log.LogInformation($"Certificado obtenido correctamente: {certificado["Name"]} - para la base {baseDatos}");
             return (certificadoBytes, contraseña);
         }
         catch (Exception ex)

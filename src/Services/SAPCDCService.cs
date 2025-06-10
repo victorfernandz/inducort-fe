@@ -33,82 +33,6 @@ public class SAPCDCService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await Task.CompletedTask;
-        /*
-        _logger.LogInformation("Servicio SAPCDC iniciado...");
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                _logger.LogInformation("Buscando documentos sin CDC en SAP...");
-
-                //Login
-                bool loggedIn = await _sapServiceLayer.Login();
-                if (!loggedIn)
-                {
-                    _logger.LogError("No se pudo iniciar sesión en SAP.");
-                    await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
-                    continue;
-                }
-
-                // Obtener información de la empresa
-                _empresaInfo = await _empresaService.GetEmpresaInfo();
-                if (_empresaInfo == null)
-                {
-                    _logger.LogError("No se pudo obtener la información de la empresa.");
-                    await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
-                    continue;
-                }
-
-                // Obtener actividades económicas
-                _empresaInfo.ActividadesEconomicas = await _empresaService.GetActividadesEconomicas();
-
-                // Si no hay actividades económicas, usamos un valor predeterminado
-                if (_empresaInfo.ActividadesEconomicas.Count == 0)
-                {
-                    _logger.LogWarning("No se obtuvieron actividades económicas. Se usará un valor predeterminado.");
-                    _empresaInfo.ActividadesEconomicas.Add(new ActividadEconomica
-                    {
-                        Codigo = "0",
-                        Descripcion = "Actividad no especificada"
-                    });
-                }
-
-                // Obtener obligaciones afectadas
-                _empresaInfo.ObligacionesAfectadas = await _empresaService.GetObligacionesAfectadas();
-                if (_empresaInfo.ObligacionesAfectadas.Count == 0)
-                {
-                    _logger.LogWarning("No se obtuvieron obligaciones afectadas.");
-                }
-                else
-                {
-                    //    _logger.LogInformation($"Se obtuvieron {_empresaInfo.ObligacionesAfectadas.Count} obligaciones afectadas.");
-                }
-
-                // Procesar Facturas sin CDC
-                await ProcesarFacturasSinCDC(stoppingToken);
-
-                // Procesar facturas NO Autorizadas
-                await ProcesarFacturasPendientes(stoppingToken);
-
-                // Procesar Notas de crédito sin CDC
-                await ProcesarNotaCreditoSinCDC(stoppingToken);
-
-                await ProcesarNotaCreditoPendiente(stoppingToken);
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error en SAPCDCService: {ex.Message}");
-                _logger.LogError($"StackTrace: {ex.StackTrace}");
-            }
-            finally
-            {
-                await _sapServiceLayer.Logout();
-            }
-
-            await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
-        } */
     }
     public async Task ProcesarTodoAsync(CancellationToken cancellationToken = default)
     {
@@ -205,6 +129,9 @@ public class SAPCDCService : BackgroundService
                 string DescPais = factura.BusinessPartner.dDesPaisRe;
                 string dDirRec = factura.BusinessPartner.dDirRec;
                 int? dNumCasRec = factura.BusinessPartner.dNumCasRec;
+                string? dTelRec = factura.BusinessPartner.dTelRec;
+                string? dCelRec = factura.BusinessPartner.dCelRec;
+                string? dEmailRec = factura.BusinessPartner.dEmailRec;
                 string iTiDE = factura.U_CDOC;
                 string dEst = factura.U_EST;
                 string dPunExp = factura.U_PDE;
@@ -329,7 +256,7 @@ public class SAPCDCService : BackgroundService
                         {
                             dCodInt = factura.DocType == "S" ? "1" : item.dCodInt,
                             dDesProSer = item.dDesProSer,
-                            dCantProSer = item.dCantProSer,
+                            dCantProSer = factura.DocType == "S" ? 1 : item.dCantProSer,
                             dPUniProSer = item.dPUniProSer,
                             cUniMed = item.cUniMed,
                             dDesUniMed = item.dDesUniMed,
@@ -377,7 +304,8 @@ public class SAPCDCService : BackgroundService
                 GenerarXML.SerializarDocumentoElectronico(ActiveSapConfig.Sifen, cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
                     _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento,
                     _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, dDirRec, dNumCasRec,
-                    U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
+                    U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTelRec, dCelRec, dEmailRec,
+                    dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
                     _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado);
 
                 try
@@ -570,6 +498,9 @@ public class SAPCDCService : BackgroundService
                 int U_EXX_FE_TipoOperacion = notaCredito.BusinessPartner.iTiOpe;
                 string? dRucReceptor = "";
                 int? dDVReceptor = null;
+                string? dTelRec = notaCredito.BusinessPartner.dTelRec;
+                string? dCelRec = notaCredito.BusinessPartner.dCelRec;
+                string? dEmailRec = notaCredito.BusinessPartner.dEmailRec;
                 string? iTipIDRec = null;
                 string? dNumIDRec = null;
 
@@ -790,7 +721,8 @@ public class SAPCDCService : BackgroundService
                 GenerarXML.SerializarDocumentoElectronico(ActiveSapConfig.Sifen, cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
                     _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento,
                     _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, dDirRec, dNumCasRec,
-                    U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
+                    U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTelRec, dCelRec, dEmailRec,
+                    dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
                     _empresaInfo.ActividadesEconomicas, _empresaInfo.ObligacionesAfectadas, cuotasList, itemsList, plazoCredito, totalesFactura, certificadoBytes, contraseñaCertificado,
                     iMotEmi, dCdCDERef, dFecEmiDI, dNTimDI, dEstDocAso, dPExpDocAso, dNumDocAso, iTipDocAso, iTipoDocAso);
 
@@ -960,10 +892,11 @@ public class SAPCDCService : BackgroundService
         }
     }
 
+    // Para la generación del código de Seguridad
+    private static readonly Random random = new Random();
     private string GenerarCodigoSeguridad()
     {
-        Random random = new Random();
-        return random.Next(1, 999999999).ToString("D9");
+        return random.Next(1, 1000000000).ToString("D9");
     }
 
     private async Task<(byte[] certificadoBytes, string contraseña)> ObtenerCertificadoActivo()
@@ -1128,7 +1061,7 @@ public class SAPCDCService : BackgroundService
                 {
                     dCodInt = factura.DocType == "S" ? "1" : item.dCodInt,
                     dDesProSer = item.dDesProSer,
-                    dCantProSer = item.dCantProSer,
+                    dCantProSer = factura.DocType == "S" ? 1 : item.dCantProSer,
                     dPUniProSer = item.dPUniProSer,
                     cUniMed = item.cUniMed,
                     dDesUniMed = item.dDesUniMed,
@@ -1206,6 +1139,9 @@ public class SAPCDCService : BackgroundService
             dNomRec: factura.BusinessPartner.dNomRec,
             dRucReceptor: factura.BusinessPartner.FederalTaxID.Split('-')[0],
             dDVReceptor: factura.BusinessPartner.FederalTaxID.Split('-').Length > 1 ? int.Parse(factura.BusinessPartner.FederalTaxID.Split('-')[1]) : 0,
+            dTelRec: factura.BusinessPartner.dTelRec,
+            dCelRec: factura.BusinessPartner.dCelRec,
+            dEmailRec: factura.BusinessPartner.dEmailRec,
             dTiCam: factura.dTiCam,
             iIndPres: factura.iIndPres,
             iCondOpe: factura.iCondOpe == -1 ? 1 : 2,
@@ -1450,6 +1386,9 @@ public class SAPCDCService : BackgroundService
             dNomRec: notaCredito.BusinessPartner.dNomRec,
             dRucReceptor: notaCredito.BusinessPartner.FederalTaxID.Split('-')[0],
             dDVReceptor: notaCredito.BusinessPartner.FederalTaxID.Split('-').Length > 1 ? int.Parse(notaCredito.BusinessPartner.FederalTaxID.Split('-')[1]) : 0,
+            dTelRec: notaCredito.BusinessPartner.dTelRec,
+            dCelRec: notaCredito.BusinessPartner.dCelRec,
+            dEmailRec: notaCredito.BusinessPartner.dEmailRec,
             dTiCam: notaCredito.dTiCam,
             iIndPres: null,
             iCondOpe: null,

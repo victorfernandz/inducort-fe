@@ -48,6 +48,9 @@ public class BusinessPartnerData
     public string CardCode { get; set; }    
     public string CardName { get; set; }
     public string FederalTaxID { get; set; } 
+    public string EmailAddress { get; set; }
+    public string Phone1 { get; set; }
+    public string Cellular { get; set;}
     public int U_TIPCONT { get; set; } // Tipo Contribuyente
     public string U_CRSI { get; set; }  // Naturaleza del SN
     public string U_CRID { get; set; } // Tipo identificación
