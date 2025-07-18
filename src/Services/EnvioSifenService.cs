@@ -117,7 +117,7 @@ public class EnvioSifenService
             {
                 try
                 {
-                    string basePath = AppDomain.CurrentDomain.BaseDirectory;
+                    string basePath = AppDomain.CurrentDomain.BaseDirectory; 
                     //                    string rutaArchivoFirmado = Path.Combine(basePath, "XML", $"Documento_{cdc}.xml");
                     string rutaArchivoFirmado = Path.Combine(basePath, "XML", _baseDatos, $"Documento_{cdc}.xml");
                     //                    File.Copy(rutaArchivoFirmado, Path.Combine(debugDir, $"rDE_completo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), true);

@@ -32,11 +32,18 @@ public class LoggerSifenService
             string dEstRes = estado;
             string dMsgRes = string.Empty;
 
+            string rutaNueva = AppDomain.CurrentDomain.BaseDirectory;
+            string nuevaRuta = string.Empty;
+
             if (!string.IsNullOrEmpty(mensajeRespuesta))
             {
                 // Guardar respuesta en archivo
                 nombreArchivo = $"Respuesta_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.txt";
                 rutaCompleta = Path.Combine(_respuestasPath, nombreArchivo);
+
+                nuevaRuta = Path.Combine(rutaNueva, nombreArchivo);
+                File.WriteAllText(nuevaRuta, mensajeRespuesta, Encoding.UTF8);
+                
                 File.WriteAllText(rutaCompleta, mensajeRespuesta, Encoding.UTF8);
                 _logger?.LogInformation($"Respuesta SIFEN para CDC {cdc} guardada en archivo: {rutaCompleta}");
 
