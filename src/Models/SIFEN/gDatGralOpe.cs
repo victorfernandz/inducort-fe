@@ -366,7 +366,7 @@ public class GDatRec // Nodo padre D001
         DescrTipoDocReceptor = ObtenerDescrTipoDocumento(iTipIDRec);
         NumeroDocReceptr = dNumIDRec;
         DireccionReceptor = dDirRec;
-        NumCasaRec = dNumCasRec;
+        NumCasaRec = dNumCasRec ?? 0;
     }
 }
 

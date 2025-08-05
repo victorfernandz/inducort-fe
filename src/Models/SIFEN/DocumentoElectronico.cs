@@ -211,15 +211,3 @@ public class GTimb //  Nodo padre A001
         };
     }
 }
-
-
-/*
-public class gCamFuFD
-{
-    [XmlElement("dCarQR")]
-    public string dCarQR { get; set; }
-
-    [XmlElement("dInfAdic")]
-    public string dInfAdic { get; set; } 
-}
-*/

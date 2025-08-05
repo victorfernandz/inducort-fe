@@ -521,6 +521,8 @@ public class SAPCDCService : BackgroundService
                 string CardName = notaCredito.BusinessPartner.dNomRec;
                 string Country = notaCredito.BusinessPartner.cPaisRec;
                 string DescPais = notaCredito.BusinessPartner.dDesPaisRe;
+                string dDirRec = notaCredito.BusinessPartner.dDirRec;
+                int? dNumCasRec = notaCredito.BusinessPartner.dNumCasRec;
                 string iTiDE = notaCredito.U_CDOC == "03" ? "05" : notaCredito.U_CDOC;
                 string dEst = notaCredito.U_EST;
                 string dPunExp = notaCredito.U_PDE;
@@ -714,9 +716,6 @@ public class SAPCDCService : BackgroundService
                 Directory.CreateDirectory(xmlDir);
 
                 string rutaXml = Path.Combine(xmlDir, $"Documento_{cdc}.xml");
-
-                string dDirRec = notaCredito.BusinessPartner.dDirRec;
-                int? dNumCasRec = notaCredito.BusinessPartner.dNumCasRec;
 
                 GenerarXML.SerializarDocumentoElectronico(ActiveSapConfig.Sifen, cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
                     _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento,

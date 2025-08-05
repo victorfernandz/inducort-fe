@@ -87,11 +87,16 @@ public class NotaCreditoService
             // Obtener la información del país
             string descripcionPais = "";
             string codigoReportePais = "";
+            string street = "";
+            int? streetNo = 0;
+
             if (direccion != null && !string.IsNullOrEmpty(direccion.Country) && nombresCodigosPaises.ContainsKey(direccion.Country))
             {
                 var infoPais = nombresCodigosPaises[direccion.Country];
                 descripcionPais = infoPais.Nombre;
                 codigoReportePais = infoPais.CodigoReporte;
+                street = direccion.Street;
+                streetNo = direccion.StreetNo;
             }
 
             // Crear la nota de crédito con los datos generales
@@ -125,6 +130,11 @@ public class NotaCreditoService
                     iNatRec = primeraEntrada.BusinessPartners.U_CRSI ?? "",
                     cPaisRec = codigoReportePais ?? "",
                     dDesPaisRe = descripcionPais,
+                    dDirRec = street,
+                    dNumCasRec = streetNo,
+                    dTelRec = primeraEntrada.BusinessPartners.Phone1,
+                    dCelRec = primeraEntrada.BusinessPartners.Cellular,
+                    dEmailRec = primeraEntrada.BusinessPartners.EmailAddress
                 },
                 Currencies = new Currencies
                 {
@@ -266,7 +276,9 @@ public class NotaCreditoService
                     direcciones.Add(new BusinessPartnerData.BPAddressInfo
                     {
                         CardCode = cardCode,
-                        Country = primeraDireccion.Country ?? ""
+                        Country = primeraDireccion.Country ?? "",
+                        Street = primeraDireccion.Street ?? "",
+                        StreetNo = primeraDireccion.StreetNo
                     });
                 }
             }
@@ -292,7 +304,7 @@ public class NotaCreditoService
             var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, $"Error al obtener información del país {codigoPais}");
 
             if (string.IsNullOrEmpty(jsonResponse))
-            {
+            { 
                 return ("", "");
             }
 
@@ -445,11 +457,16 @@ public class NotaCreditoService
             // Obtener la información del país
             string descripcionPais = "";
             string codigoReportePais = "";
+            string street = "";
+            int? streetNo = 0;
+
             if (direccion != null && !string.IsNullOrEmpty(direccion.Country) && nombresCodigosPaises.ContainsKey(direccion.Country))
             {
                 var infoPais = nombresCodigosPaises[direccion.Country];
                 descripcionPais = infoPais.Nombre;
                 codigoReportePais = infoPais.CodigoReporte;
+                street = direccion.Street;
+                streetNo = direccion.StreetNo;
             }
 
             // Crear la nota de crédito con los datos generales
@@ -484,6 +501,11 @@ public class NotaCreditoService
                     iNatRec = primeraEntrada.BusinessPartners.U_CRSI ?? "",
                     cPaisRec = codigoReportePais ?? "",
                     dDesPaisRe = descripcionPais,
+                    dDirRec = street,
+                    dNumCasRec = streetNo,
+                    dTelRec = primeraEntrada.BusinessPartners.Phone1,
+                    dCelRec = primeraEntrada.BusinessPartners.Cellular,
+                    dEmailRec = primeraEntrada.BusinessPartners.EmailAddress
                 },
                 Currencies = new Currencies
                 {
