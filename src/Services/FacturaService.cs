@@ -22,7 +22,7 @@ public class FacturaService
             "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
-            "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and Invoices/U_DOCD eq 'S' and Invoices/U_EXX_FE_Estado eq 'NEN' and " +
+            "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and Invoices/U_DOCD eq 'S' and Invoices/U_EXX_FE_Estado eq 'NEN' and Invoices/Cancelled eq 'tNO' and " +
             "Invoices/DocDate ge '20250808' and Invoices/FolioNumber ne null"; 
         //    "Invoices/DocEntry eq 2806";
 
@@ -597,7 +597,7 @@ public class FacturaService
             "Invoices/DocCurrency eq Currencies/Code and " +
             "Invoices/FolioNumber ne null and " +
             "Invoices/DocDate ge '20250808' and " +
-            "Invoices/U_EXX_FE_Estado ne 'AUT' and Invoices/U_DOCD eq 'S' and " +
+            "Invoices/U_EXX_FE_Estado ne 'AUT' and Invoices/U_DOCD eq 'S' and Invoices/Cancelled eq 'tNO' and " +
             "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne '' ";
     //        "Invoices/DocEntry eq 2844";
 

@@ -18,12 +18,13 @@ public class NotaCredito
     public int iMotEmi { get; set; }
     public int iTipDocAso { get; set; }
     public string dCdCDERef { get; set; }
-    public int dNTimDI { get; set; }
+    public int dNTimDI { get; set; } 
     public string dEstDocAso { get; set; }
     public string dPExpDocAso { get; set; }    
     public string dNumDocAso { get; set; }
     public int iTipoDocAso { get; set; }
     public string dDTipoDocAso { get; set; }
+    public int? timbradoSAP { get; set; }
     public DateTime dFecEmiDI { get; set; }
     public string U_NUMFC { get; set; }
     public string Comments { get; set; }

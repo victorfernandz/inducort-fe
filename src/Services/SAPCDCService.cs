@@ -540,6 +540,7 @@ public class SAPCDCService : BackgroundService
                 string? dCdCDERef = null;
                 int? dNTimDI = null;
                 DateTime? dFecEmiDI = null;
+                int? U_TIM = notaCredito.timbradoSAP;
 
                 string notacreditoReferencia = notaCredito.U_NUMFC;
 
@@ -553,7 +554,7 @@ public class SAPCDCService : BackgroundService
                         string? PDE = partesNotaCredito.Length > 1 ? partesNotaCredito[1] : null;
                         string? Folio = partesNotaCredito.Length > 2 ? partesNotaCredito[2] : null;
 
-                        var datos = await _notaCreditoService.ObtenerCDCFactura(EST, PDE, Folio, rucCompleto);
+                        var datos = await _notaCreditoService.ObtenerCDCFactura(EST, PDE, Folio, rucCompleto, U_TIM);
 
                         dCdCDERef = datos.dCdCDERef;
 
@@ -565,7 +566,7 @@ public class SAPCDCService : BackgroundService
                         dNumDocAso = partesNotaCredito.Length > 2 ? partesNotaCredito[2] : null;
                         iTipoDocAso = 1;
 
-                        var datos = await _notaCreditoService.ObtenerCDCFactura(dEstDocAso, dPExpDocAso, dNumDocAso, rucCompleto);
+                        var datos = await _notaCreditoService.ObtenerCDCFactura(dEstDocAso, dPExpDocAso, dNumDocAso, rucCompleto, U_TIM);
 
                         dNTimDI = datos.dNTimDI;
                         dFecEmiDI = datos.dFecEmiDI;
@@ -1311,6 +1312,7 @@ public class SAPCDCService : BackgroundService
         int? dNTimDI = null;
         DateTime? dFecEmiDI = null;
         string notacreditoReferencia = notaCredito.U_NUMFC;
+        int? U_TIM = notaCredito.timbradoSAP;
 
         if (!string.IsNullOrWhiteSpace(notacreditoReferencia))
         {
@@ -1322,7 +1324,7 @@ public class SAPCDCService : BackgroundService
                 string? PDE = partesNotaCredito.Length > 1 ? partesNotaCredito[1] : null;
                 string? Folio = partesNotaCredito.Length > 2 ? partesNotaCredito[2] : null;
 
-                var datos = await _notaCreditoService.ObtenerCDCFactura(EST, PDE, Folio, notaCredito.BusinessPartner.FederalTaxID);
+                var datos = await _notaCreditoService.ObtenerCDCFactura(EST, PDE, Folio, notaCredito.BusinessPartner.FederalTaxID, U_TIM);
 
                 dCdCDERef = datos.dCdCDERef;
 
@@ -1334,7 +1336,7 @@ public class SAPCDCService : BackgroundService
                 dNumDocAso = partesNotaCredito.Length > 2 ? partesNotaCredito[2] : null;
                 iTipoDocAso = 1;
 
-                var datos = await _notaCreditoService.ObtenerCDCFactura(dEstDocAso, dPExpDocAso, dNumDocAso, notaCredito.BusinessPartner.FederalTaxID);
+                var datos = await _notaCreditoService.ObtenerCDCFactura(dEstDocAso, dPExpDocAso, dNumDocAso, notaCredito.BusinessPartner.FederalTaxID, U_TIM);
 
                 dNTimDI = datos.dNTimDI;
                 dFecEmiDI = datos.dFecEmiDI;

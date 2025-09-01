@@ -21,8 +21,8 @@ public class NotaCreditoService
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,Phone1,Cellular,EmailAddress), " +
             "Currencies($select=Code,Name,DocumentsCode) " +
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
-            "CreditNotes/DocCurrency eq Currencies/Code and (CreditNotes/U_EXX_FE_CDC eq null or CreditNotes/U_EXX_FE_CDC eq '') and CreditNotes/U_EXX_FE_Estado eq 'NEN' and " +
-            "CreditNotes/DocDate ge '20250808' and CreditNotes/FolioNumber ne null and CreditNotes/U_DOCD eq 'S'";
+            "CreditNotes/DocCurrency eq Currencies/Code and (CreditNotes/U_EXX_FE_CDC eq null or CreditNotes/U_EXX_FE_CDC eq '') and CreditNotes/U_EXX_FE_Estado eq 'NEN' and CreditNotes/Cancelled eq 'tNO' and " +
+            "CreditNotes/DocDate ge '20250804' and CreditNotes/FolioNumber ne null and CreditNotes/U_DOCD eq 'S'";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))
@@ -118,6 +118,7 @@ public class NotaCreditoService
                 iMotEmi = primeraEntrada.CreditNotes.U_EXX_FE_MotEmision,
                 iTipDocAso = primeraEntrada.CreditNotes.U_DASO,
                 U_NUMFC = primeraEntrada.CreditNotes.U_NUMFC,
+                timbradoSAP = primeraEntrada.CreditNotes.U_TIMFC,
                 Comments = primeraEntrada.CreditNotes.Comments,
 
                 BusinessPartner = new BusinessPartner
@@ -339,11 +340,11 @@ public class NotaCreditoService
         }
     }
 
-    public async Task<(string? dCdCDERef, int? dNTimDI, DateTime? dFecEmiDI)> ObtenerCDCFactura(string? dEstDocAso, string? dPExpDocAso, string? dNumDocAso, string? rucCompleto)
+    public async Task<(string? dCdCDERef, int? dNTimDI, DateTime? dFecEmiDI)> ObtenerCDCFactura(string? dEstDocAso, string? dPExpDocAso, string? dNumDocAso, string? rucCompleto, int? timbradoSAP)
     {
         try
         {
-            string query = $"Invoices?$select=DocDate,U_TIM,U_EXX_FE_CDC&$filter=FederalTaxID eq '{rucCompleto}' and U_EST eq '{dEstDocAso}' and U_PDE eq '{dPExpDocAso}' and FolioNumber eq {dNumDocAso}";
+            string query = $"Invoices?$select=DocDate,U_TIM,U_EXX_FE_CDC&$filter=FederalTaxID eq '{rucCompleto}' and U_EST eq '{dEstDocAso}' and U_PDE eq '{dPExpDocAso}' and FolioNumber eq {dNumDocAso} and U_TIM eq '{timbradoSAP}'";
             var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, "Error al obtener datos de factura referenciada");
 
             if (string.IsNullOrWhiteSpace(jsonResponse))
@@ -390,8 +391,8 @@ public class NotaCreditoService
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
             "CreditNotes/DocCurrency eq Currencies/Code and " +
             "CreditNotes/FolioNumber ne null and " +
-            "CreditNotes/DocDate ge '20250808' and " +
-            "CreditNotes/U_EXX_FE_Estado ne 'AUT' and " +
+            "CreditNotes/DocDate ge '20250804' and " +
+            "CreditNotes/U_EXX_FE_Estado ne 'AUT' and CreditNotes/Cancelled eq 'tNO' and " +
             "CreditNotes/U_EXX_FE_CDC ne null and CreditNotes/U_EXX_FE_CDC ne '' and CreditNotes/U_DOCD eq 'S' ";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -490,6 +491,7 @@ public class NotaCreditoService
                 iMotEmi = primeraEntrada.CreditNotes.U_EXX_FE_MotEmision,
                 iTipDocAso = primeraEntrada.CreditNotes.U_DASO,
                 U_NUMFC = primeraEntrada.CreditNotes.U_NUMFC,
+                timbradoSAP = primeraEntrada.CreditNotes.U_TIMFC,
 
                 BusinessPartner = new BusinessPartner
                 {
