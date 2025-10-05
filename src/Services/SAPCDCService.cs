@@ -1024,6 +1024,12 @@ public class SAPCDCService : BackgroundService
                     descAfectacionIVA = "Gravado IVA";
                     proporcionIVA = 100;
                 }
+                else if (item.taxCode != null && item.taxCode.Equals("IVA_EXO", StringComparison.OrdinalIgnoreCase))
+                {
+                    afectacionIVA = 2;
+                    descAfectacionIVA = "Exonerado (Art. 100 - Ley 6380/2019)";
+                    proporcionIVA = 0;
+                }
 
                 decimal baseGravadaIVA = 0;
 

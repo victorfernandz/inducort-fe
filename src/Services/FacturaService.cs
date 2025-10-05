@@ -23,7 +23,7 @@ public class FacturaService
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and Invoices/U_DOCD eq 'S' and Invoices/U_EXX_FE_Estado eq 'NEN' and Invoices/Cancelled eq 'tNO' and " +
-            "Invoices/DocDate ge '20250808' and Invoices/FolioNumber ne null"; 
+            "Invoices/DocDate ge '20250910' and Invoices/FolioNumber ne null"; 
         //    "Invoices/DocEntry eq 2806";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -506,6 +506,7 @@ public class FacturaService
         try
         {
             string query = $"IncomingPayments?$select=DocEntry,DocCurrency,DocRate,TransferSum,CashSum,PaymentInvoices&$orderby=DocEntry desc&$top=100";
+            //string query = $"IncomingPayments?$select=DocEntry,DocCurrency,DocRate,TransferSum,CashSum,PaymentInvoices,DocDate&$filter=DocEntry eq 10443";
             var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, query, _logger, $"Error al consultar pagos recibidos");
 
             if (string.IsNullOrEmpty(jsonResponse))
@@ -522,7 +523,6 @@ public class FacturaService
             }
 
             var pagos = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(result["value"].ToString());
-
             foreach (var pago in pagos)
             {
                 if (!pago.ContainsKey("PaymentInvoices") || pago["PaymentInvoices"] == null)
@@ -536,8 +536,32 @@ public class FacturaService
                     string? docCurrency = pago.ContainsKey("DocCurrency") ? pago["DocCurrency"]?.ToString() : "PYG";
                     decimal docRate = pago.ContainsKey("DocRate") ? Convert.ToDecimal(pago["DocRate"]) : 1;
 
-                    decimal transferSum = pago.ContainsKey("TransferSum") ? Convert.ToDecimal(pago["TransferSum"]) : 0;
-                    decimal cashSum = pago.ContainsKey("CashSum") ? Convert.ToDecimal(pago["CashSum"]) : 0;
+                    decimal transferSum = 0;
+                    decimal cashSum = 0;
+
+                    if (docCurrency == "PYG")
+                    {
+                        transferSum = pago.ContainsKey("TransferSum") ? Convert.ToDecimal(pago["TransferSum"]) : 0;
+                        cashSum = pago.ContainsKey("CashSum") ? Convert.ToDecimal(pago["CashSum"]) : 0;
+                    }
+                    else
+                    {
+                        // Buscar la línea de PaymentInvoices que corresponde a la factura
+                        var linea = invoices.FirstOrDefault(i => Convert.ToInt32(i["DocEntry"]) == docEntryFactura);
+
+                        // Tomar AppliedFC (monto en moneda extranjera) desde esa línea
+                        decimal appliedFC = 0m;
+                        if (linea != null && linea.ContainsKey("AppliedFC") && linea["AppliedFC"] != null)
+                            appliedFC = Convert.ToDecimal(linea["AppliedFC"]);
+
+                        if (appliedFC == 0m && linea != null && linea.ContainsKey("SumApplied") && linea["SumApplied"] != null)
+                        {
+                            var sumAppliedLocal = Convert.ToDecimal(linea["SumApplied"]);
+                            appliedFC = (docRate > 0) ? sumAppliedLocal / docRate : 0m;
+                        }
+
+                        transferSum = appliedFC > 0 && docRate > 0 ? appliedFC * docRate : 0m;
+                    }                 
 
                     decimal montoBase = transferSum > 0 ? transferSum : cashSum;
 
@@ -596,7 +620,7 @@ public class FacturaService
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "Invoices/FolioNumber ne null and " +
-            "Invoices/DocDate ge '20250808' and " +
+            "Invoices/DocDate ge '20250910' and " +
             "Invoices/U_EXX_FE_Estado ne 'AUT' and Invoices/U_DOCD eq 'S' and Invoices/Cancelled eq 'tNO' and " +
             "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne '' ";
     //        "Invoices/DocEntry eq 2844";
