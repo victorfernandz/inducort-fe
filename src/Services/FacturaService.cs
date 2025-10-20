@@ -534,6 +534,20 @@ public class FacturaService
                 if (invoices.Any(i => Convert.ToInt32(i["DocEntry"]) == docEntryFactura))
                 {
                     string? docCurrency = pago.ContainsKey("DocCurrency") ? pago["DocCurrency"]?.ToString() : "PYG";
+                    
+                    //En caso que el código de la monenda sea GS, colocamos el código de la moneda según ISO 4217
+                    if (!string.IsNullOrEmpty(docCurrency))
+                    {
+                        if (docCurrency.Equals("GS", StringComparison.OrdinalIgnoreCase))
+                            docCurrency = "PYG";
+                        else
+                            docCurrency = "USD";
+                    }
+                    else
+                    {
+                        docCurrency = "PYG";
+                    }
+                    
                     decimal docRate = pago.ContainsKey("DocRate") ? Convert.ToDecimal(pago["DocRate"]) : 1;
 
                     decimal transferSum = 0;
