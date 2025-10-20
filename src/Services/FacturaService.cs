@@ -593,10 +593,11 @@ public class FacturaService
                         };
 
                         // Traer la descripción de la moneda
-                        string queryMoneda = $"Currencies?$select=Name&$filter=Code eq '{docCurrency}'";
+                        string queryMoneda = $"Currencies?$select=Name&$filter=DocumentsCode eq '{docCurrency}'";
                         var jsonMoneda = await HttpHelper.GetStringAsync(_httpClient, queryMoneda, _logger, $"Error al obtener descripción de moneda {docCurrency}");
 
-                        string? descripcionMoneda = docCurrency;
+                        string? descripcionMoneda = docCurrency; // valor por defecto
+
                         if (!string.IsNullOrEmpty(jsonMoneda))
                         {
                             var monedaObj = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonMoneda);
