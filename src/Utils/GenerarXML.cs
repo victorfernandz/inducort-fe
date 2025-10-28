@@ -8,16 +8,16 @@ using System.Globalization;
 public class GenerarXML
 {
     public static void SerializarDocumentoElectronico(SifenConfig sifen, string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, DateTime dFeIniT, DateTime dFeEmiDE,
-        string? iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
+        string? iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi,
         string dEmailE, int iNatRec, int iTiContRec, string dDirRec, int? dNumCasRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int? dDVReceptor,
         string? dTelRec, string? dCelRec, string? dEmailRec,
         decimal dTiCam, int? iIndPres, int? iCondOpe, int? iCondCred, int? iTiPago, decimal? dMonTiPag,
-        string? cMoneTiPag, string? dDMoneTiPag, decimal? dTiCamTiPag, string? iTipIDRec, string? dNumIDRec, 
+        string? cMoneTiPag, string? dDMoneTiPag, decimal? dTiCamTiPag, string? iTipIDRec, string? dNumIDRec,
         List<ActividadEconomica> actividades, List<ObligacionAfectada>? obligaciones = null, List<GCuotas>? cuotas = null, List<Item> items = null, string plazoCredito = null, GTotSub totales = null,
         byte[]? certificadoBytes = null, string? contraseñaCertificado = null,
         // campos opcionales solo para NC
         int? iMotEmi = null, string? dCdCDERef = null, DateTime? dFecEmiDI = null, int? dNTimDI = null, string? dEstDocAso = null, string? dPExpDocAso = null, string? dNumDocAso = null, int? iTipDocAso = null, int? iTipoDocAso = null)
-    
+
     {
         try
         {
@@ -26,7 +26,7 @@ public class GenerarXML
 
             var actividadPrincipal = actividades.First();
 
-            DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, dFecFirma, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi, 
+            DocumentoElectronico documento = new DocumentoElectronico(cdc, dv, dFecFirma, 1, dCodSeg, iTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, dRucEm, dDVEmi, iTipCont, dNomEmi, dDirEmi,
                 dNumCas, cDepEmi, dDesDepEmi, cDisEmi, dDesDisEmi, cCiuEmi, dDesCiuEmi, dTelEmi, dEmailE, actividadPrincipal.Codigo, actividadPrincipal.Descripcion, iNatRec, iTiContRec, dDirRec, dNumCasRec, iTiOpe, cPaisRec, dDesPaisRe, dNomRec,
                 dRucReceptor, dDVReceptor, dTelRec, dCelRec, dEmailRec, dTiCam, iIndPres, iCondOpe, iCondCred, iTiPago, dMonTiPag, cMoneTiPag, dDMoneTiPag, dTiCamTiPag, iTipIDRec, dNumIDRec,
 
@@ -65,19 +65,19 @@ public class GenerarXML
             {
                 if (iCondCred == 1)
                 {
-                    string plazoFinal = string.IsNullOrEmpty(plazoCredito) ? 
-                        (cuotas?.FirstOrDefault()?.FechaVencimientoCuota ?? "30 días") : 
+                    string plazoFinal = string.IsNullOrEmpty(plazoCredito) ?
+                        (cuotas?.FirstOrDefault()?.FechaVencimientoCuota ?? "30 días") :
                         plazoCredito;
-                    
-                    documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito = 
+
+                    documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito =
                         new GPagCred(1, plazoFinal, null);
                 }
                 else if (iCondCred == 2)
                 {
                     int cantidadCuotas = cuotas?.Count ?? 0;
-                    documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito = 
+                    documento.DE.CamposEspecificosTipoDocumento.CondicionOperacion.OperacionCredito =
                         new GPagCred(2, null, cantidadCuotas);
-                    
+
                     if (cuotas != null && cuotas.Any())
                     {
                         foreach (var cuota in cuotas)
@@ -175,10 +175,11 @@ public class GenerarXML
             if (certificadoBytes != null && !string.IsNullOrEmpty(contraseñaCertificado))
             {
                 var config = Config.LoadConfig();
-            //    var sifenConfig = config.SapServiceLayerList.First().Sifen;
+                //    var sifenConfig = config.SapServiceLayerList.First().Sifen;
                 string rutaDebug = Path.Combine(Path.GetDirectoryName(rutaArchivo), "debug_pre_firma.xml");
                 using (var fs = new FileStream(rutaDebug, FileMode.Create, FileAccess.Write))
-                using (var writer = XmlWriter.Create(fs, new XmlWriterSettings {
+                using (var writer = XmlWriter.Create(fs, new XmlWriterSettings
+                {
                     Encoding = new UTF8Encoding(false),
                     Indent = false,
                     OmitXmlDeclaration = true,
@@ -199,7 +200,7 @@ public class GenerarXML
                 else
                 {
                     SifenSigner.FirmarXml(xmlDoc, cdc, dNumIDRec, certificadoBytes, contraseñaCertificado, iNatRec, sifen);
-                }                
+                }
             }
 
             XmlWriterSettings settings = new XmlWriterSettings
@@ -227,5 +228,10 @@ public class GenerarXML
             }
             throw new Exception($"Error al generar el XML: {ex.Message}", ex);
         }
+    }
+    
+    public static void SerializarDocumentoInutilizacion(SifenConfig sifen, DateTime dFecFirma, string rutaArchivo, int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumIn, string dNumFin, string mOtEve)
+    {
+        
     }
 }

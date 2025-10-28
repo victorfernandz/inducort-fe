@@ -37,6 +37,9 @@ public class MultiBaseSAPCDCService : BackgroundService
 
                     var sapService = new SAPServiceLayer(sapConfig);
                     var empresaService = new EmpresaService(sapService, scopedServices.GetRequiredService<ILogger<EmpresaService>>());
+
+                    var eventoInutilizacion = new EventoService(sapService, scopedServices.GetRequiredService<ILogger<EventoService>>());
+                    
                     var facturaService = new FacturaService(sapService, scopedServices.GetRequiredService<ILogger<FacturaService>>());
                     var notaCreditoService = new NotaCreditoService(sapService, scopedServices.GetRequiredService<ILogger<NotaCreditoService>>());
                     var loggerSifen = scopedServices.GetRequiredService<LoggerSifenService>();
@@ -44,7 +47,7 @@ public class MultiBaseSAPCDCService : BackgroundService
                         scopedServices.GetRequiredService<ILogger<EnvioSifenService>>(), sapService
                     );
 
-                    var servicio = new SAPCDCService(scopedServices.GetRequiredService<ILogger<SAPCDCService>>(), sapService, facturaService, notaCreditoService, empresaService, envioService, loggerSifen,
+                    var servicio = new SAPCDCService(scopedServices.GetRequiredService<ILogger<SAPCDCService>>(), sapService, facturaService, notaCreditoService, envioService, empresaService, loggerSifen, eventoInutilizacion,
                         new Config { SapServiceLayerList = new List<SapServiceLayerConfig> { sapConfig }, HanaDatabase = _config.HanaDatabase }
                     );
 

@@ -12,11 +12,12 @@ public class SAPCDCService : BackgroundService
     private readonly NotaCreditoService _notaCreditoService;
     private readonly EmpresaService _empresaService;
     private readonly EnvioSifenService _envioService;
+    private readonly EventoService _eventoInutilizacion;
     private EmpresaInfo _empresaInfo;
     private readonly LoggerSifenService _loggerSifen;
     private readonly Config _config;
 
-    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, NotaCreditoService notaCreditoService, EmpresaService empresaService, EnvioSifenService envioService, LoggerSifenService loggerSifen, Config config)
+    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, NotaCreditoService notaCreditoService, EnvioSifenService envioService, EmpresaService empresaService, LoggerSifenService loggerSifen, EventoService eventoInutilizacion, Config config)
     {
         _logger = logger;
         _sapServiceLayer = sapServiceLayer;
@@ -25,7 +26,9 @@ public class SAPCDCService : BackgroundService
         _empresaService = empresaService;
         _envioService = envioService;
         _loggerSifen = loggerSifen;
+        _eventoInutilizacion = eventoInutilizacion;
         _config = config;
+        
     }
 
     private SapServiceLayerConfig ActiveSapConfig => _config.SapServiceLayerList[0];
@@ -67,6 +70,8 @@ public class SAPCDCService : BackgroundService
 
             _empresaInfo.ObligacionesAfectadas = await _empresaService.GetObligacionesAfectadas();
 
+            await ProcesarEventoInutilizacion(cancellationToken);
+
             await ProcesarFacturasSinCDC(cancellationToken);
             await ProcesarFacturasPendientes(cancellationToken);
             await ProcesarNotaCreditoSinCDC(cancellationToken);
@@ -79,6 +84,64 @@ public class SAPCDCService : BackgroundService
         finally
         {
             await _sapServiceLayer.Logout();
+        }
+    }
+    
+    private async Task ProcesarEventoInutilizacion(CancellationToken stoppingToen)
+    {
+        try
+        {
+            _logger.LogInformation("Procesando Evento de Inutilización");
+            var eventoInutilizacion = await _eventoInutilizacion.GetEventoInutilizacion();
+            _logger.LogInformation($"Se encontraron {eventoInutilizacion.Count} documentos para inutilizar.");
+
+            // Obtener el certificado digital activo
+            var (certificadoBytes, contraseñaCertificado) = await ObtenerCertificadoActivo();
+
+            foreach (var docInutilizacion in eventoInutilizacion)
+            {
+                int timbrado = docInutilizacion.dNumTim;
+                string establecimiento = docInutilizacion.dEst;
+                string puntoEmision = docInutilizacion.dPunExp;
+                string numeroInicio = docInutilizacion.dNumIn.PadLeft(7,'0');
+                string numeroFin = docInutilizacion.dNumFin.PadLeft(7, '0');
+                int tipoDocumento = docInutilizacion.iTiDE;
+                string motivoEvento = docInutilizacion.mOtEve;
+                DateTime dFecFirma = DateTime.Now;
+
+                // Generar XML
+                string basePath = AppDomain.CurrentDomain.BaseDirectory;
+                string xmlDir = Path.Combine(basePath, "XML", _config.SapServiceLayerList[0].CompanyDB);
+
+                Directory.CreateDirectory(xmlDir);
+                string rutaXml = Path.Combine(xmlDir, $"Documento_{timbrado}{establecimiento}{puntoEmision}{numeroInicio}{tipoDocumento}.xml");
+
+                GenerarXML.SerializarDocumentoInutilizacion(ActiveSapConfig.Sifen, dFecFirma, rutaXml, tipoDocumento, timbrado, establecimiento, puntoEmision, numeroInicio, numeroFin, motivoEvento);
+
+                try
+                {
+
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error al preparar/enviar documento: {ex.Message}");
+                    _logger.LogError($"StackTrace: {ex.StackTrace}");
+
+                    string errorPath = "Errors";
+                    Directory.CreateDirectory(errorPath);
+                    File.WriteAllText(Path.Combine(errorPath, $"error_{timbrado}{establecimiento}{puntoEmision}{numeroInicio}{tipoDocumento}_{DateTime.Now:yyyyMMddHHmmss}.log"),
+                        $"CDC: {timbrado}{establecimiento}{puntoEmision}{numeroInicio}{tipoDocumento}\nError: {ex.Message}\nStackTrace: {ex.StackTrace}");
+                }
+
+                string rutaXmlFirmado = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayerList[0].CompanyDB, $"Documento_{timbrado}{establecimiento}{puntoEmision}{numeroInicio}{tipoDocumento}.xml");
+                string xmlFirmadoFinal = File.ReadAllText(rutaXmlFirmado);
+
+            }
+
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error {ex}.");
         }
     }
 
