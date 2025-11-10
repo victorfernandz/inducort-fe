@@ -175,7 +175,7 @@ public class SAPCDCService : BackgroundService
                 string? plazoCredito = "";
                 if (iCondOpe == 2 && iCondCred == 1 && factura.OperacionCredito != null)
                 {
-                    plazoCredito = factura.OperacionCredito.PlazoCredito;
+                    plazoCredito = (factura.OperacionCredito.PlazoCredito ?? "").PadRight(15).Substring(0, 15);
                 }
 
                 // Procesamiento de líneas de items
@@ -1163,7 +1163,7 @@ public class SAPCDCService : BackgroundService
             obligaciones: _empresaInfo.ObligacionesAfectadas,
             cuotas: factura.OperacionCredito?.Cuotas,
             items: itemsList,
-            plazoCredito: factura.OperacionCredito?.PlazoCredito,
+            plazoCredito: (factura.OperacionCredito?.PlazoCredito ?? "").Substring(0, Math.Min(15, factura.OperacionCredito?.PlazoCredito?.Length ?? 0)),
             totales: totalesFactura,
             certificadoBytes: certificadoBytes,
             contraseñaCertificado: contraseñaCertificado);

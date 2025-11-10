@@ -385,7 +385,7 @@ public class NotaCreditoService
     public async Task<List<NotaCredito>> GetNotaCreditoSinAutorizar()
     {
         string queryDocumento = "$crossjoin(CreditNotes,BusinessPartners,Currencies) " +
-            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_Estado,U_EXX_FE_CODERR,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision)," +
+            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_Estado,U_EXX_FE_CODERR,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision,Comments)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion), " +
             "Currencies($select=Code,Name,DocumentsCode) " +
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
@@ -492,6 +492,7 @@ public class NotaCreditoService
                 iTipDocAso = primeraEntrada.CreditNotes.U_DASO,
                 U_NUMFC = primeraEntrada.CreditNotes.U_NUMFC,
                 timbradoSAP = primeraEntrada.CreditNotes.U_TIMFC,
+                Comments = primeraEntrada.CreditNotes.Comments,
 
                 BusinessPartner = new BusinessPartner
                 {
