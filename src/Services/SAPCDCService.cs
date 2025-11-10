@@ -225,7 +225,7 @@ public class SAPCDCService : BackgroundService
                 DateTime dFeEmiDE = fecha.Date.Add(hora);
 
                 string fechaFormatoCDC = dFeEmiDE.ToString("yyyyMMdd");
-                DateTime dFecFirma = DateTime.Now;
+                DateTime dFecFirma = DateTime.Now.AddMinutes(-2);
 
                 //Agregamos las cuotas para las facturas a plazos
                 List<GCuotas> cuotasList = new List<GCuotas>();
@@ -238,7 +238,7 @@ public class SAPCDCService : BackgroundService
                 string? plazoCredito = "";
                 if (iCondOpe == 2 && iCondCred == 1 && factura.OperacionCredito != null)
                 {
-                    plazoCredito = factura.OperacionCredito.PlazoCredito;
+                    plazoCredito = (factura.OperacionCredito.PlazoCredito ?? "").PadRight(15).Substring(0, 15);
                 }
 
                 // Procesamiento de líneas de items
@@ -654,7 +654,7 @@ public class SAPCDCService : BackgroundService
                 DateTime dFeEmiDE = fecha.Date.Add(hora);
 
                 string fechaFormatoCDC = dFeEmiDE.ToString("yyyyMMdd");
-                DateTime dFecFirma = DateTime.Now;
+                DateTime dFecFirma = DateTime.Now.AddMinutes(-2);
 
                 // Procesamiento de líneas de items
                 List<Item> itemsList = new List<Item>();
@@ -1151,7 +1151,7 @@ public class SAPCDCService : BackgroundService
         var totalesFactura = Totalizador.CalcularTotalesFactura(itemsList, factura.dTiCam, factura.Currencies.cMoneOpe);
 
         // Fecha de emisión y firma
-        DateTime dFecFirma = DateTime.Now;
+        DateTime dFecFirma = DateTime.Now.AddMinutes(-2);
         DateTime fecha = DateTime.ParseExact(factura.DocDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
         TimeSpan hora = TimeSpan.Zero;
         if (factura.DocTime > 0)
@@ -1226,7 +1226,7 @@ public class SAPCDCService : BackgroundService
             obligaciones: _empresaInfo.ObligacionesAfectadas,
             cuotas: factura.OperacionCredito?.Cuotas,
             items: itemsList,
-            plazoCredito: factura.OperacionCredito?.PlazoCredito,
+            plazoCredito: (factura.OperacionCredito?.PlazoCredito ?? "").Substring(0, Math.Min(15, factura.OperacionCredito?.PlazoCredito?.Length ?? 0)),
             totales: totalesFactura,
             certificadoBytes: certificadoBytes,
             contraseñaCertificado: contraseñaCertificado);
@@ -1351,7 +1351,7 @@ public class SAPCDCService : BackgroundService
         var totalesFactura = Totalizador.CalcularTotalesFactura(itemsList, notaCredito.dTiCam, notaCredito.Currencies.cMoneOpe);
 
         // Fecha de emisión y firma
-        DateTime dFecFirma = DateTime.Now;
+        DateTime dFecFirma = DateTime.Now.AddMinutes(-2);
         DateTime fecha = DateTime.ParseExact(notaCredito.DocDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
         TimeSpan hora = TimeSpan.Zero;
         if (notaCredito.DocTime > 0)
