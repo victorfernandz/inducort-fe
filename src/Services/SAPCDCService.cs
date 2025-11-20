@@ -97,6 +97,8 @@ public class SAPCDCService : BackgroundService
 
             // Obtener el certificado digital activo
             var (certificadoBytes, contraseñaCertificado) = await ObtenerCertificadoActivo();
+            var loteDocumentos = new List<(int docEntry, string Id, string xmlFirmado)>();
+            int tipoDocumentoLote = 0;
 
             foreach (var docInutilizacion in eventoInutilizacion)
             {
@@ -108,6 +110,7 @@ public class SAPCDCService : BackgroundService
                 int tipoDocumento = docInutilizacion.iTiDE;
                 string motivoEvento = docInutilizacion.mOtEve;
                 DateTime dFecFirma = DateTime.Now;
+                string cdc = docInutilizacion.dEst + docInutilizacion.dPunExp + docInutilizacion.dNumIn.PadLeft(7,'0') + docInutilizacion.dNumTim + docInutilizacion.iTiDE;
 
                 // Generar XML
                 string basePath = AppDomain.CurrentDomain.BaseDirectory;
@@ -116,11 +119,16 @@ public class SAPCDCService : BackgroundService
                 Directory.CreateDirectory(xmlDir);
                 string rutaXml = Path.Combine(xmlDir, $"Documento_{timbrado}{establecimiento}{puntoEmision}{numeroInicio}{tipoDocumento}.xml");
 
-                GenerarXML.SerializarDocumentoInutilizacion(ActiveSapConfig.Sifen, dFecFirma, rutaXml, tipoDocumento, timbrado, establecimiento, puntoEmision, numeroInicio, numeroFin, motivoEvento);
+                GenerarXML.SerializarDocumentoInutilizacion(ActiveSapConfig.Sifen, cdc, dFecFirma, rutaXml, tipoDocumento, timbrado, establecimiento, puntoEmision, numeroInicio, numeroFin, motivoEvento, certificadoBytes, contraseñaCertificado);
 
                 try
                 {
+                    string rutaXmlFirmado = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayerList[0].CompanyDB, $"Documento_{timbrado}{establecimiento}{puntoEmision}{numeroInicio}{tipoDocumento}.xml");
+                    string xmlFirmadoFinal = File.ReadAllText(rutaXmlFirmado);
 
+                    tipoDocumentoLote = tipoDocumento;               
+
+                    _logger.LogInformation($"Documento {timbrado}{establecimiento}{puntoEmision}{numeroInicio}{tipoDocumento} enviado a SIFEN correctamente.");
                 }
                 catch (Exception ex)
                 {
@@ -132,10 +140,6 @@ public class SAPCDCService : BackgroundService
                     File.WriteAllText(Path.Combine(errorPath, $"error_{timbrado}{establecimiento}{puntoEmision}{numeroInicio}{tipoDocumento}_{DateTime.Now:yyyyMMddHHmmss}.log"),
                         $"CDC: {timbrado}{establecimiento}{puntoEmision}{numeroInicio}{tipoDocumento}\nError: {ex.Message}\nStackTrace: {ex.StackTrace}");
                 }
-
-                string rutaXmlFirmado = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "XML", _config.SapServiceLayerList[0].CompanyDB, $"Documento_{timbrado}{establecimiento}{puntoEmision}{numeroInicio}{tipoDocumento}.xml");
-                string xmlFirmadoFinal = File.ReadAllText(rutaXmlFirmado);
-
             }
 
         }

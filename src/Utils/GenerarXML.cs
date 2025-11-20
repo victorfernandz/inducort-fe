@@ -230,8 +230,85 @@ public class GenerarXML
         }
     }
     
-    public static void SerializarDocumentoInutilizacion(SifenConfig sifen, DateTime dFecFirma, string rutaArchivo, int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumIn, string dNumFin, string mOtEve)
+    public static void SerializarDocumentoInutilizacion(SifenConfig sifen, string cdc, DateTime dFecFirma, string rutaArchivo, int iTiDE, int dNumTim, string dEst, string dPunExp, string dNumIn, string dNumFin, string mOtEve, byte[]? certificadoBytes = null, string? contraseñaCertificado = null)
     {
-        
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
+        DocumentoEvento evento = new DocumentoEvento(cdc, dFecFirma, dNumTim, dEst, dPunExp, dNumIn, dNumFin, iTiDE, mOtEve);
+
+        // Serializar usando MemoryStream
+        var serializer = new XmlSerializer(typeof(DocumentoEvento));
+        var xmlDoc = new XmlDocument { PreserveWhitespace = true };
+
+        using (var ms = new MemoryStream())
+        using (var writer = XmlWriter.Create(ms, new XmlWriterSettings
+        {
+            Encoding = new UTF8Encoding(false),
+            Indent = false,
+            OmitXmlDeclaration = true,
+            NewLineHandling = NewLineHandling.None
+        }))
+        {
+            serializer.Serialize(writer, evento);
+            writer.Flush();
+
+            // Validar XML generado como string antes de cargar al XmlDocument
+            string xmlStringGenerado = Encoding.UTF8.GetString(ms.ToArray());
+            ms.Position = 0;
+            xmlDoc.Load(ms);
+        }
+
+        // Preparar namespace y atributos de schema
+        var root = xmlDoc.DocumentElement;
+        root.Attributes.RemoveNamedItem("xmlns");
+        root.Attributes.RemoveNamedItem("xmlns:xsi");
+        root.Attributes.RemoveNamedItem("xmlns:xsd");
+        root.Attributes.RemoveNamedItem("xsi:schemaLocation");
+        root.SetAttribute("xmlns", "http://ekuatia.set.gov.py/sifen/xsd");
+
+        XmlAttribute xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
+        xmlnsXsi.Value = "http://www.w3.org/2001/XMLSchema-instance";
+        root.Attributes.Append(xmlnsXsi);
+
+        XmlAttribute schemaLocation = xmlDoc.CreateAttribute("xsi", "schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
+        schemaLocation.Value = "http://ekuatia.set.gov.py/sifen/xsd Evento_v150.xsd";
+
+        // Firmar el XML
+        if (certificadoBytes != null && !string.IsNullOrEmpty(contraseñaCertificado))
+        {
+            var config = Config.LoadConfig();
+            string rutaDebug = Path.Combine(Path.GetDirectoryName(rutaArchivo), "debug_pre_firma.xml");
+            using (var fs = new FileStream(rutaDebug, FileMode.Create, FileAccess.Write))
+            using (var writer = XmlWriter.Create(fs, new XmlWriterSettings
+            {
+                Encoding = new UTF8Encoding(false),
+                Indent = false,
+                OmitXmlDeclaration = true,
+                NewLineHandling = NewLineHandling.None
+            }))
+            {
+                xmlDoc.Save(writer);
+                writer.Flush();
+            }
+            Console.WriteLine("XML guardado antes de firmar: " + rutaDebug);
+        }
+
+        SifenSigner.FirmarEvento(xmlDoc, cdc, certificadoBytes, contraseñaCertificado, sifen);
+
+        XmlWriterSettings settings = new XmlWriterSettings
+        {
+            OmitXmlDeclaration = true,
+            Encoding = new UTF8Encoding(false),
+            Indent = false,
+            NewLineHandling = NewLineHandling.None,
+            CheckCharacters = false
+        };
+
+        using (XmlWriter writer = XmlWriter.Create(rutaArchivo, settings))
+        {
+            xmlDoc.Save(writer);
+        }
+        Console.WriteLine($"XML generado exitosamente: {rutaArchivo}");
     }
 }

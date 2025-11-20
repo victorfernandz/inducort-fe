@@ -164,8 +164,12 @@ public class SifenSigner
         }
     }
 
-    public static XmlDocument FirmarEvento(XmlDocument xmlDoc, string referenceId, X509Certificate2 certificado)
+    public static XmlDocument FirmarEvento(XmlDocument xmlDoc, string referenceId, byte[] certificadoBytes, string contraseñaCertificado, SifenConfig sifen)
     {
+        var cert = new X509Certificate2(certificadoBytes, contraseñaCertificado, X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
+        var privateKey = cert.GetRSAPrivateKey();
+        if (privateKey == null) throw new Exception("Clave privada RSA no disponible en el certificado.");
+
         XmlNamespaceManager nsMgr = new XmlNamespaceManager(xmlDoc.NameTable);
         nsMgr.AddNamespace("s", "http://ekuatia.set.gov.py/sifen/xsd");
 
@@ -177,11 +181,10 @@ public class SifenSigner
         rEve.SetAttribute("Id", referenceId);
 
         SignedXml signedXml = new SignedXmlWithId(xmlDoc);
-        signedXml.SigningKey = certificado.GetRSAPrivateKey();
+        signedXml.SigningKey = privateKey;
 
         // Añadir # a la referencia, pero no incluirlo en el atributo Id
         Reference reference = new Reference("#" + referenceId);
-
         reference.AddTransform(new XmlDsigEnvelopedSignatureTransform());
         reference.AddTransform(new XmlDsigExcC14NTransform());
         reference.DigestMethod = SignedXml.XmlDsigSHA256Url;
@@ -192,12 +195,12 @@ public class SifenSigner
         signedXml.SignedInfo.SignatureMethod = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
 
         KeyInfo keyInfo = new KeyInfo();
-        KeyInfoX509Data x509Data = new KeyInfoX509Data(certificado);
+        KeyInfoX509Data x509Data = new KeyInfoX509Data(cert);
         
         // Agregar la información adicional de X509IssuerSerial
         try
         {
-            x509Data.AddIssuerSerial(certificado.Issuer, certificado.SerialNumber);
+            x509Data.AddIssuerSerial(cert.Issuer, cert.SerialNumber);
         }
         catch
         {
