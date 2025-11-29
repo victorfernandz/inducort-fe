@@ -9,4 +9,5 @@ public class DocumentosInutilizados
     public string U_FDOC { get; set; }
     public string U_ANUD { get; set; }
     public string U_EXX_FE_INUTILIZA_ESTADO { get; set; }
+    public int DocEntry;
 }

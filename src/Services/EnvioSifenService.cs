@@ -18,7 +18,6 @@ public class EnvioSifenService
     public EnvioSifenService(string baseUrl, LoggerSifenService logger, Config config, ILogger log, SAPServiceLayer sapServiceLayer = null)
     {
         _logger = logger;
-        //    _baseDatos = config.SapServiceLayer.CompanyDB;
         _baseDatos = config.SapServiceLayerList[0].CompanyDB;
         _sifenConfig = config.SapServiceLayerList[0].Sifen;
 
@@ -88,7 +87,6 @@ public class EnvioSifenService
         string numeroLote = "";
         string codigoRespuesta = "";
         
-
         try
         {
             if (_sapServiceLayer != null)
@@ -118,9 +116,7 @@ public class EnvioSifenService
                 try
                 {
                     string basePath = AppDomain.CurrentDomain.BaseDirectory; 
-                    //                    string rutaArchivoFirmado = Path.Combine(basePath, "XML", $"Documento_{cdc}.xml");
                     string rutaArchivoFirmado = Path.Combine(basePath, "XML", _baseDatos, $"Documento_{cdc}.xml");
-                    //                    File.Copy(rutaArchivoFirmado, Path.Combine(debugDir, $"rDE_completo_{cdc}_{DateTime.Now:yyyyMMddHHmmss}.xml"), true);
                     if (!File.Exists(rutaArchivoFirmado))
                     {
                         throw new FileNotFoundException($"No se encontró el archivo firmado para CDC {cdc} en {rutaArchivoFirmado}");
@@ -200,7 +196,7 @@ public class EnvioSifenService
             var response = await _httpClient.PostAsync(fullUrl, soapContent);
             string mensajeRespuesta = await response.Content.ReadAsStringAsync();
             File.WriteAllText(Path.Combine(debugDir, $"soap_response_lote_{dId}_{DateTime.Now:yyyyMMddHHmmss}.xml"), mensajeRespuesta);
-
+          
             string estado = response.IsSuccessStatusCode ? "Enviado" : "Error";
             DateTime? fechaRespuesta = DateTime.Now;
 
@@ -278,7 +274,6 @@ public class EnvioSifenService
         }
     }
 
-    //public async Task<bool> ConsultarEstadoLoteAsync(string dId, string numeroLote)
     public async Task<bool> ConsultarEstadoLoteAsync(string dId, string numeroLote, List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados, string tipoDocumento, DateTime fechaCreacion, DateTime fechaEnvio)
     {
         try
@@ -487,8 +482,6 @@ public class EnvioSifenService
             _httpClient = nuevoHttpClient;
 
             clienteAnterior.Dispose();
-
-        //    _log.LogInformation($"Certificado cliente configurado: {certificado.Subject}, válido desde {certificado.NotBefore} hasta {certificado.NotAfter}");
         }
         catch (Exception ex)
         {
@@ -548,5 +541,110 @@ public class EnvioSifenService
         }
 
         return response.IsSuccessStatusCode;
+    }
+
+    public async Task<string>  EnviarEventosAsync(List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados, string tipoDocumento, string xmlTiDE)
+    {
+        if (documentosFirmados.Count < 1 || documentosFirmados.Count > 15)
+            throw new Exception($"El lote de eventos debe contener entre 1 y 15 registros. Cantidad encontrada: {documentosFirmados.Count}");
+
+        var (docEntry, cdc, xmlEvento) = documentosFirmados[0];
+
+        var fechaCreacion = DateTime.Now;
+        var fechaEnvio = DateTime.Now;
+
+        string dId = DateTime.Now.ToString("yyyyMMddHHmmssfff").Substring(0, 15);
+
+        string debugDir = "debug_xml_eventos";
+        Directory.CreateDirectory(debugDir);
+
+        string codigoRespuesta = "";
+        string numeroTransaccion = "";
+        string metodoSifen = "siRecepEvento";
+        
+        try
+        {
+            if (_sapServiceLayer != null)
+            {
+                try
+                {
+                    var (certificadoBytes, password) = await ObtenerCertificadoActivo();
+                    ConfigurarCertificadoCliente(certificadoBytes, password);
+                }
+                catch (Exception certEx)
+                {
+                    _log.LogWarning($"[Eventos] No se pudo obtener el certificado TLS: {certEx.Message}");
+                }
+            }
+
+            // Normalizar el XML si hace falta (opcional, usa tu misma función que en DE)
+            string xmlNormalizado = NormalizarXmlFirmado(xmlEvento);
+
+            // Guardar rEnviEventoDe para debug
+            File.WriteAllText(Path.Combine(debugDir, $"rEnviEventoDe_{DateTime.Now:yyyyMMddHHmmss}.xml"),xmlNormalizado);
+            //Preparar el SOAP
+            string soapEnvelope =
+    $@"<soap:Envelope xmlns:soap=""http://www.w3.org/2003/05/soap-envelope"">
+    <soap:Header/>
+    <soap:Body>
+        {xmlNormalizado}
+    </soap:Body>
+    </soap:Envelope>";
+
+            File.WriteAllText(
+                Path.Combine(debugDir, $"soap_request_eventos_{DateTime.Now:yyyyMMddHHmmss}.xml"),
+                soapEnvelope);
+
+            var soapContent = new StringContent(soapEnvelope, new UTF8Encoding(false), "application/soap+xml");
+            soapContent.Headers.ContentType.Parameters.Clear();
+            soapContent.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
+
+            // Endpoint del servicio de eventos
+            string fullUrl = "de/ws/eventos/evento.wsdl";
+
+            var response = await _httpClient.PostAsync(fullUrl, soapContent);
+            string mensajeRespuesta = await response.Content.ReadAsStringAsync();
+
+            File.WriteAllText(
+                Path.Combine(debugDir, $"soap_response_eventos_{DateTime.Now:yyyyMMddHHmmss}.xml"),
+                mensajeRespuesta);
+
+            string estado = response.IsSuccessStatusCode ? "Enviado" : "Error";
+            DateTime? fechaRespuesta = DateTime.Now;
+
+            try
+            {
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(mensajeRespuesta);
+
+                var nsManager = new XmlNamespaceManager(xmlDoc.NameTable);
+                nsManager.AddNamespace("ns2", "http://ekuatia.set.gov.py/sifen/xsd");
+
+                string? codRes = xmlDoc.SelectSingleNode("//ns2:dCodRes", nsManager)?.InnerText;
+                string? mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgRes", nsManager)?.InnerText;
+                string? protAut = xmlDoc.SelectSingleNode("//ns2:dProtAut", nsManager)?.InnerText;
+
+                if (!string.IsNullOrEmpty(codRes)) codigoRespuesta = codRes;
+                if (!string.IsNullOrEmpty(protAut)) numeroTransaccion = protAut;
+
+                _log.LogInformation($"[Eventos] Código respuesta: {codigoRespuesta}, ProtAut: {numeroTransaccion}, Mensaje: {mensaje}");
+              
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning($"[Eventos] Error al analizar respuesta XML de eventos: {ex.Message}");
+            }
+
+            return !string.IsNullOrEmpty(numeroTransaccion) ? numeroTransaccion : codigoRespuesta;
+        }
+        catch (Exception ex)
+        {
+            _log.LogError($"[Eventos] Error al enviar eventos: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                _log.LogError($"[Eventos] Error interno: {ex.InnerException.Message}");
+            }
+            throw;
+        }
     }
 }

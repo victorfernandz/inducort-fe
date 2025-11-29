@@ -169,11 +169,18 @@ public class SifenSigner
         var cert = new X509Certificate2(certificadoBytes, contraseñaCertificado, X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
         var privateKey = cert.GetRSAPrivateKey();
         if (privateKey == null) throw new Exception("Clave privada RSA no disponible en el certificado.");
-
+        /*
         XmlNamespaceManager nsMgr = new XmlNamespaceManager(xmlDoc.NameTable);
         nsMgr.AddNamespace("s", "http://ekuatia.set.gov.py/sifen/xsd");
 
         XmlElement rEve = (XmlElement)xmlDoc.SelectSingleNode("//s:rEve", nsMgr);
+        if (rEve == null)
+            throw new Exception("No se encontró el nodo <rEve> para firmar.");
+        */
+
+        // Buscar rEve ignorando namespaces
+        XmlElement rEve = xmlDoc.SelectSingleNode("//*[local-name()='rEve']") as XmlElement;
+
         if (rEve == null)
             throw new Exception("No se encontró el nodo <rEve> para firmar.");
 
@@ -196,15 +203,6 @@ public class SifenSigner
 
         KeyInfo keyInfo = new KeyInfo();
         KeyInfoX509Data x509Data = new KeyInfoX509Data(cert);
-        
-        // Agregar la información adicional de X509IssuerSerial
-        try
-        {
-            x509Data.AddIssuerSerial(cert.Issuer, cert.SerialNumber);
-        }
-        catch
-        {
-        }
         
         keyInfo.AddClause(x509Data);
         signedXml.KeyInfo = keyInfo;

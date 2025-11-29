@@ -255,29 +255,60 @@ public class GenerarXML
 
             // Validar XML generado como string antes de cargar al XmlDocument
             string xmlStringGenerado = Encoding.UTF8.GetString(ms.ToArray());
-            ms.Position = 0;
-            xmlDoc.Load(ms);
+            xmlDoc.LoadXml(xmlStringGenerado);
         }
 
         // Preparar namespace y atributos de schema
         var root = xmlDoc.DocumentElement;
-        root.Attributes.RemoveNamedItem("xmlns");
-        root.Attributes.RemoveNamedItem("xmlns:xsi");
-        root.Attributes.RemoveNamedItem("xmlns:xsd");
-        root.Attributes.RemoveNamedItem("xsi:schemaLocation");
-        root.SetAttribute("xmlns", "http://ekuatia.set.gov.py/sifen/xsd");
+        if (root != null)
+        {
+            // Eliminar atributos del root
+            root.Attributes.RemoveAll();
+        }
+        
+        // gGroupGesEve
+        var gGroup = xmlDoc.SelectSingleNode("//*[local-name()='gGroupGesEve']") as XmlElement;
+        if (gGroup != null)
+        {
+            // Crear elemento gGroupGesEve con el namespace SIFEN
+            var nsSifen = "http://ekuatia.set.gov.py/sifen/xsd";
+            XmlElement newGGroup = xmlDoc.CreateElement(gGroup.LocalName, nsSifen);
 
-        XmlAttribute xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
-        xmlnsXsi.Value = "http://www.w3.org/2001/XMLSchema-instance";
-        root.Attributes.Append(xmlnsXsi);
+            // Mover todos los hijos
+            while (gGroup.HasChildNodes)
+            {
+                XmlNode child = gGroup.FirstChild;
+                gGroup.RemoveChild(child);
+                newGGroup.AppendChild(child);
+            }
 
-        XmlAttribute schemaLocation = xmlDoc.CreateAttribute("xsi", "schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
-        schemaLocation.Value = "http://ekuatia.set.gov.py/sifen/xsd Evento_v150.xsd";
+            // xmlns:xsi
+            XmlAttribute xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
+            xmlnsXsi.Value = "http://www.w3.org/2001/XMLSchema-instance";
+            newGGroup.Attributes.Append(xmlnsXsi);
+
+            // xsi:schemaLocation
+            XmlAttribute schemaLocation = xmlDoc.CreateAttribute("xsi", "schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
+            schemaLocation.Value = "http://ekuatia.set.gov.py/sifen/xsd siRecepEvento_v150.xsd";
+            newGGroup.Attributes.Append(schemaLocation);
+
+            // Reemplazar el nodo viejo por el nuevo en el árbol
+            XmlNode parent = gGroup.ParentNode;
+            parent.ReplaceChild(newGGroup, gGroup);
+        }
+
+        // Ahora agregar xsi:schemaLocation también en rGesEve
+        var rGesEve = xmlDoc.SelectSingleNode("//*[local-name()='gGroupGesEve']") as XmlElement;
+        if (rGesEve != null)
+        {
+            XmlAttribute schemaLocationRges = xmlDoc.CreateAttribute("xsi", "schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
+            schemaLocationRges.Value = "http://ekuatia.set.gov.py/sifen/xsd";
+            rGesEve.Attributes.Append(schemaLocationRges);
+        }
 
         // Firmar el XML
         if (certificadoBytes != null && !string.IsNullOrEmpty(contraseñaCertificado))
         {
-            var config = Config.LoadConfig();
             string rutaDebug = Path.Combine(Path.GetDirectoryName(rutaArchivo), "debug_pre_firma.xml");
             using (var fs = new FileStream(rutaDebug, FileMode.Create, FileAccess.Write))
             using (var writer = XmlWriter.Create(fs, new XmlWriterSettings

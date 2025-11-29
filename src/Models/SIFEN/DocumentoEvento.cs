@@ -2,6 +2,7 @@ using System;
 using System.Xml.Serialization;
 using System.Xml;
 
+//[XmlRoot("rEnviEventoDe")]
 [XmlRoot("rEnviEventoDe", Namespace = "http://ekuatia.set.gov.py/sifen/xsd")]
 
 public class DocumentoEvento
@@ -47,7 +48,7 @@ public class DocumentoEvento
     }
 
     public class GGroupGesEve
-    {
+    {        
         [XmlElement("rGesEve")]
         public RGesEve GestionEvento { get; set; }
     }
