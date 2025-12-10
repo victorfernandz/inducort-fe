@@ -262,8 +262,9 @@ public class GenerarXML
         var root = xmlDoc.DocumentElement;
         if (root != null)
         {
-            // Eliminar atributos del root
-            root.Attributes.RemoveAll();
+            XmlAttribute xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
+            xmlnsXsi.Value = "http://www.w3.org/2001/XMLSchema-instance";
+            root.Attributes.Append(xmlnsXsi);
         }
         
         // gGroupGesEve
@@ -298,12 +299,14 @@ public class GenerarXML
         }
 
         // Ahora agregar xsi:schemaLocation también en rGesEve
-        var rGesEve = xmlDoc.SelectSingleNode("//*[local-name()='gGroupGesEve']") as XmlElement;
+        var nsXsi = "http://www.w3.org/2001/XMLSchema-instance";
+        var rGesEve = xmlDoc.SelectSingleNode("//*[local-name()='rGesEve']") as XmlElement;
+
         if (rGesEve != null)
         {
-            XmlAttribute schemaLocationRges = xmlDoc.CreateAttribute("xsi", "schemaLocation", "http://www.w3.org/2001/XMLSchema-instance");
-            schemaLocationRges.Value = "http://ekuatia.set.gov.py/sifen/xsd";
-            rGesEve.Attributes.Append(schemaLocationRges);
+            XmlAttribute schemaLocation = xmlDoc.CreateAttribute("xsi", "schemaLocation", nsXsi);
+            schemaLocation.Value = "http://ekuatia.set.gov.py/sifen/xsd siRecepEvento_v150.xsd";
+            rGesEve.Attributes.Append(schemaLocation);
         }
 
         // Firmar el XML

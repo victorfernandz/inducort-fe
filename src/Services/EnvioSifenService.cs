@@ -543,21 +543,11 @@ public class EnvioSifenService
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<string>  EnviarEventosAsync(List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados, string tipoDocumento, string xmlTiDE)
+    public async Task<string>  EnviarEventosAsync(List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados)
     {
-        if (documentosFirmados.Count < 1 || documentosFirmados.Count > 15)
-            throw new Exception($"El lote de eventos debe contener entre 1 y 15 registros. Cantidad encontrada: {documentosFirmados.Count}");
-
         var (docEntry, cdc, xmlEvento) = documentosFirmados[0];
-
-        var fechaCreacion = DateTime.Now;
-        var fechaEnvio = DateTime.Now;
-
-        string dId = DateTime.Now.ToString("yyyyMMddHHmmssfff").Substring(0, 15);
-
         string debugDir = "debug_xml_eventos";
         Directory.CreateDirectory(debugDir);
-
         string codigoRespuesta = "";
         string numeroTransaccion = "";
         string metodoSifen = "siRecepEvento";
@@ -577,7 +567,7 @@ public class EnvioSifenService
                 }
             }
 
-            // Normalizar el XML si hace falta (opcional, usa tu misma función que en DE)
+            // Normalizar el XML
             string xmlNormalizado = NormalizarXmlFirmado(xmlEvento);
 
             // Guardar rEnviEventoDe para debug
@@ -591,25 +581,16 @@ public class EnvioSifenService
     </soap:Body>
     </soap:Envelope>";
 
-            File.WriteAllText(
-                Path.Combine(debugDir, $"soap_request_eventos_{DateTime.Now:yyyyMMddHHmmss}.xml"),
-                soapEnvelope);
-
+            File.WriteAllText(Path.Combine(debugDir, $"soap_request_eventos_{DateTime.Now:yyyyMMddHHmmss}.xml"),soapEnvelope);
             var soapContent = new StringContent(soapEnvelope, new UTF8Encoding(false), "application/soap+xml");
             soapContent.Headers.ContentType.Parameters.Clear();
             soapContent.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
 
-            // Endpoint del servicio de eventos
             string fullUrl = "de/ws/eventos/evento.wsdl";
 
             var response = await _httpClient.PostAsync(fullUrl, soapContent);
             string mensajeRespuesta = await response.Content.ReadAsStringAsync();
-
-            File.WriteAllText(
-                Path.Combine(debugDir, $"soap_response_eventos_{DateTime.Now:yyyyMMddHHmmss}.xml"),
-                mensajeRespuesta);
-
-            string estado = response.IsSuccessStatusCode ? "Enviado" : "Error";
+            File.WriteAllText(Path.Combine(debugDir, $"soap_response_eventos_{DateTime.Now:yyyyMMddHHmmss}.xml"),mensajeRespuesta);
             DateTime? fechaRespuesta = DateTime.Now;
 
             try
@@ -622,13 +603,29 @@ public class EnvioSifenService
 
                 string? codRes = xmlDoc.SelectSingleNode("//ns2:dCodRes", nsManager)?.InnerText;
                 string? mensaje = xmlDoc.SelectSingleNode("//ns2:dMsgRes", nsManager)?.InnerText;
-                string? protAut = xmlDoc.SelectSingleNode("//ns2:dProtAut", nsManager)?.InnerText;
+                string? estres = xmlDoc.SelectSingleNode("//ns2:dEstRes", nsManager)?.InnerText;
 
                 if (!string.IsNullOrEmpty(codRes)) codigoRespuesta = codRes;
-                if (!string.IsNullOrEmpty(protAut)) numeroTransaccion = protAut;
 
                 _log.LogInformation($"[Eventos] Código respuesta: {codigoRespuesta}, ProtAut: {numeroTransaccion}, Mensaje: {mensaje}");
-              
+            //    _logger.RegistrarDocumento(_baseDatos, cdc, "", numeroTransaccion, xmlEvento, estado, tipoDocumento, metodoSifen, DateTime.Now, DateTime.Now, fechaRespuesta, mensaje, codigoRespuesta);
+
+                if (_sapServiceLayer != null)
+                {
+                    if (docEntry != -1)
+                    {
+                        XmlDocument firmadoDoc = new XmlDocument();
+                        firmadoDoc.PreserveWhitespace = true;
+                        firmadoDoc.LoadXml(xmlEvento);
+
+                        bool actualizado = await ActualizarDocEvento(docEntry, estres, codigoRespuesta, mensaje, xmlNormalizado, mensajeRespuesta);
+                        _log.LogInformation($"[Eventos] Documento con DocEntry {docEntry} actualizado en SAP: {actualizado}");
+                    }
+                    else
+                    {
+                        _log.LogWarning($"[Eventos] No se encontró docEntry");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -646,5 +643,49 @@ public class EnvioSifenService
             }
             throw;
         }
+    }
+
+    public async Task<bool> ActualizarDocEvento(int docEntry, string estadoSifen, string codigoRespuesta, string descripcionRespuesta, string xmlEvento, string mensajeRespuesta)
+    {
+        string estadoInternoSAP = estadoSifen.ToUpper() switch
+        {
+            "ENVIADO" => "ENV",
+            "RECHAZADO" => "NAU",
+            "APROBADO" => "AUT",
+            "OFFLINE" => "OFF",
+            null => "OFF"
+        };
+        
+        DateTime? fechaAutorizacion = null;
+
+        if (estadoInternoSAP == "AUT")
+        {
+            fechaAutorizacion = DateTime.Now;
+        }
+
+        var requestBody = new
+        {
+            U_EXX_FE_INUTILIZA_ESTADO = estadoInternoSAP,
+            U_EXX_FE_INUTILIZA_CODERR = codigoRespuesta,
+            U_EXX_FE_INUTILIZA_DESERR = descripcionRespuesta,
+            U_EXX_FE_INUTILIZA_FECHA = fechaAutorizacion,
+            U_EXX_FE_INUTILIZA_GEN = xmlEvento,
+            U_EXX_FE_INUTILIZA_RESP = mensajeRespuesta
+        };
+
+        var content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
+        HttpClient sapClient = _sapServiceLayer.GetHttpClient();
+        HttpResponseMessage response;
+
+        response = await sapClient.PatchAsync($"EPY_DVAN({docEntry})", content);
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            string errorContent = await response.Content.ReadAsStringAsync();
+            _log.LogError($"Error al actualizar documento {docEntry} en SAP. Estado: {estadoSifen}, Código: {estadoInternoSAP}");
+            _log.LogError($"Respuesta del Service Layer: {errorContent}");
+        }
+
+        return response.IsSuccessStatusCode;
     }
 }
