@@ -351,7 +351,7 @@ public class SAPCDCService : BackgroundService
                 int iTiPago = pagoContado?.TipoPago ?? 99;
                 decimal dMonTiPag = pagoContado?.MontoTipoPago ?? 0;
                 string cMoneTiPag = pagoContado?.MonedaTipoPago ?? "PYG";
-                string dDMoneTiPag = pagoContado?.DescripcionMonedaTipoPago ?? "Guaraní";
+                string dDMoneTiPag = pagoContado?.DescripcionMonedaTipoPago ?? "Guarani";
                 decimal? dTiCamTiPag = pagoContado?.TipoCambioPago;
 
                 // Se genera el Código de Control (CDC)     
