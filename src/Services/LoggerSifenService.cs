@@ -4,9 +4,15 @@ using System.Data;
 using System.Text;
 using System.Xml;
 using Microsoft.Extensions.Logging;
+using System.Net.Http.Headers;
+using System.Security.Authentication;
+using Newtonsoft.Json;
+using System.Xml;
 
 public class LoggerSifenService
 {
+    private readonly SAPServiceLayer _sapServiceLayer;
+    private readonly HttpClient _httpClient;
     private readonly string _connectionString;
     private readonly ILogger<LoggerSifenService> _logger;
     private readonly string _respuestasPath = "Respuestas";

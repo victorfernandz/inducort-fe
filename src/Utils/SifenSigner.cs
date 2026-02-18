@@ -211,4 +211,62 @@ public class SifenSigner
 
         return xmlDoc;
     }
+
+    public static XmlDocument FirmarCancelacion(XmlDocument xmlDoc, string referenceId, byte[] certificadoBytes, string contraseñaCertificado, SifenConfig sifen)
+    {
+        var cert = new X509Certificate2(certificadoBytes, contraseñaCertificado,
+            X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
+
+        var privateKey = cert.GetRSAPrivateKey();
+        if (privateKey == null) throw new Exception("Clave privada RSA no disponible en el certificado.");
+
+        // Buscar rEve por Id si existe, si no tomar el único rEve
+        XmlElement rEve =xmlDoc.SelectSingleNode($"//*[local-name()='rEve' and @Id='{referenceId}']") as XmlElement?? xmlDoc.SelectSingleNode("//*[local-name()='rEve']") as XmlElement;
+
+        if (rEve == null)
+            throw new Exception("No se encontró el nodo <rEve> para firmar.");
+
+        // Asegurar Id
+        if (rEve.GetAttribute("Id") != referenceId)
+            rEve.SetAttribute("Id", referenceId);
+
+        SignedXml signedXml = new SignedXmlWithId(xmlDoc);
+        signedXml.SigningKey = privateKey;
+
+        Reference reference = new Reference("#" + referenceId);
+        reference.AddTransform(new XmlDsigEnvelopedSignatureTransform());
+        reference.AddTransform(new XmlDsigExcC14NTransform());
+        reference.DigestMethod = SignedXml.XmlDsigSHA256Url;
+
+        signedXml.AddReference(reference);
+
+        signedXml.SignedInfo.CanonicalizationMethod = "http://www.w3.org/TR/2001/REC-xml-c14n-20010315";
+        signedXml.SignedInfo.SignatureMethod = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+
+        KeyInfo keyInfo = new KeyInfo();
+        keyInfo.AddClause(new KeyInfoX509Data(cert));
+        signedXml.KeyInfo = keyInfo;
+
+        signedXml.ComputeSignature();
+        XmlElement xmlDigitalSignature = signedXml.GetXml();
+
+        // Insertar la firma como hermano de rEve (en rGesEve)
+        XmlNode rGesEve = rEve.ParentNode;
+        if (rGesEve == null)
+            throw new Exception("No se encontró el nodo padre <rGesEve> para insertar la firma.");
+
+        rGesEve.AppendChild(xmlDoc.ImportNode(xmlDigitalSignature, true));
+
+        // Limpieza: evitar xmlns="" que rompe validación
+        var emptyNsNodes = xmlDoc.SelectNodes("//*[@xmlns='']");
+        if (emptyNsNodes != null)
+        {
+            foreach (XmlNode n in emptyNsNodes)
+            {
+                if (n is XmlElement el) el.RemoveAttribute("xmlns");
+            }
+        }
+
+        return xmlDoc;
+    }
 }

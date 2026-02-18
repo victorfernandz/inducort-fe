@@ -345,4 +345,128 @@ public class GenerarXML
         }
         Console.WriteLine($"XML generado exitosamente: {rutaArchivo}");
     }
+
+    public static void SerializarDocumentoCancelacion(SifenConfig sifen, string idEvento, string cdc, DateTime dFecFirma, string rutaArchivo, string mOtEve, byte[]? certificadoBytes = null, string? contraseñaCertificado = null)
+    {
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+
+        // Construir XML base
+        var nsSifen = "http://ekuatia.set.gov.py/sifen/xsd";
+        var nsXsi = "http://www.w3.org/2001/XMLSchema-instance";
+
+        var xmlDoc = new XmlDocument { PreserveWhitespace = true };
+
+        // Root: <rEnviEventoDe xmlns="http://ekuatia.set.gov.py/sifen/xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        XmlElement root = xmlDoc.CreateElement("rEnviEventoDe", nsSifen);
+        xmlDoc.AppendChild(root);
+
+        XmlAttribute xmlnsXsi = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
+        xmlnsXsi.Value = nsXsi;
+        root.Attributes.Append(xmlnsXsi);
+
+        // <dId>...</dId>
+        XmlElement dId = xmlDoc.CreateElement("dId", nsSifen);
+        dId.InnerText = idEvento;
+        root.AppendChild(dId);
+
+        // <dEvReg>
+        XmlElement dEvReg = xmlDoc.CreateElement("dEvReg", nsSifen);
+        root.AppendChild(dEvReg);
+
+        // <gGroupGesEve>
+        XmlElement gGroupGesEve = xmlDoc.CreateElement("gGroupGesEve", nsSifen);
+
+        // xmlns:xsi + xsi:schemaLocation en gGroupGesEve
+        XmlAttribute xmlnsXsi2 = xmlDoc.CreateAttribute("xmlns", "xsi", "http://www.w3.org/2000/xmlns/");
+        xmlnsXsi2.Value = nsXsi;
+        gGroupGesEve.Attributes.Append(xmlnsXsi2);
+
+        XmlAttribute schemaLocation = xmlDoc.CreateAttribute("xsi", "schemaLocation", nsXsi);
+        schemaLocation.Value = "http://ekuatia.set.gov.py/sifen/xsd siRecepEvento_v150.xsd";
+        gGroupGesEve.Attributes.Append(schemaLocation);
+
+        dEvReg.AppendChild(gGroupGesEve);
+
+        // <rGesEve>
+        XmlElement rGesEve = xmlDoc.CreateElement("rGesEve", nsSifen);
+
+        XmlAttribute schemaLocation2 = xmlDoc.CreateAttribute("xsi", "schemaLocation", nsXsi);
+        schemaLocation2.Value = "http://ekuatia.set.gov.py/sifen/xsd siRecepEvento_v150.xsd";
+        rGesEve.Attributes.Append(schemaLocation2);
+
+        gGroupGesEve.AppendChild(rGesEve);
+
+        // <rEve Id="...">
+        XmlElement rEve = xmlDoc.CreateElement("rEve", nsSifen);
+        XmlAttribute idAttr = xmlDoc.CreateAttribute("Id");
+        idAttr.Value = idEvento;          
+        rEve.Attributes.Append(idAttr);
+        rGesEve.AppendChild(rEve);
+
+        // <dFecFirma>
+        XmlElement dFecFirmaEl = xmlDoc.CreateElement("dFecFirma", nsSifen);
+        dFecFirmaEl.InnerText = dFecFirma.ToString("yyyy-MM-ddTHH:mm:ss");
+        rEve.AppendChild(dFecFirmaEl);
+
+        // <dVerFor>150</dVerFor>
+        XmlElement dVerFor = xmlDoc.CreateElement("dVerFor", nsSifen);
+        dVerFor.InnerText = "150";
+        rEve.AppendChild(dVerFor);
+
+        // <gGroupTiEvt>
+        XmlElement gGroupTiEvt = xmlDoc.CreateElement("gGroupTiEvt", nsSifen);
+        rEve.AppendChild(gGroupTiEvt);
+
+        // <rGeVeCan>
+        XmlElement rGeVeCan = xmlDoc.CreateElement("rGeVeCan", nsSifen);
+        gGroupTiEvt.AppendChild(rGeVeCan);
+
+        // <Id></Id> 
+        XmlElement Id = xmlDoc.CreateElement("Id", nsSifen);
+        Id.InnerText = cdc;
+        rGeVeCan.AppendChild(Id);
+
+        // <mOtEve>...</mOtEve>
+        XmlElement mOtEveEl = xmlDoc.CreateElement("mOtEve", nsSifen);
+        mOtEveEl.InnerText = mOtEve;
+        rGeVeCan.AppendChild(mOtEveEl);
+
+        // Debug pre-firma
+        if (certificadoBytes != null && !string.IsNullOrEmpty(contraseñaCertificado))
+        {
+            string rutaDebug = Path.Combine(Path.GetDirectoryName(rutaArchivo), "debug_pre_firma_cancelacion.xml");
+            using (var fs = new FileStream(rutaDebug, FileMode.Create, FileAccess.Write))
+            using (var writer = XmlWriter.Create(fs, new XmlWriterSettings
+            {
+                Encoding = new UTF8Encoding(false),
+                Indent = false,
+                OmitXmlDeclaration = true,
+                NewLineHandling = NewLineHandling.None
+            }))
+            {
+                xmlDoc.Save(writer);
+                writer.Flush();
+            }
+            Console.WriteLine("XML guardado antes de firmar (cancelación): " + rutaDebug);
+        }
+
+        SifenSigner.FirmarCancelacion(xmlDoc, idEvento, certificadoBytes, contraseñaCertificado, sifen);
+
+        XmlWriterSettings settings = new XmlWriterSettings
+        {
+            OmitXmlDeclaration = true,
+            Encoding = new UTF8Encoding(false),
+            Indent = false,
+            NewLineHandling = NewLineHandling.None,
+            CheckCharacters = false
+        };
+
+        using (XmlWriter writer = XmlWriter.Create(rutaArchivo, settings))
+        {
+            xmlDoc.Save(writer);
+        }
+
+        Console.WriteLine($"XML de cancelación generado exitosamente: {rutaArchivo}");
+    }
 }

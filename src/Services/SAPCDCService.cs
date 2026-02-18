@@ -14,11 +14,13 @@ public class SAPCDCService : BackgroundService
     private readonly EmpresaService _empresaService;
     private readonly EnvioSifenService _envioService;
     private readonly EventoService _eventoInutilizacion;
+    private readonly EventoServiceCancelacion _eventoCancelacion;
     private EmpresaInfo _empresaInfo;
     private readonly LoggerSifenService _loggerSifen;
     private readonly Config _config;
+    private readonly HttpClient _httpClient;
 
-    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, NotaCreditoService notaCreditoService, EnvioSifenService envioService, EmpresaService empresaService, LoggerSifenService loggerSifen, EventoService eventoInutilizacion, Config config)
+    public SAPCDCService(ILogger<SAPCDCService> logger, SAPServiceLayer sapServiceLayer, FacturaService facturaService, NotaCreditoService notaCreditoService, EnvioSifenService envioService, EventoServiceCancelacion eventoCancelacion, EmpresaService empresaService, LoggerSifenService loggerSifen, EventoService eventoInutilizacion, Config config)
     {
         _logger = logger;
         _sapServiceLayer = sapServiceLayer;
@@ -29,7 +31,7 @@ public class SAPCDCService : BackgroundService
         _loggerSifen = loggerSifen;
         _eventoInutilizacion = eventoInutilizacion;
         _config = config;
-        
+        _eventoCancelacion = eventoCancelacion;
     }
 
     private SapServiceLayerConfig ActiveSapConfig => _config.SapServiceLayerList[0];
@@ -71,11 +73,12 @@ public class SAPCDCService : BackgroundService
 
             _empresaInfo.ObligacionesAfectadas = await _empresaService.GetObligacionesAfectadas();
 
-            await ProcesarEventoInutilizacion(cancellationToken);
             await ProcesarFacturasSinCDC(cancellationToken);
+            await ProcesarFacturaCancelada(cancellationToken);
             await ProcesarFacturasPendientes(cancellationToken);
             await ProcesarNotaCreditoSinCDC(cancellationToken);
             await ProcesarNotaCreditoPendiente(cancellationToken);
+            await ProcesarEventoInutilizacion(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -86,9 +89,68 @@ public class SAPCDCService : BackgroundService
             await _sapServiceLayer.Logout();
         }
     }
+
+    private async Task ProcesarFacturaCancelada(CancellationToken stoppingToken)
+    {
+        int tipoDoc = 1;
+        try
+        {
+            _logger.LogInformation("Procesando Evento de Cancelación de Facturas");
+            var eventoCancelacion = await _eventoCancelacion.GetEventoFacturaCancelada();
+            _logger.LogInformation($"Se ecnontraron {eventoCancelacion.Count} documentos para cancelar.");
+
+            // Obtener el certificado activo
+            var (certificadoBytes, contraseñaCerntificado) = await ObtenerCertificadoActivo();
+            var loteDocumentos = new List<(int docEntry, string Id, string xmlFirmado)>();
+            string tipoDocumentoLote;
+        
+            foreach (var docFacturaCancelada in eventoCancelacion)
+            {
+                int docEntry = docFacturaCancelada.DocEntry;
+                string idEvento = docFacturaCancelada.DocEntry.ToString();
+                string cdc = docFacturaCancelada.CDC;
+                string motivoEvento = docFacturaCancelada.Motivo;
+                DateTime dFecFirma = DateTime.Now;
+
+                // Generar XML
+                string basePath = AppDomain.CurrentDomain.BaseDirectory;
+                string xmlDir = Path.Combine(basePath, "XML", _config.SapServiceLayerList[0].CompanyDB);
+                Directory.CreateDirectory(xmlDir);
+                string rutaXml = Path.Combine(xmlDir, $"Documento_cancelado_{cdc}.xml");
+
+                GenerarXML.SerializarDocumentoCancelacion(ActiveSapConfig.Sifen, idEvento, cdc, dFecFirma, rutaXml, motivoEvento, certificadoBytes, contraseñaCerntificado);
+                
+                try
+                {
+                    // Leer el XML firmado y enviar a SIFEN
+                    string xmlFirmadoFinal = File.ReadAllText(rutaXml);
+                    loteDocumentos.Add((docEntry, cdc, xmlFirmadoFinal));
+
+                    if (loteDocumentos.Count == 1)
+                    {
+                        await _envioService.EnviarEventosAsync(loteDocumentos, tipoDoc);
+                        _logger.LogInformation($"Evento de cancelación enviado para CDC {cdc}");
+                        loteDocumentos.Clear();
+                    }
+
+                    _logger.LogInformation($"Documento_cancelado_{cdc} enviado a SIFEN correctamente.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Error al preparar/enviar cancelación CDC {cdc}: {ex.Message}");
+                    _logger.LogError($"StackTrace: {ex.StackTrace}");
+                }
+            }
+        } 
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error {ex}.");
+        }
+    }
     
     private async Task ProcesarEventoInutilizacion(CancellationToken stoppingToen)
     {
+        int tipoDoc = 2;
         try
         {
             _logger.LogInformation("Procesando Evento de Inutilización");
@@ -129,7 +191,7 @@ public class SAPCDCService : BackgroundService
 
                     if (loteDocumentos.Count == 1)
                     {
-                        await _envioService.EnviarEventosAsync(loteDocumentos);
+                        await _envioService.EnviarEventosAsync(loteDocumentos, tipoDoc);
                         _logger.LogInformation("Documento de intulización enviado.");
                             loteDocumentos.Clear();
                     }
@@ -506,7 +568,17 @@ public class SAPCDCService : BackgroundService
 
                         string xmlFirmado = File.ReadAllText(rutaXmlFirmado);
 
-                        var (dId, lote) = _loggerSifen.ObtenerLotePorCDC(cdc);
+                        var baseAddr = _httpClient?.BaseAddress?.ToString() ?? "";                        
+                        bool esTest = baseAddr?.Contains("test", StringComparison.OrdinalIgnoreCase) == true;
+                        
+                        string dId = null;
+                        string lote = null;
+
+                        if (!esTest)
+                        {
+                            (dId, lote) = _loggerSifen.ObtenerLotePorCDC(cdc);   
+                        }
+                        
                         if (string.IsNullOrEmpty(dId) || string.IsNullOrEmpty(lote))
                         {
                             _logger.LogWarning($"No se encontró lote o dId para CDC {cdc}. Omitiendo.");

@@ -38,6 +38,7 @@ public class MultiBaseSAPCDCService : BackgroundService
                     var sapService = new SAPServiceLayer(sapConfig);
                     var empresaService = new EmpresaService(sapService, scopedServices.GetRequiredService<ILogger<EmpresaService>>());
 
+                    var eventoCancelacion = new EventoServiceCancelacion(sapService, scopedServices.GetRequiredService<ILogger<EventoServiceCancelacion>>());
                     var eventoInutilizacion = new EventoService(sapService, scopedServices.GetRequiredService<ILogger<EventoService>>());
                     
                     var facturaService = new FacturaService(sapService, scopedServices.GetRequiredService<ILogger<FacturaService>>());
@@ -47,7 +48,7 @@ public class MultiBaseSAPCDCService : BackgroundService
                         scopedServices.GetRequiredService<ILogger<EnvioSifenService>>(), sapService
                     );
 
-                    var servicio = new SAPCDCService(scopedServices.GetRequiredService<ILogger<SAPCDCService>>(), sapService, facturaService, notaCreditoService, envioService, empresaService, loggerSifen, eventoInutilizacion,
+                    var servicio = new SAPCDCService(scopedServices.GetRequiredService<ILogger<SAPCDCService>>(), sapService, facturaService, notaCreditoService, envioService, eventoCancelacion, empresaService, loggerSifen, eventoInutilizacion,
                         new Config { SapServiceLayerList = new List<SapServiceLayerConfig> { sapConfig }, HanaDatabase = _config.HanaDatabase }
                     );
 
@@ -60,8 +61,8 @@ public class MultiBaseSAPCDCService : BackgroundService
                 }
             }
 
-            _logger.LogInformation("Esperando 10 minutos para el siguiente ciclo...");
-            await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
+            _logger.LogInformation("Esperando 5 segundos para el siguiente ciclo...");
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
         }
     }
 } 

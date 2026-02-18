@@ -191,7 +191,19 @@ public class EnvioSifenService
             soapContent.Headers.ContentType.Parameters.Clear();
             soapContent.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
 
-            string fullUrl = "de/ws/async/recibe-lote.wsdl";
+        //    string fullUrl = "de/ws/async/recibe-lote.wsdl";
+
+            string fullUrl;
+            var baseAddr = _httpClient?.BaseAddress?.ToString() ?? "";
+
+            if (baseAddr.ToLower().Contains("test"))
+            {
+                fullUrl = "https://sifen-test.set.gov.py/de/ws/async/recibe-lote.wsdl";
+            }
+            else
+            {
+                fullUrl = "de/ws/async/recibe-lote.wsdl";
+            }
 
             var response = await _httpClient.PostAsync(fullUrl, soapContent);
             string mensajeRespuesta = await response.Content.ReadAsStringAsync();
@@ -216,12 +228,17 @@ public class EnvioSifenService
 
                 _log.LogInformation($"Código respuesta: {codigoRespuesta}, Número lote: {numeroLote}");
 
+                bool esTest = baseAddr?.Contains("test", StringComparison.OrdinalIgnoreCase) == true;
+
                 foreach (var (docEntry, cdc, xmlFirmado) in documentosFirmados)
                 {
                     try
                     {
-                        _logger.RegistrarDocumento(_baseDatos, cdc, dId, numeroLote, xmlFirmado, estado, tipoDocumento, "siRecepLoteDE", fechaCreacion, fechaEnvio, fechaRespuesta, mensaje, codigoRespuesta);
-
+                        if (!esTest)
+                        {
+                            _logger.RegistrarDocumento(_baseDatos, cdc, dId, numeroLote, xmlFirmado, estado, tipoDocumento, "siRecepLoteDE", fechaCreacion, fechaEnvio, fechaRespuesta, mensaje, codigoRespuesta);   
+                        }
+                        
                         if (_sapServiceLayer != null)
                         {
                             if (docEntry != -1)
@@ -543,14 +560,14 @@ public class EnvioSifenService
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<string>  EnviarEventosAsync(List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados)
+    public async Task<string>  EnviarEventosAsync(List<(int docEntry, string cdc, string xmlFirmado)> documentosFirmados, int tipoDoc)
     {
         var (docEntry, cdc, xmlEvento) = documentosFirmados[0];
         string debugDir = "debug_xml_eventos";
         Directory.CreateDirectory(debugDir);
         string codigoRespuesta = "";
         string numeroTransaccion = "";
-        string metodoSifen = "siRecepEvento";
+    //    string metodoSifen = "siRecepEvento";
         
         try
         {
@@ -586,7 +603,18 @@ public class EnvioSifenService
             soapContent.Headers.ContentType.Parameters.Clear();
             soapContent.Headers.ContentType.Parameters.Add(new NameValueHeaderValue("charset", "UTF-8"));
 
-            string fullUrl = "de/ws/eventos/evento.wsdl";
+        //    string fullUrl = "de/ws/eventos/evento.wsdl";
+            string fullUrl;
+            var baseAddr = _httpClient?.BaseAddress?.ToString() ?? "";
+
+            if (baseAddr.ToLower().Contains("test"))
+            {
+                fullUrl = "de/ws/eventos/evento.wsdl";
+            }
+            else
+            {
+                fullUrl = "de/ws/eventos/evento.wsdl";
+            }
 
             var response = await _httpClient.PostAsync(fullUrl, soapContent);
             string mensajeRespuesta = await response.Content.ReadAsStringAsync();
@@ -618,7 +646,7 @@ public class EnvioSifenService
                         firmadoDoc.PreserveWhitespace = true;
                         firmadoDoc.LoadXml(xmlEvento);
 
-                        bool actualizado = await ActualizarDocEvento(docEntry, estres, codigoRespuesta, mensaje, xmlNormalizado, mensajeRespuesta);
+                        bool actualizado = await ActualizarDocEvento(docEntry, estres, codigoRespuesta, mensaje, xmlNormalizado, mensajeRespuesta, tipoDoc);
                         _log.LogInformation($"[Eventos] Documento con DocEntry {docEntry} actualizado en SAP: {actualizado}");
                     }
                     else
@@ -645,7 +673,7 @@ public class EnvioSifenService
         }
     }
 
-    public async Task<bool> ActualizarDocEvento(int docEntry, string estadoSifen, string codigoRespuesta, string descripcionRespuesta, string xmlEvento, string mensajeRespuesta)
+    public async Task<bool> ActualizarDocEvento(int docEntry, string estadoSifen, string codigoRespuesta, string descripcionRespuesta, string xmlEvento, string mensajeRespuesta, int tipoDoc)
     {
         string estadoInternoSAP = estadoSifen.ToUpper() switch
         {
@@ -663,29 +691,59 @@ public class EnvioSifenService
             fechaAutorizacion = DateTime.Now;
         }
 
-        var requestBody = new
+        if (tipoDoc == 1)
         {
-            U_EXX_FE_INUTILIZA_ESTADO = estadoInternoSAP,
-            U_EXX_FE_INUTILIZA_CODERR = codigoRespuesta,
-            U_EXX_FE_INUTILIZA_DESERR = descripcionRespuesta,
-            U_EXX_FE_INUTILIZA_FECHA = fechaAutorizacion,
-            U_EXX_FE_INUTILIZA_GEN = xmlEvento,
-            U_EXX_FE_INUTILIZA_RESP = mensajeRespuesta
-        };
+            var requestBody = new
+            {
+                U_EXX_FE_ANULACION_ESTADO = estadoInternoSAP,
+                U_EXX_FE_ANULACION_RESP = descripcionRespuesta,
+                U_EXX_FE_ANULACION_FECHA = fechaAutorizacion
+            //    U_EXX_FE_INUTILIZA_GEN = xmlEvento,
+            //    U_EXX_FE_ANULACION_RESP = mensajeRespuesta
+            };
 
-        var content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
-        HttpClient sapClient = _sapServiceLayer.GetHttpClient();
-        HttpResponseMessage response;
+            var content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
+            HttpClient sapClient = _sapServiceLayer.GetHttpClient();
+            HttpResponseMessage response;
 
-        response = await sapClient.PatchAsync($"EPY_DVAN({docEntry})", content);
+            response = await sapClient.PatchAsync($"Invoices({docEntry})", content);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorContent = await response.Content.ReadAsStringAsync();
+                _log.LogError($"Error al actualizar documento {docEntry} en SAP. Estado: {estadoSifen}, Código: {estadoInternoSAP}");
+                _log.LogError($"Respuesta del Service Layer: {errorContent}");
+            }
+
+            return response.IsSuccessStatusCode;
         
-        if (!response.IsSuccessStatusCode)
-        {
-            string errorContent = await response.Content.ReadAsStringAsync();
-            _log.LogError($"Error al actualizar documento {docEntry} en SAP. Estado: {estadoSifen}, Código: {estadoInternoSAP}");
-            _log.LogError($"Respuesta del Service Layer: {errorContent}");
         }
+        else
+        {
+            var requestBody = new
+            {
+                U_EXX_FE_INUTILIZA_ESTADO = estadoInternoSAP,
+                U_EXX_FE_INUTILIZA_CODERR = codigoRespuesta,
+                U_EXX_FE_INUTILIZA_DESERR = descripcionRespuesta,
+                U_EXX_FE_INUTILIZA_FECHA = fechaAutorizacion,
+                U_EXX_FE_INUTILIZA_GEN = xmlEvento,
+                U_EXX_FE_INUTILIZA_RESP = mensajeRespuesta
+            };
 
-        return response.IsSuccessStatusCode;
+            var content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");
+            HttpClient sapClient = _sapServiceLayer.GetHttpClient();
+            HttpResponseMessage response;
+
+            response = await sapClient.PatchAsync($"EPY_DVAN({docEntry})", content);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorContent = await response.Content.ReadAsStringAsync();
+                _log.LogError($"Error al actualizar documento {docEntry} en SAP. Estado: {estadoSifen}, Código: {estadoInternoSAP}");
+                _log.LogError($"Respuesta del Service Layer: {errorContent}");
+            }
+
+            return response.IsSuccessStatusCode;
+        }
     }
 }
