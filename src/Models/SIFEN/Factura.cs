@@ -4,6 +4,8 @@ public class Factura
 {
     public int DocEntry { get; set; }
     public string DocType { get; set; }
+    public decimal? dDescItem { get; set; }
+    public decimal? dPorcDesIt { get; set; }
     public string U_EXX_FE_CDC { get; set; }
     public string U_EXX_FE_Estado { get; set; }
     public string U_EXX_FE_CODERR { get; set; }
@@ -22,6 +24,7 @@ public class Factura
     public int iCondCred { get; set; }
     public decimal dTiCam { get; set; }
     public string Comments { get; set; }
+    public string Resumido {get; set; }
     public BusinessPartner BusinessPartner { get; set; }
     public Currencies Currencies { get; set; }
     public GPagCred? OperacionCredito { get; set; }

@@ -24,4 +24,5 @@ public class Item
     public decimal dDescGloItem { get; set; } = 0;
     public decimal dAntPreUniIt { get; set; } = 0;
     public decimal dAntGloPreUniIt { get; set; } = 0;
+    public decimal dTotOpeItem { get; set; } = 0;
 }

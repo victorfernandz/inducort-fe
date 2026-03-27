@@ -233,6 +233,8 @@ public class SAPCDCService : BackgroundService
             foreach (var factura in facturas)
             {
                 string docType = factura.DocType;
+                decimal dPorcDesIt = factura.dPorcDesIt ?? 0;
+                string resumido = factura.Resumido;
                 string rucCompleto = factura.BusinessPartner.FederalTaxID;
                 string[] rucPartes = rucCompleto.Split('-');
                 int U_CRSI = factura.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2;
@@ -318,6 +320,13 @@ public class SAPCDCService : BackgroundService
                     foreach (var item in factura.Items)
                     {
                         decimal totalBruto = item.dCantProSer * item.dPUniProSer;
+                        decimal descuentoItemUnitario = item.dDescItem;
+                        decimal descuentoGlobalUnitario = item.dDescGloItem;
+                        decimal anticipoItemUnitario = item.dAntPreUniIt;
+                        decimal anticipoGlobalUnitario = item.dAntGloPreUniIt;
+
+                        decimal totalNeto = (item.dPUniProSer - descuentoItemUnitario - descuentoGlobalUnitario - anticipoItemUnitario - anticipoGlobalUnitario) 
+                            * item.dCantProSer;
                         int tasaIVA = 0;
 
                         if (item.dTasaIVA == 5 || item.dTasaIVA == 1.5m)
@@ -358,7 +367,8 @@ public class SAPCDCService : BackgroundService
                         if (tasaIVA == 10 && (afectacionIVA == 1 || afectacionIVA == 4))
                         {
                             //    baseGravadaIVA = Math.Round((totalBruto * (proporcionIVA / 100)) / 1.1m,8);
-                            baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                            // baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                            baseGravadaIVA = Math.Round((100 * (totalNeto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
                         }
                         else if ((tasaIVA == 5 || item.dTasaIVA == 1.5m) && (afectacionIVA == 1 || afectacionIVA == 4))
                         {
@@ -394,14 +404,23 @@ public class SAPCDCService : BackgroundService
                             cUniMed = item.cUniMed,
                             dDesUniMed = item.dDesUniMed,
                             dTiCamIt = item.dTiCamIt,
+
+                            dDescItem = item.dDescItem,
+                            dPorcDesIt = item.dPorcDesIt,
+                            dDescGloItem = item.dDescGloItem,
+                            dAntPreUniIt = item.dAntPreUniIt,
+                            dAntGloPreUniIt = item.dAntGloPreUniIt,
+
                             dTotBruOpeItem = totalBruto,
+                            dTotOpeItem = totalNeto,
+
                             iAfecIVA = afectacionIVA,
                             dDesAfecIVA = descAfectacionIVA,
                             dPropIVA = proporcionIVA,
                             dTasaIVA = tasaIVA,
                             dBasGravIVA = baseGravadaIVA,
                             dLiqIVAItem = liquidacionIVA,
-                            dBasExe = baseExenta,
+                            dBasExe = baseExenta
                         });
                     }
                 }
@@ -523,6 +542,7 @@ public class SAPCDCService : BackgroundService
                 try
                 {
                     string cdc = factura.U_EXX_FE_CDC;
+                    string resumido = factura.Resumido;
                     string archivoXml = $"Documento_{cdc}.xml";
                     string rutaXmlFirmado = Path.Combine(xmlDir, archivoXml);
 
@@ -1133,6 +1153,15 @@ public class SAPCDCService : BackgroundService
             foreach (var item in factura.Items)
             {
                 decimal totalBruto = item.dCantProSer * item.dPUniProSer;
+
+                decimal descuentoItemUnitario = item.dDescItem;
+                decimal porcentajeDescuentoItem = item.dPorcDesIt;
+                decimal descuentoGlobalUnitario = item.dDescGloItem;
+                decimal anticipoItemUnitario = item.dAntPreUniIt;
+                decimal anticipoGlobalUnitario = item.dAntGloPreUniIt;
+
+                decimal totalNeto = (item.dPUniProSer - descuentoItemUnitario - descuentoGlobalUnitario - anticipoItemUnitario - anticipoGlobalUnitario) 
+                    * item.dCantProSer;
                 int tasaIVA = 0;
 
                 if (item.dTasaIVA == 5 || item.dTasaIVA == 1.5m)
@@ -1179,7 +1208,8 @@ public class SAPCDCService : BackgroundService
                 if (tasaIVA == 10 && (afectacionIVA == 1 || afectacionIVA == 4))
                 {
                     //    baseGravadaIVA = Math.Round((totalBruto * (proporcionIVA / 100)) / 1.1m,8);
-                    baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                    // baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                    baseGravadaIVA = Math.Round((100 * (totalNeto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
                 }
                 else if ((tasaIVA == 5 || item.dTasaIVA == 1.5m) && (afectacionIVA == 1 || afectacionIVA == 4))
                 {
@@ -1215,7 +1245,16 @@ public class SAPCDCService : BackgroundService
                     cUniMed = item.cUniMed,
                     dDesUniMed = item.dDesUniMed,
                     dTiCamIt = item.dTiCamIt,
+
+                    dDescItem = item.dDescItem,
+                    dPorcDesIt = item.dPorcDesIt,
+                    dDescGloItem = item.dDescGloItem,
+                    dAntPreUniIt = item.dAntPreUniIt,
+                    dAntGloPreUniIt = item.dAntGloPreUniIt,
+
                     dTotBruOpeItem = totalBruto,
+                    dTotOpeItem = totalNeto,
+
                     iAfecIVA = afectacionIVA,
                     dDesAfecIVA = descAfectacionIVA,
                     dPropIVA = proporcionIVA,

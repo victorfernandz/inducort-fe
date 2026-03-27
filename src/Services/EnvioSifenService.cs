@@ -532,7 +532,8 @@ public class EnvioSifenService
             U_EXX_FE_CODERR = codigoRespuesta,
             U_EXX_FE_DESERR = descripcionRespuesta,
             U_EXX_FE_FECAUT = fechaAutorizacion,
-            U_EXX_FE_QR = QR
+            U_EXX_FE_QR = QR,
+            CreateQRCodeFrom = QR
         };
 
         var content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json");

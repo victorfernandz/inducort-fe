@@ -12,6 +12,7 @@ public class InvoiceData
 {
     public int DocEntry { get; set; }
     public string DocType { get; set; }
+    public decimal? DiscountPercent { get; set; }
     public string U_EXX_FE_CDC { get; set; }
     public string U_EXX_FE_Estado { get; set; }
     public string U_EXX_FE_CODERR { get; set; }
@@ -29,6 +30,7 @@ public class InvoiceData
     public int NumberOfInstallments { get; set; }
     public decimal DocRate { get; set; }
     public string Comments { get; set; }
+    public string U_RESUMIDO { get; set; }
 }
 
 public class DocumentLineData

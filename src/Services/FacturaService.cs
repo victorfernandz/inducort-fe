@@ -16,14 +16,15 @@ public class FacturaService
     public async Task<List<Factura>> GetFacturasSinCDC()
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
-            "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode," +
-            "NumberOfInstallments,Comments)," +
+            "?$expand=Invoices($select=DocEntry,DocRate,DocType,SummeryType,U_RESUMIDO, DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE," +
+            "FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode," +
+            "NumberOfInstallments,Comments,DiscountPercent)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID,Phone1,Cellular,EmailAddress)," +
             "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and Invoices/U_DOCD eq 'S' and Invoices/U_EXX_FE_Estado eq 'NEN' and Invoices/Cancelled eq 'tNO' and " +
-            "Invoices/DocDate ge '20260218' and Invoices/FolioNumber ne null";
+            "Invoices/DocDate ge '20260325' and Invoices/FolioNumber ne null";
         //    "Invoices/DocEntry eq 3480";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -106,6 +107,7 @@ public class FacturaService
             {
                 DocEntry = primeraEntrada.Invoices.DocEntry,
                 DocType = primeraEntrada.Invoices.DocType,
+                dPorcDesIt = primeraEntrada.Invoices.DiscountPercent ?? 0m,
                 U_EXX_FE_CDC = primeraEntrada.Invoices.U_EXX_FE_CDC ?? "",
                 U_CDOC = primeraEntrada.Invoices.U_CDOC?.PadLeft(2, '0'),
                 CardCode = primeraEntrada.Invoices.CardCode ?? "",
@@ -122,6 +124,8 @@ public class FacturaService
                 iCondCred = primeraEntrada.Invoices.NumberOfInstallments,
                 dTiCam = primeraEntrada.Invoices.DocRate,
                 Comments = primeraEntrada.Invoices.Comments,
+                Resumido = primeraEntrada.Invoices.U_RESUMIDO,
+
                 BusinessPartner = new BusinessPartner
                 {
                     CardCode = primeraEntrada.BusinessPartners.CardCode ?? "",
@@ -271,21 +275,106 @@ public class FacturaService
                 {
                     var lineasResponse = JsonConvert.DeserializeObject<List<DocumentLineData>>(responseObj["DocumentLines"].ToString());
 
+                    decimal porcentajeDescuentoCabecera = factura.dPorcDesIt ?? 0m;
+                    bool tieneDescuentoCabecera = porcentajeDescuentoCabecera > 0m;
+
                     if (lineasResponse != null)
                     {
-                        foreach (var linea in lineasResponse)
+                        if (factura.Resumido == "SI")
                         {
+                            decimal totalPriceAfterVat = 0m;
+                            foreach (var linea in lineasResponse)
+                            {
+                                decimal cantidad = factura.DocType == "S" ? 1m : (linea.Quantity <= 0 ? 1m : linea.Quantity);
+                                totalPriceAfterVat += linea.PriceAfterVAT * cantidad;
+                            }
+
+                            decimal descuentoGlobalResumen = tieneDescuentoCabecera
+                                ? Math.Round(totalPriceAfterVat * porcentajeDescuentoCabecera / 100m, 8, MidpointRounding.AwayFromZero) : 0m;
+
+                            decimal totalBrutoResumen = totalPriceAfterVat;
+                            decimal totalNetoResumen = totalBrutoResumen - descuentoGlobalResumen;
+
                             factura.Items.Add(new Item
                             {
-                                dCodInt = factura.DocType == "S" ? "1" : linea.ItemCode,
-                                //    dDesProSer = linea.ItemDescription,
-                                dDesProSer = factura.DocType == "S" ? factura.Comments : linea.ItemDetails,
-                                dCantProSer = factura.DocType == "S" ? 1 : linea.Quantity,
-                                dPUniProSer = linea.PriceAfterVAT,
-                                dTiCamIt = linea.Rate,
-                                taxCode = linea.TaxCode,
-                                dTasaIVA = linea.TaxPercentagePerRow
+                                dCodInt = lineasResponse.First().ItemCode,
+                                dDesProSer = factura.Comments,
+                                dCantProSer = 1,
+                                dPUniProSer = totalPriceAfterVat,
+                                dDescItem = 0m,
+                                dPorcDesIt = 0m,
+                                dDescGloItem = descuentoGlobalResumen,
+                                dAntPreUniIt = 0m,
+                                dAntGloPreUniIt = 0m,
+                                dTotBruOpeItem = totalBrutoResumen,
+                                dTotOpeItem = totalNetoResumen,
+                                dTiCamIt = lineasResponse.First().Rate,
+                                taxCode = lineasResponse.First().TaxCode,
+                                dTasaIVA = lineasResponse.First().TaxPercentagePerRow
                             });
+                            var ultimo = factura.Items.Last();
+_logger.LogWarning($"OBTENERLINEAS => DocEntry:{docEntry} Cod:{ultimo.dCodInt} PU:{ultimo.dPUniProSer} Cant:{ultimo.dCantProSer} DescGlo:{ultimo.dDescGloItem} TotBru:{ultimo.dTotBruOpeItem} TotNet:{ultimo.dTotOpeItem}");
+
+                        }
+                        else
+                        {
+                            var lineasPreparadas = lineasResponse
+                                .Select(l => new
+                                {
+                                    Linea = l,
+                                    Cantidad = factura.DocType == "S" ? 1m : (l.Quantity <= 0 ? 1m : l.Quantity),
+                                    PrecioUnitario = l.PriceAfterVAT
+                                })
+                                .ToList();
+
+                            decimal totalBrutoDocumento = lineasPreparadas.Sum(x => x.PrecioUnitario * x.Cantidad);
+
+                            decimal descuentoTotalDocumento = tieneDescuentoCabecera
+                                ? Math.Round(totalBrutoDocumento * porcentajeDescuentoCabecera / 100m, 8, MidpointRounding.AwayFromZero) : 0m;
+
+                            decimal descuentoAcumulado = 0m;
+
+                            for (int i = 0; i < lineasPreparadas.Count; i++)
+                            {
+                                var x = lineasPreparadas[i];
+                                decimal totalBrutoLinea = x.PrecioUnitario * x.Cantidad;
+                                decimal descuentoTotalLinea = 0m;
+
+                                if (tieneDescuentoCabecera)
+                                {
+                                    if (i < lineasPreparadas.Count - 1)
+                                    {
+                                        descuentoTotalLinea = Math.Round(totalBrutoLinea * porcentajeDescuentoCabecera / 100m, 8, MidpointRounding.AwayFromZero);
+                                        descuentoAcumulado += descuentoTotalLinea;
+                                    }
+                                    else
+                                    {
+                                        descuentoTotalLinea = descuentoTotalDocumento - descuentoAcumulado;
+                                    }
+                                }
+
+                                decimal descuentoUnitarioLinea = x.Cantidad == 0 ? 0m : descuentoTotalLinea / x.Cantidad;
+
+                                decimal totalNetoLinea = (x.PrecioUnitario - 0m - descuentoUnitarioLinea - 0m - 0m) * x.Cantidad;
+                                
+                                factura.Items.Add(new Item
+                                {
+                                    dCodInt = x.Linea.ItemCode,
+                                    dDesProSer = x.Linea.ItemDescription,
+                                    dCantProSer = x.Cantidad,
+                                    dPUniProSer = x.PrecioUnitario,
+                                    dDescItem = 0m,
+                                    dPorcDesIt = 0m,
+                                    dDescGloItem = descuentoUnitarioLinea,
+                                    dAntPreUniIt = 0m,
+                                    dAntGloPreUniIt = 0m,
+                                    dTotBruOpeItem = totalBrutoLinea,
+                                    dTotOpeItem = totalNetoLinea,
+                                    dTiCamIt = x.Linea.Rate,
+                                    taxCode = x.Linea.TaxCode,
+                                    dTasaIVA = x.Linea.TaxPercentagePerRow
+                                });
+                            }
                         }
                     }
                     else
@@ -628,14 +717,15 @@ public class FacturaService
     public async Task<List<Factura>> GetFacturasSinAutorizar()
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
-            "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EXX_FE_Estado,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode," +
-            "NumberOfInstallments,U_EXX_FE_CODERR,Comments)," +
+            "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,SummeryType,U_RESUMIDO,U_EXX_FE_CDC,U_CDOC,CardCode,U_EXX_FE_Estado,U_EST,U_PDE,U_TIM,U_FITE, "+
+            "FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode," +
+            "NumberOfInstallments,U_EXX_FE_CODERR,Comments,DiscountPercent)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID,Phone1,Cellular,EmailAddress)," +
             "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "Invoices/FolioNumber ne null and " +
-            "Invoices/DocDate ge '20260218' and " +
+            "Invoices/DocDate ge '20260325' and " +
             "Invoices/U_EXX_FE_Estado ne 'AUT' and Invoices/U_DOCD eq 'S' and Invoices/Cancelled eq 'tNO' and " +
             "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne '' ";
         //    "Invoices/DocEntry eq 3480";
@@ -720,6 +810,7 @@ public class FacturaService
             {
                 DocEntry = primeraEntrada.Invoices.DocEntry,
                 DocType = primeraEntrada.Invoices.DocType,
+                dPorcDesIt = primeraEntrada.Invoices.DiscountPercent ?? 0m,
                 U_EXX_FE_CDC = primeraEntrada.Invoices.U_EXX_FE_CDC ?? "",
                 U_EXX_FE_Estado = primeraEntrada.Invoices.U_EXX_FE_Estado,
                 U_EXX_FE_CODERR = primeraEntrada.Invoices.U_EXX_FE_CODERR,
@@ -738,6 +829,8 @@ public class FacturaService
                 iCondCred = primeraEntrada.Invoices.NumberOfInstallments,
                 dTiCam = primeraEntrada.Invoices.DocRate,
                 Comments = primeraEntrada.Invoices.Comments,
+                Resumido = primeraEntrada.Invoices.U_RESUMIDO,
+
                 BusinessPartner = new BusinessPartner
                 {
                     CardCode = primeraEntrada.BusinessPartners.CardCode ?? "",

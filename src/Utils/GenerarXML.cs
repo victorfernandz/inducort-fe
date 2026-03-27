@@ -95,12 +95,22 @@ public class GenerarXML
                 foreach (var item in items)
                 {
                     int condicionTipoCambio = documento.DE.CamposGenerales.OperacionComercial.CondicionTipoCambio;
+                    var valorRestaItem = new GValorRestaItem
+                    {
+                        DescuentoItem = item.dDescItem,
+                        PorcentajeDescuentoItem = item.dPorcDesIt,
+                        DescuentoGlobalItem = item.dDescGloItem,
+                        AnticipoPreUnitarioItem = item.dAntPreUniIt,
+                        AnticipoGlobalPreUnitarioItem = item.dAntGloPreUniIt,
+                        TotalOperacionItem = item.dTotOpeItem
+                    };
+
                     var valorItem = new GValorItem
                     {
                         PrecioUnitario = item.dPUniProSer,
                         TipoCambioIt = item.dTiCamIt,
                         TotalBrutoItem = item.dTotBruOpeItem,
-                        ValorRestaItem = new GValorRestaItem { TotalOperacionItem = item.dTotBruOpeItem },
+                        ValorRestaItem = valorRestaItem,
                         MonedaOperacion = cMoneOpe,
                         EsTipoCambioGlobal = condicionTipoCambio == 1
                     };
