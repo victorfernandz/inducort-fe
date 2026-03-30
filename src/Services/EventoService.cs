@@ -19,7 +19,7 @@ public class EventoService
 
     public async Task<List<EventoInutilizacion>> GetEventoInutilizacion()
     {
-        string queryDocumento = "EPY_DVAN?$select=DocEntry,U_TDOC,DocNum,U_ETTE,U_PETE,U_NROD,U_NROH,U_TIM,U_SFTE,U_FDOC,U_EXX_FE_INUTILIZA_ESTADO,U_ANUD,U_FDOC&$filter=U_FDOC gt '2026-03-20' and U_EXX_FE_INUTILIZA_ESTADO eq 'NEN'";
+        string queryDocumento = "EPY_DVAN?$select=DocEntry,U_TDOC,DocNum,U_ETTE,U_PETE,U_NROD,U_NROH,U_TIM,U_SFTE,U_FDOC,U_EXX_FE_INUTILIZA_ESTADO,U_ANUD,U_FDOC&$filter=U_FDOC gt '2026-03-30' and U_EXX_FE_INUTILIZA_ESTADO eq 'NEN'";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))

@@ -1155,7 +1155,6 @@ public class SAPCDCService : BackgroundService
                 decimal totalBruto = item.dCantProSer * item.dPUniProSer;
 
                 decimal descuentoItemUnitario = item.dDescItem;
-                decimal porcentajeDescuentoItem = item.dPorcDesIt;
                 decimal descuentoGlobalUnitario = item.dDescGloItem;
                 decimal anticipoItemUnitario = item.dAntPreUniIt;
                 decimal anticipoGlobalUnitario = item.dAntGloPreUniIt;

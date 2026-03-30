@@ -24,7 +24,7 @@ public class FacturaService
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and Invoices/U_DOCD eq 'S' and Invoices/U_EXX_FE_Estado eq 'NEN' and Invoices/Cancelled eq 'tNO' and " +
-            "Invoices/DocDate ge '20260325' and Invoices/FolioNumber ne null";
+            "Invoices/DocDate ge '20260330' and Invoices/FolioNumber ne null";
         //    "Invoices/DocEntry eq 3480";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -312,9 +312,6 @@ public class FacturaService
                                 taxCode = lineasResponse.First().TaxCode,
                                 dTasaIVA = lineasResponse.First().TaxPercentagePerRow
                             });
-                            var ultimo = factura.Items.Last();
-_logger.LogWarning($"OBTENERLINEAS => DocEntry:{docEntry} Cod:{ultimo.dCodInt} PU:{ultimo.dPUniProSer} Cant:{ultimo.dCantProSer} DescGlo:{ultimo.dDescGloItem} TotBru:{ultimo.dTotBruOpeItem} TotNet:{ultimo.dTotOpeItem}");
-
                         }
                         else
                         {
@@ -725,7 +722,7 @@ _logger.LogWarning($"OBTENERLINEAS => DocEntry:{docEntry} Cod:{ultimo.dCodInt} P
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "Invoices/FolioNumber ne null and " +
-            "Invoices/DocDate ge '20260325' and " +
+            "Invoices/DocDate ge '20260330' and " +
             "Invoices/U_EXX_FE_Estado ne 'AUT' and Invoices/U_DOCD eq 'S' and Invoices/Cancelled eq 'tNO' and " +
             "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne '' ";
         //    "Invoices/DocEntry eq 3480";
