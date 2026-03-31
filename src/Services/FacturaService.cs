@@ -24,7 +24,7 @@ public class FacturaService
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and Invoices/U_DOCD eq 'S' and Invoices/U_EXX_FE_Estado eq 'NEN' and Invoices/Cancelled eq 'tNO' and " +
-            "Invoices/DocDate ge '20260330' and Invoices/FolioNumber ne null";
+            "Invoices/DocDate ge '20260330' and Invoices/FolioNumber ne null and Invoices/DocTime ge '12:30:00'";
         //    "Invoices/DocEntry eq 3480";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -119,7 +119,7 @@ public class FacturaService
                 U_TIM = primeraEntrada.Invoices.U_TIM,
                 U_FITE = primeraEntrada.Invoices.U_FITE,
                 iTipTra = primeraEntrada.Invoices.U_EXX_FE_TipoTran,
-                iIndPres = primeraEntrada.Invoices.U_EXX_FE_IndPresencia,
+                iIndPres = primeraEntrada.Invoices.U_EXX_FE_IndPresencia ?? 0,
                 iCondOpe = primeraEntrada.Invoices.PaymentGroupCode,
                 iCondCred = primeraEntrada.Invoices.NumberOfInstallments,
                 dTiCam = primeraEntrada.Invoices.DocRate,
@@ -724,7 +724,7 @@ public class FacturaService
             "Invoices/FolioNumber ne null and " +
             "Invoices/DocDate ge '20260330' and " +
             "Invoices/U_EXX_FE_Estado ne 'AUT' and Invoices/U_DOCD eq 'S' and Invoices/Cancelled eq 'tNO' and " +
-            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne '' ";
+            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne ''";
         //    "Invoices/DocEntry eq 3480";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");

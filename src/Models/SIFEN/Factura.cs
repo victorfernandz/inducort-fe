@@ -19,7 +19,7 @@ public class Factura
     public int U_TIM { get; set; }
     public string U_FITE { get; set; }
     public string iTipTra { get; set; }
-    public int iIndPres { get; set; }
+    public int? iIndPres { get; set; }
     public int iCondOpe { get; set; }
     public int iCondCred { get; set; }
     public decimal dTiCam { get; set; }

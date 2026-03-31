@@ -273,10 +273,11 @@ public class SAPCDCService : BackgroundService
                 string dNumDoc = factura.FolioNum.PadLeft(7, '0');
                 //        string dFecha = factura.DocDate.Replace("-", ""); // Fecha del documento para usar en el CDC
                 string iTipTra = factura.iTipTra;
-                int iIndPres = factura.iIndPres;
+                int iIndPres = factura.iIndPres ?? 0;
                 int iCondOpe = factura.iCondOpe == -1 ? 1 : 2;
                 int iCondCred = factura.iCondCred == 1 ? 1 : 2;
                 DateTime dFeIniT = DateTime.ParseExact(factura.U_FITE, "yyyy-MM-dd", null);
+                string dSerieNum = "AA";
                 int dNumTim = factura.U_TIM;
                 int iTipEmi = 1; // Siempre fijo en 1
 
@@ -453,7 +454,7 @@ public class SAPCDCService : BackgroundService
 
                 string rutaXml = Path.Combine(xmlDir, $"Documento_{cdc}.xml");
 
-                GenerarXML.SerializarDocumentoElectronico(ActiveSapConfig.Sifen, cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
+                GenerarXML.SerializarDocumentoElectronico(ActiveSapConfig.Sifen, cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dSerieNum, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
                     _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento,
                     _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, dDirRec, dNumCasRec,
                     U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTelRec, dCelRec, dEmailRec,
@@ -691,6 +692,7 @@ public class SAPCDCService : BackgroundService
                 string dPunExp = notaCredito.U_PDE;
                 string dNumDoc = notaCredito.FolioNum.PadLeft(7, '0');
                 DateTime dFeIniT = DateTime.ParseExact(notaCredito.U_FITE, "yyyy-MM-dd", null);
+                string dSerieNum = "AA";
                 int dNumTim = notaCredito.U_TIM;
                 int iTipEmi = 1; // Siempre fijo en 1
 
@@ -881,7 +883,7 @@ public class SAPCDCService : BackgroundService
 
                 string rutaXml = Path.Combine(xmlDir, $"Documento_{cdc}.xml");
 
-                GenerarXML.SerializarDocumentoElectronico(ActiveSapConfig.Sifen, cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
+                GenerarXML.SerializarDocumentoElectronico(ActiveSapConfig.Sifen, cdc, dv, dFecFirma, rutaXml, dCodSeg, xmlTiDE, dNumTim, dEst, dPunExp, dNumDoc, dSerieNum, dFeIniT, dFeEmiDE, iTipTra, cMoneOpe, dDesMoneOpe, _empresaInfo.Ruc,
                     _empresaInfo.Dv, _empresaInfo.TipoContribuyente, _empresaInfo.NombreEmpresa, _empresaInfo.DireccionEmisor, _empresaInfo.NumeroCasaEmisor, _empresaInfo.CodDepartamento, _empresaInfo.DescDepartamento,
                     _empresaInfo.CodDistrito, _empresaInfo.DescDistrito, _empresaInfo.CodLocalidad, _empresaInfo.DescLocalidad, _empresaInfo.TelefEmisor, _empresaInfo.EmailEmisor, U_CRSI, U_TIPCONT, dDirRec, dNumCasRec,
                     U_EXX_FE_TipoOperacion, Country, DescPais, CardName, dRucReceptor, dDVReceptor, dTelRec, dCelRec, dEmailRec,
@@ -1297,6 +1299,7 @@ public class SAPCDCService : BackgroundService
             dEst: factura.U_EST,
             dPunExp: factura.U_PDE,
             dNumDoc: factura.FolioNum.PadLeft(7, '0'),
+            dSerieNum: "AA",
             dFeIniT: DateTime.ParseExact(factura.U_FITE, "yyyy-MM-dd", null),
             dFeEmiDE: dFeEmiDE,
             iTipTra: factura.iTipTra,
@@ -1545,6 +1548,7 @@ public class SAPCDCService : BackgroundService
             dEst: notaCredito.U_EST,
             dPunExp: notaCredito.U_PDE,
             dNumDoc: notaCredito.FolioNum.PadLeft(7, '0'),
+            dSerieNum : "AA",
             dFeIniT: DateTime.ParseExact(notaCredito.U_FITE, "yyyy-MM-dd", null),
             dFeEmiDE: dFeEmiDE,
             iTipTra: null,

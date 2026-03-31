@@ -19,7 +19,7 @@ public class EventoServiceCancelacion
 
     public async Task<List<EventoCancelacion>> GetEventoFacturaCancelada()
     {
-        string queryDocumento = "Invoices?$select=DocEntry,DocNum,U_EXX_FE_CDC,Comments,DocumentStatus,CancelStatus&$filter=Cancelled eq 'tYES' and U_EXX_FE_Estado eq 'AUT' AND U_EXX_FE_ANULACION_ESTADO eq 'NAU' and DocDate ge '20260330'";
+        string queryDocumento = "Invoices?$select=DocEntry,DocNum,U_EXX_FE_CDC,Comments,DocumentStatus,CancelStatus&$filter=Cancelled eq 'tYES' and U_EXX_FE_Estado eq 'AUT' AND U_EXX_FE_ANULACION_ESTADO eq 'NAU' and DocDate ge '20260330' and DocTime ge '12:30:00'";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
         if (string.IsNullOrEmpty(jsonResponse))
