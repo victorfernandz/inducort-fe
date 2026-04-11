@@ -206,8 +206,8 @@ public class NotaCreditoService
                             notaCredito.Items.Add(new Item
                             {
                                 dCodInt = notaCredito.DocType == "S" ? "1" : linea.ItemCode,
-                                //    dDesProSer = linea.ItemDescription,
-                                dDesProSer = notaCredito.DocType == "S" ? notaCredito.Comments : linea.ItemDetails,
+                                dDesProSer = notaCredito.Comments,
+                            //    dDesProSer = notaCredito.DocType == "S" ? notaCredito.Comments : linea.ItemDetails,
                                 dCantProSer = notaCredito.DocType == "S" ? 1 : linea.Quantity,
                                 dPUniProSer = linea.PriceAfterVAT,
                                 dTiCamIt = linea.Rate,
