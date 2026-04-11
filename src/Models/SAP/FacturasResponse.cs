@@ -31,6 +31,7 @@ public class InvoiceData
     public decimal DocRate { get; set; }
     public string Comments { get; set; }
     public string U_RESUMIDO { get; set; }
+    public string? U_STIM { get; set; }
 }
 
 public class DocumentLineData

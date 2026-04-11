@@ -277,7 +277,7 @@ public class SAPCDCService : BackgroundService
                 int iCondOpe = factura.iCondOpe == -1 ? 1 : 2;
                 int iCondCred = factura.iCondCred == 1 ? 1 : 2;
                 DateTime dFeIniT = DateTime.ParseExact(factura.U_FITE, "yyyy-MM-dd", null);
-                string dSerieNum = "AA";
+                string? dSerieNum = factura.dSerieNum;
                 int dNumTim = factura.U_TIM;
                 int iTipEmi = 1; // Siempre fijo en 1
 
@@ -438,6 +438,7 @@ public class SAPCDCService : BackgroundService
 
                 // Se genera el Código de Control (CDC)     
                 string dCodSeg = GenerarCodigoSeguridad();
+                
                 string cdc = GenerarCDC.GenerarCodigoCDC(iTiDE, _empresaInfo.Ruc, _empresaInfo.Dv.ToString(), dEst, dPunExp, dNumDoc, _empresaInfo.TipoContribuyente.ToString(), fechaFormatoCDC, iTipEmi.ToString(), dCodSeg);
                 // Se extraer el Dígito Verificador (dv)
                 int dv = int.Parse(cdc.Substring(cdc.Length - 1)); // Último carácter del CDC
@@ -692,7 +693,7 @@ public class SAPCDCService : BackgroundService
                 string dPunExp = notaCredito.U_PDE;
                 string dNumDoc = notaCredito.FolioNum.PadLeft(7, '0');
                 DateTime dFeIniT = DateTime.ParseExact(notaCredito.U_FITE, "yyyy-MM-dd", null);
-                string dSerieNum = "AA";
+                string? dSerieNum = notaCredito.dSerieNum;
                 int dNumTim = notaCredito.U_TIM;
                 int iTipEmi = 1; // Siempre fijo en 1
 
@@ -765,6 +766,13 @@ public class SAPCDCService : BackgroundService
                     foreach (var item in notaCredito.Items)
                     {
                         decimal totalBruto = item.dCantProSer * item.dPUniProSer;
+                        decimal descuentoItemUnitario = item.dDescItem;
+                        decimal descuentoGlobalUnitario = item.dDescGloItem;
+                        decimal anticipoItemUnitario = item.dAntPreUniIt;
+                        decimal anticipoGlobalUnitario = item.dAntGloPreUniIt;
+
+                        decimal totalNeto = (item.dPUniProSer - descuentoItemUnitario - descuentoGlobalUnitario - anticipoItemUnitario - anticipoGlobalUnitario) 
+                            * item.dCantProSer;
                         int tasaIVA = 0;
 
                         if (item.dTasaIVA == 5 || item.dTasaIVA == 1.5m)
@@ -804,7 +812,8 @@ public class SAPCDCService : BackgroundService
 
                         if (tasaIVA == 10 && (afectacionIVA == 1 || afectacionIVA == 4))
                         {
-                            baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                        //    baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                              baseGravadaIVA = Math.Round((100 * (totalNeto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
                         }
                         else if ((tasaIVA == 5 || item.dTasaIVA == 1.5m) && (afectacionIVA == 1 || afectacionIVA == 4))
                         {
@@ -839,7 +848,10 @@ public class SAPCDCService : BackgroundService
                             cUniMed = item.cUniMed,
                             dDesUniMed = item.dDesUniMed,
                             dTiCamIt = item.dTiCamIt,
+
                             dTotBruOpeItem = totalBruto,
+                            dTotOpeItem = totalNeto,
+
                             iAfecIVA = afectacionIVA,
                             dDesAfecIVA = descAfectacionIVA,
                             dPropIVA = proporcionIVA,
@@ -1299,7 +1311,7 @@ public class SAPCDCService : BackgroundService
             dEst: factura.U_EST,
             dPunExp: factura.U_PDE,
             dNumDoc: factura.FolioNum.PadLeft(7, '0'),
-            dSerieNum: "AA",
+            dSerieNum: factura.dSerieNum,
             dFeIniT: DateTime.ParseExact(factura.U_FITE, "yyyy-MM-dd", null),
             dFeEmiDE: dFeEmiDE,
             iTipTra: factura.iTipTra,
@@ -1380,6 +1392,14 @@ public class SAPCDCService : BackgroundService
             foreach (var item in notaCredito.Items)
             {
                 decimal totalBruto = item.dCantProSer * item.dPUniProSer;
+
+                decimal descuentoItemUnitario = item.dDescItem;
+                decimal descuentoGlobalUnitario = item.dDescGloItem;
+                decimal anticipoItemUnitario = item.dAntPreUniIt;
+                decimal anticipoGlobalUnitario = item.dAntGloPreUniIt;
+
+                decimal totalNeto = (item.dPUniProSer - descuentoItemUnitario - descuentoGlobalUnitario - anticipoItemUnitario - anticipoGlobalUnitario) 
+                    * item.dCantProSer;
                 int tasaIVA = 0;
 
                 if (item.dTasaIVA == 5 || item.dTasaIVA == 1.5m)
@@ -1420,7 +1440,8 @@ public class SAPCDCService : BackgroundService
                 if (tasaIVA == 10 && (afectacionIVA == 1 || afectacionIVA == 4))
                 {
                     //    baseGravadaIVA = Math.Round((totalBruto * (proporcionIVA / 100)) / 1.1m,8);
-                    baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                    //baseGravadaIVA = Math.Round((100 * (totalBruto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
+                    baseGravadaIVA = Math.Round((100 * (totalNeto * proporcionIVA)) / (10000 + (tasaIVA * proporcionIVA)), 8);
                 }
                 else if ((tasaIVA == 5 || item.dTasaIVA == 1.5m) && (afectacionIVA == 1 || afectacionIVA == 4))
                 {
@@ -1456,7 +1477,10 @@ public class SAPCDCService : BackgroundService
                     cUniMed = item.cUniMed,
                     dDesUniMed = item.dDesUniMed,
                     dTiCamIt = item.dTiCamIt,
+                    
                     dTotBruOpeItem = totalBruto,
+                    dTotOpeItem = totalNeto,
+                    
                     iAfecIVA = afectacionIVA,
                     dDesAfecIVA = descAfectacionIVA,
                     dPropIVA = proporcionIVA,
@@ -1548,7 +1572,7 @@ public class SAPCDCService : BackgroundService
             dEst: notaCredito.U_EST,
             dPunExp: notaCredito.U_PDE,
             dNumDoc: notaCredito.FolioNum.PadLeft(7, '0'),
-            dSerieNum : "AA",
+            dSerieNum : notaCredito.dSerieNum,
             dFeIniT: DateTime.ParseExact(notaCredito.U_FITE, "yyyy-MM-dd", null),
             dFeEmiDE: dFeEmiDE,
             iTipTra: null,

@@ -18,13 +18,13 @@ public class FacturaService
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
             "?$expand=Invoices($select=DocEntry,DocRate,DocType,SummeryType,U_RESUMIDO, DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE," +
             "FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode," +
-            "NumberOfInstallments,Comments,DiscountPercent)," +
+            "NumberOfInstallments,Comments,DiscountPercent,U_STIM)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID,Phone1,Cellular,EmailAddress)," +
             "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "(Invoices/U_EXX_FE_CDC eq null or Invoices/U_EXX_FE_CDC eq '') and Invoices/U_DOCD eq 'S' and Invoices/U_EXX_FE_Estado eq 'NEN' and Invoices/Cancelled eq 'tNO' and " +
-            "Invoices/DocDate ge '20260331' and Invoices/FolioNumber ne null and Invoices/U_TIM eq '18549478'";
+            "Invoices/DocDate ge '20260407' and (Invoices/FolioNumber ne null and Invoices/FolioNumber gt 0)";
         //    and Invoices/DocTime ge '12:30:00' "Invoices/DocEntry eq 3480";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -125,6 +125,7 @@ public class FacturaService
                 dTiCam = primeraEntrada.Invoices.DocRate,
                 Comments = primeraEntrada.Invoices.Comments,
                 Resumido = primeraEntrada.Invoices.U_RESUMIDO,
+                dSerieNum = primeraEntrada.Invoices.U_STIM,
 
                 BusinessPartner = new BusinessPartner
                 {
@@ -715,16 +716,16 @@ public class FacturaService
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
             "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,SummeryType,U_RESUMIDO,U_EXX_FE_CDC,U_CDOC,CardCode,U_EXX_FE_Estado,U_EST,U_PDE,U_TIM,U_FITE, "+
-            "FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode," +
+            "FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,U_STIM," +
             "NumberOfInstallments,U_EXX_FE_CODERR,Comments,DiscountPercent)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID,Phone1,Cellular,EmailAddress)," +
             "Currencies($select=Code,Name,DocumentsCode)" +
             "&$filter=Invoices/CardCode eq BusinessPartners/CardCode and " +
             "Invoices/DocCurrency eq Currencies/Code and " +
             "Invoices/FolioNumber ne null and " +
-            "Invoices/DocDate ge '20260331' and " +
+            "Invoices/DocDate ge '20260407' and " +
             "Invoices/U_EXX_FE_Estado ne 'AUT' and Invoices/U_DOCD eq 'S' and Invoices/Cancelled eq 'tNO' and " +
-            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne '' and Invoices/U_TIM eq '18549478'";
+            "Invoices/U_EXX_FE_CDC ne null and Invoices/U_EXX_FE_CDC ne ''";
         //    "Invoices/DocEntry eq 3480";
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -827,6 +828,7 @@ public class FacturaService
                 dTiCam = primeraEntrada.Invoices.DocRate,
                 Comments = primeraEntrada.Invoices.Comments,
                 Resumido = primeraEntrada.Invoices.U_RESUMIDO,
+                dSerieNum = primeraEntrada.Invoices.U_STIM,
 
                 BusinessPartner = new BusinessPartner
                 {
@@ -928,7 +930,6 @@ public class FacturaService
             }
 
             factura.PagoContado = await GetPagoContado(factura.DocEntry);
-
         }
         return facturasList;
     }

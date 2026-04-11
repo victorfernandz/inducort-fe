@@ -28,4 +28,5 @@ public class CreditNotesData
     public int U_DASO { get; set; }
     public int U_EXX_FE_MotEmision { get; set; }
     public string Comments { get; set; }
+    public string? U_STIM { get; set; }
 }

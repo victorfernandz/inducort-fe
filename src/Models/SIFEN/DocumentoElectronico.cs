@@ -27,7 +27,7 @@ public class DocumentoElectronico // Nodo Padre AA001
     [XmlElement("gCamFuFD")]
     public gCamFuFD gCamFuFD { get; set; }
 */
-    public DocumentoElectronico(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, string dSerieNum, DateTime dFeIniT, DateTime dFeEmiDE, string? iTipTra, string cMoneOpe,
+    public DocumentoElectronico(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, string? dSerieNum, DateTime dFeIniT, DateTime dFeEmiDE, string? iTipTra, string cMoneOpe,
         string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, 
         string dEmailE, string cActEco, string dDesActEco, int iNatRec, int? iTiContRec, string? dDirRec, int? dNumCasRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec,
         string? dTelRec, string? dCelRec, string? dEmailRec,
@@ -92,7 +92,7 @@ public class DEContent // Nodo padre AA001
 
     public DEContent() {}
 
-    public DEContent(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, string dSerieNum, DateTime dFeIniT, DateTime dFeEmiDE, string? iTipTra, string cMoneOpe, string dDesMoneOpe,
+    public DEContent(string cdc, int dv, DateTime dFecFirma, int dSisFact, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, string? dSerieNum, DateTime dFeIniT, DateTime dFeEmiDE, string? iTipTra, string cMoneOpe, string dDesMoneOpe,
         string dRucEm,int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi, string dEmailE,
         string cActEco, string dDesActEco, int iNatRec, int? iTiContRec, string? dDirRec, int? dNumCasRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucRec, int? dDVRec,
         string? dTelRec, string? dCelRec, string? dEmailRec,
@@ -174,7 +174,7 @@ public class GTimb //  Nodo padre A001
     public string NumeroDocumento { get; set; }
 
     [XmlElement("dSerieNum")]
-    public string SerieTimbrado { get; set; } = "AA";
+    public string? SerieTimbrado { get; set; }// = "AA";
 
     [XmlIgnore] // Evita serializar el DateTime directamente
     public DateTime FechaInicioTimbrado { get; set; }
@@ -188,7 +188,7 @@ public class GTimb //  Nodo padre A001
 
     public GTimb() {}
 
-    public GTimb(string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, string dSerieNum, DateTime dFeIniT)
+    public GTimb(string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, string? dSerieNum, DateTime dFeIniT)
     {
         TipoDocumento = iTiDE;
         DescripcionTipoDocumento = ObtenerDescripcionTipoDocumento(iTiDE);

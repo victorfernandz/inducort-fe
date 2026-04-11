@@ -7,7 +7,7 @@ using System.Globalization;
 
 public class GenerarXML
 {
-    public static void SerializarDocumentoElectronico(SifenConfig sifen, string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, string dSerieNum, DateTime dFeIniT, DateTime dFeEmiDE,
+    public static void SerializarDocumentoElectronico(SifenConfig sifen, string cdc, int dv, DateTime dFecFirma, string rutaArchivo, string dCodSeg, string iTiDE, int dNumTim, string dEst, string dPunExp, string dNumDoc, string? dSerieNum, DateTime dFeIniT, DateTime dFeEmiDE,
         string? iTipTra, string cMoneOpe, string dDesMoneOpe, string dRucEm, int dDVEmi, int iTipCont, string dNomEmi, string dDirEmi, int dNumCas, int cDepEmi, string dDesDepEmi, int cDisEmi, string dDesDisEmi, int cCiuEmi, string dDesCiuEmi, string dTelEmi,
         string dEmailE, int iNatRec, int iTiContRec, string dDirRec, int? dNumCasRec, int iTiOpe, string cPaisRec, string dDesPaisRe, string dNomRec, string dRucReceptor, int? dDVReceptor,
         string? dTelRec, string? dCelRec, string? dEmailRec,
