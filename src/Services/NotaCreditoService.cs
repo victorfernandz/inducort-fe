@@ -22,7 +22,7 @@ public class NotaCreditoService
             "Currencies($select=Code,Name,DocumentsCode) " +
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
             "CreditNotes/DocCurrency eq Currencies/Code and (CreditNotes/U_EXX_FE_CDC eq null or CreditNotes/U_EXX_FE_CDC eq '') and CreditNotes/U_EXX_FE_Estado eq 'NEN' and CreditNotes/Cancelled eq 'tNO' and " +
-            "CreditNotes/DocDate ge '202604011' and CreditNotes/FolioNumber ne null and CreditNotes/U_DOCD eq 'S'";
+            "CreditNotes/DocDate ge '20260413' and CreditNotes/FolioNumber ne null and CreditNotes/U_DOCD eq 'S'";
             //and CreditNotes/DocTime ge '12:30:00'
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -393,7 +393,7 @@ public class NotaCreditoService
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
             "CreditNotes/DocCurrency eq Currencies/Code and " +
             "CreditNotes/FolioNumber ne null and " +
-            "CreditNotes/DocDate ge '202604011' and " +
+            "CreditNotes/DocDate ge '202604013' and " +
             "CreditNotes/U_EXX_FE_Estado ne 'AUT' and CreditNotes/Cancelled eq 'tNO' and " +
             "CreditNotes/U_EXX_FE_CDC ne null and CreditNotes/U_EXX_FE_CDC ne '' and CreditNotes/U_DOCD eq 'S' ";
             //  and CreditNotes/DocTime ge '12:30:00'

@@ -161,7 +161,7 @@ public class FacturaService
         foreach (var factura in facturasList)
         {
             // Normalizar la condición de operación y condición de crédito
-            int condicionOperacion = factura.iCondOpe == -1 ? 1 : 2;
+            int condicionOperacion = factura.iCondOpe == 9 ? 1 : 2;
             int condicionCredito = factura.iCondCred == 1 ? 1 : 2;
 
             // Solo inicializar la operación de crédito si la condición de operación es crédito (2)
@@ -864,7 +864,7 @@ public class FacturaService
         foreach (var factura in facturasList)
         {
             // Normalizar la condición de operación y condición de crédito
-            int condicionOperacion = factura.iCondOpe == -1 ? 1 : 2;
+            int condicionOperacion = factura.iCondOpe == 9 ? 1 : 2;
             int condicionCredito = factura.iCondCred == 1 ? 1 : 2;
 
             // Solo inicializar la operación de crédito si la condición de operación es crédito (2)
