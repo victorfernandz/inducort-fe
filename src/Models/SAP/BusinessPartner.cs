@@ -5,7 +5,7 @@ public class BusinessPartner
     public string dNomFanRec { get; set; }
     public string FederalTaxID { get; set; }
     public string iNatRec { get; set; }
-    public int iTiOpe { get; set; }
+    public int? iTiOpe { get; set; }
     public int iTiContRec { get; set; }
     public string cPaisRec { get; set; }
     public string dDesPaisRe { get; set; }

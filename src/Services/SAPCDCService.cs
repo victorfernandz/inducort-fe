@@ -239,7 +239,7 @@ public class SAPCDCService : BackgroundService
                 string[] rucPartes = rucCompleto.Split('-');
                 int U_CRSI = factura.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2;
                 int U_TIPCONT = factura.BusinessPartner.iTiContRec;
-                int U_EXX_FE_TipoOperacion = factura.BusinessPartner.iTiOpe;
+                int U_EXX_FE_TipoOperacion = factura.BusinessPartner.iTiOpe ?? 0;
                 string? dRucReceptor = "";
                 int? dDVReceptor = null;
                 string? iTipIDRec = null;
@@ -274,7 +274,7 @@ public class SAPCDCService : BackgroundService
                 //        string dFecha = factura.DocDate.Replace("-", ""); // Fecha del documento para usar en el CDC
                 string iTipTra = factura.iTipTra;
                 int iIndPres = factura.iIndPres ?? 0;
-                int iCondOpe = factura.iCondOpe == -1 ? 1 : 2;
+                int iCondOpe = factura.iCondOpe == 9 ? 1 : 2;
                 int iCondCred = factura.iCondCred == 1 ? 1 : 2;
                 DateTime dFeIniT = DateTime.ParseExact(factura.U_FITE, "yyyy-MM-dd", null);
                 string? dSerieNum = factura.dSerieNum;
@@ -660,7 +660,7 @@ public class SAPCDCService : BackgroundService
                 string[] rucPartes = rucCompleto.Split('-');
                 int U_CRSI = notaCredito.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2;
                 int U_TIPCONT = notaCredito.BusinessPartner.iTiContRec;
-                int U_EXX_FE_TipoOperacion = notaCredito.BusinessPartner.iTiOpe;
+                int U_EXX_FE_TipoOperacion = notaCredito.BusinessPartner.iTiOpe ?? 0;
                 string? dRucReceptor = "";
                 int? dDVReceptor = null;
                 string? dTelRec = notaCredito.BusinessPartner.dTelRec;
@@ -1335,7 +1335,7 @@ public class SAPCDCService : BackgroundService
             iTiContRec: factura.BusinessPartner.iTiContRec,
             dDirRec: dDirRec,
             dNumCasRec: dNumCasRec,
-            iTiOpe: factura.BusinessPartner.iTiOpe,
+            iTiOpe: factura.BusinessPartner.iTiOpe ?? 0,
             cPaisRec: factura.BusinessPartner.cPaisRec,
             dDesPaisRe: factura.BusinessPartner.dDesPaisRe,
             dNomRec: factura.BusinessPartner.dNomRec,
@@ -1346,7 +1346,7 @@ public class SAPCDCService : BackgroundService
             dEmailRec: factura.BusinessPartner.dEmailRec,
             dTiCam: factura.dTiCam,
             iIndPres: factura.iIndPres,
-            iCondOpe: factura.iCondOpe == -1 ? 1 : 2,
+            iCondOpe: factura.iCondOpe == 9 ? 1 : 2,
             iCondCred: factura.iCondCred == 1 ? 1 : 2,
             iTiPago: factura.PagoContado?.TipoPago,
             dMonTiPag: factura.PagoContado?.MontoTipoPago,
@@ -1596,7 +1596,7 @@ public class SAPCDCService : BackgroundService
             iTiContRec: notaCredito.BusinessPartner.iTiContRec,
             dDirRec: dDirRec,
             dNumCasRec: dNumCasRec,
-            iTiOpe: notaCredito.BusinessPartner.iTiOpe,
+            iTiOpe: notaCredito.BusinessPartner.iTiOpe ?? 0,
             cPaisRec: notaCredito.BusinessPartner.cPaisRec,
             dDesPaisRe: notaCredito.BusinessPartner.dDesPaisRe,
             dNomRec: notaCredito.BusinessPartner.dNomRec,

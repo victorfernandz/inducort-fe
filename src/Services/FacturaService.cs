@@ -133,7 +133,7 @@ public class FacturaService
                     dNomRec = primeraEntrada.BusinessPartners.CardName ?? "",
                     FederalTaxID = primeraEntrada.BusinessPartners.FederalTaxID ?? "",
                     iTiContRec = primeraEntrada.BusinessPartners.U_TIPCONT,
-                    iTiOpe = primeraEntrada.BusinessPartners.U_EXX_FE_TipoOperacion,
+                    iTiOpe = primeraEntrada.BusinessPartners.U_EXX_FE_TipoOperacion ?? 0,
                     iNatRec = primeraEntrada.BusinessPartners.U_CRSI ?? "",
                     iTipIDRec = primeraEntrada.BusinessPartners.U_CRID,
                     cPaisRec = codigoReportePais ?? "",
@@ -163,6 +163,8 @@ public class FacturaService
             // Normalizar la condición de operación y condición de crédito
             int condicionOperacion = factura.iCondOpe == 9 ? 1 : 2;
             int condicionCredito = factura.iCondCred == 1 ? 1 : 2;
+
+            _logger.LogInformation($"Factura con condición {condicionOperacion} para la factura {factura.DocEntry}");
 
             // Solo inicializar la operación de crédito si la condición de operación es crédito (2)
             if (condicionOperacion == 2)
@@ -836,7 +838,7 @@ public class FacturaService
                     dNomRec = primeraEntrada.BusinessPartners.CardName ?? "",
                     FederalTaxID = primeraEntrada.BusinessPartners.FederalTaxID ?? "",
                     iTiContRec = primeraEntrada.BusinessPartners.U_TIPCONT,
-                    iTiOpe = primeraEntrada.BusinessPartners.U_EXX_FE_TipoOperacion,
+                    iTiOpe = primeraEntrada.BusinessPartners.U_EXX_FE_TipoOperacion ?? 0,
                     iNatRec = primeraEntrada.BusinessPartners.U_CRSI ?? "",
                     iTipIDRec = primeraEntrada.BusinessPartners.U_CRID,
                     cPaisRec = codigoReportePais ?? "",
