@@ -32,6 +32,7 @@ public class InvoiceData
     public string Comments { get; set; }
     public string U_RESUMIDO { get; set; }
     public string? U_STIM { get; set; }
+    public int? TrackingNumber { get; set; }
 }
 
 public class DocumentLineData

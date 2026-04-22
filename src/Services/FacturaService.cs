@@ -16,7 +16,7 @@ public class FacturaService
     public async Task<List<Factura>> GetFacturasSinCDC()
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
-            "?$expand=Invoices($select=DocEntry,DocRate,DocType,SummeryType,U_RESUMIDO, DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE," +
+            "?$expand=Invoices($select=DocEntry,DocRate,DocType,SummeryType,U_RESUMIDO, DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,TrackingNumber," +
             "FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode," +
             "NumberOfInstallments,Comments,DiscountPercent,U_STIM)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID,Phone1,Cellular,EmailAddress)," +
@@ -120,7 +120,7 @@ public class FacturaService
                 U_FITE = primeraEntrada.Invoices.U_FITE,
                 iTipTra = primeraEntrada.Invoices.U_EXX_FE_TipoTran,
                 iIndPres = primeraEntrada.Invoices.U_EXX_FE_IndPresencia ?? 0,
-                iCondOpe = primeraEntrada.Invoices.PaymentGroupCode,
+                iCondOpe = primeraEntrada.Invoices.TrackingNumber ?? 0, //Se agrega este campo para la Condición de pago
                 iCondCred = primeraEntrada.Invoices.NumberOfInstallments,
                 dTiCam = primeraEntrada.Invoices.DocRate,
                 Comments = primeraEntrada.Invoices.Comments,
@@ -161,10 +161,10 @@ public class FacturaService
         foreach (var factura in facturasList)
         {
             // Normalizar la condición de operación y condición de crédito
-            int condicionOperacion = factura.iCondOpe == 9 ? 1 : 2;
+            int condicionOperacion = factura.iCondOpe == -1 ? 1 : 2;
             int condicionCredito = factura.iCondCred == 1 ? 1 : 2;
 
-            _logger.LogInformation($"Factura con condición {condicionOperacion} para la factura {factura.DocEntry}");
+        //    _logger.LogInformation($"Factura con condición {condicionOperacion} para la factura {factura.DocEntry}");
 
             // Solo inicializar la operación de crédito si la condición de operación es crédito (2)
             if (condicionOperacion == 2)
@@ -718,7 +718,7 @@ public class FacturaService
     {
         string queryDocumento = "$crossjoin(Invoices,BusinessPartners,Currencies)" +
             "?$expand=Invoices($select=DocEntry,DocRate,DocType,DocCurrency,SummeryType,U_RESUMIDO,U_EXX_FE_CDC,U_CDOC,CardCode,U_EXX_FE_Estado,U_EST,U_PDE,U_TIM,U_FITE, "+
-            "FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,U_STIM," +
+            "FolioNumber,DocDate,U_EXX_FE_TipoTran,U_EXX_FE_IndPresencia,PaymentGroupCode,U_STIM,TrackingNumber," +
             "NumberOfInstallments,U_EXX_FE_CODERR,Comments,DiscountPercent)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,U_CRID,Phone1,Cellular,EmailAddress)," +
             "Currencies($select=Code,Name,DocumentsCode)" +
@@ -825,7 +825,7 @@ public class FacturaService
                 U_FITE = primeraEntrada.Invoices.U_FITE,
                 iTipTra = primeraEntrada.Invoices.U_EXX_FE_TipoTran,
                 iIndPres = primeraEntrada.Invoices.U_EXX_FE_IndPresencia,
-                iCondOpe = primeraEntrada.Invoices.PaymentGroupCode,
+                iCondOpe = primeraEntrada.Invoices.TrackingNumber ?? 0,
                 iCondCred = primeraEntrada.Invoices.NumberOfInstallments,
                 dTiCam = primeraEntrada.Invoices.DocRate,
                 Comments = primeraEntrada.Invoices.Comments,
@@ -866,7 +866,7 @@ public class FacturaService
         foreach (var factura in facturasList)
         {
             // Normalizar la condición de operación y condición de crédito
-            int condicionOperacion = factura.iCondOpe == 9 ? 1 : 2;
+            int condicionOperacion = factura.iCondOpe == -1 ? 1 : 2;
             int condicionCredito = factura.iCondCred == 1 ? 1 : 2;
 
             // Solo inicializar la operación de crédito si la condición de operación es crédito (2)

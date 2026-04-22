@@ -263,7 +263,7 @@ public class SAPCDCService : BackgroundService
                 string Country = factura.BusinessPartner.cPaisRec;
                 string DescPais = factura.BusinessPartner.dDesPaisRe;
                 string dDirRec = factura.BusinessPartner.dDirRec;
-                int? dNumCasRec = factura.BusinessPartner.dNumCasRec;
+                int? dNumCasRec = factura.BusinessPartner.dNumCasRec ?? 0;
                 string? dTelRec = factura.BusinessPartner.dTelRec;
                 string? dCelRec = factura.BusinessPartner.dCelRec;
                 string? dEmailRec = factura.BusinessPartner.dEmailRec;
@@ -274,7 +274,7 @@ public class SAPCDCService : BackgroundService
                 //        string dFecha = factura.DocDate.Replace("-", ""); // Fecha del documento para usar en el CDC
                 string iTipTra = factura.iTipTra;
                 int iIndPres = factura.iIndPres ?? 0;
-                int iCondOpe = factura.iCondOpe == 9 ? 1 : 2;
+                int iCondOpe = factura.iCondOpe == -1 ? 1 : 2;
                 int iCondCred = factura.iCondCred == 1 ? 1 : 2;
                 DateTime dFeIniT = DateTime.ParseExact(factura.U_FITE, "yyyy-MM-dd", null);
                 string? dSerieNum = factura.dSerieNum;
@@ -434,7 +434,7 @@ public class SAPCDCService : BackgroundService
                 decimal dMonTiPag = pagoContado?.MontoTipoPago ?? 0;
                 string cMoneTiPag = pagoContado?.MonedaTipoPago ?? "PYG";
                 string dDMoneTiPag = pagoContado?.DescripcionMonedaTipoPago ?? "Guarani";
-                decimal? dTiCamTiPag = pagoContado?.TipoCambioPago;
+                decimal? dTiCamTiPag = pagoContado?.TipoCambioPago ?? 0;
 
                 // Se genera el Código de Control (CDC)     
                 string dCodSeg = GenerarCodigoSeguridad();
@@ -1346,7 +1346,7 @@ public class SAPCDCService : BackgroundService
             dEmailRec: factura.BusinessPartner.dEmailRec,
             dTiCam: factura.dTiCam,
             iIndPres: factura.iIndPres,
-            iCondOpe: factura.iCondOpe == 9 ? 1 : 2,
+            iCondOpe: factura.iCondOpe == -1 ? 1 : 2,
             iCondCred: factura.iCondCred == 1 ? 1 : 2,
             iTiPago: factura.PagoContado?.TipoPago,
             dMonTiPag: factura.PagoContado?.MontoTipoPago,
