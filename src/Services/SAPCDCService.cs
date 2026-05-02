@@ -656,6 +656,7 @@ public class SAPCDCService : BackgroundService
             foreach (var notaCredito in notasCredito)
             {
                 string docType = notaCredito.DocType;
+                string resumido = notaCredito.Resumido;
                 string rucCompleto = notaCredito.BusinessPartner.FederalTaxID;
                 string[] rucPartes = rucCompleto.Split('-');
                 int U_CRSI = notaCredito.BusinessPartner.iNatRec == "CONTRIBUYENTE" ? 1 : 2;
@@ -992,6 +993,7 @@ public class SAPCDCService : BackgroundService
                 try
                 {
                     string cdc = notaCredito.U_EXX_FE_CDC;
+                    string resumido = notaCredito.Resumido;
                     string archivoXml = $"Documento_{cdc}.xml";
                     string rutaXmlFirmado = Path.Combine(xmlDir, archivoXml);
 
@@ -1478,11 +1480,17 @@ public class SAPCDCService : BackgroundService
                 {
                     dCodInt = notaCredito.DocType == "S" ? "1" : item.dCodInt,
                     dDesProSer = item.dDesProSer,
-                    dCantProSer = item.dCantProSer,
+                    dCantProSer = notaCredito.DocType == "S" ? 1 :item.dCantProSer,
                     dPUniProSer = item.dPUniProSer,
                     cUniMed = item.cUniMed,
                     dDesUniMed = item.dDesUniMed,
                     dTiCamIt = item.dTiCamIt,
+
+                    dDescItem = item.dDescItem,
+                    dPorcDesIt = item.dPorcDesIt,
+                    dDescGloItem = item.dDescGloItem,
+                    dAntPreUniIt = item.dAntPreUniIt,
+                    dAntGloPreUniIt = item.dAntGloPreUniIt,
                     
                     dTotBruOpeItem = totalBruto,
                     dTotOpeItem = totalNeto,

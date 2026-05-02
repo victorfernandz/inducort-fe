@@ -16,8 +16,8 @@ public class NotaCreditoService
     public async Task<List<NotaCredito>> GetNotaCreditoSinCDC()
     {
         string queryDocumento = "$crossjoin(CreditNotes,BusinessPartners,Currencies) " +
-            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_CODERR,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments," +
-            "U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision,Comments,U_STIM)," +
+            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,U_RESUMIDO,FolioNumber,DocDate,U_EXX_FE_CODERR,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments," +
+            "U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision,Comments,DiscountPercent,U_STIM)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion,Phone1,Cellular,EmailAddress), " +
             "Currencies($select=Code,Name,DocumentsCode) " +
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
@@ -105,6 +105,7 @@ public class NotaCreditoService
             {
                 DocEntry = primeraEntrada.CreditNotes.DocEntry,
                 DocType = primeraEntrada.CreditNotes.DocType,
+                dPorcDesIt = primeraEntrada.CreditNotes.DiscountPercent ?? 0m,
                 U_EXX_FE_CDC = primeraEntrada.CreditNotes.U_EXX_FE_CDC ?? "",
                 U_CDOC = primeraEntrada.CreditNotes.U_CDOC?.PadLeft(2, '0'),
                 CardCode = primeraEntrada.CreditNotes.CardCode ?? "",
@@ -121,6 +122,7 @@ public class NotaCreditoService
                 U_NUMFC = primeraEntrada.CreditNotes.U_NUMFC,
                 timbradoSAP = primeraEntrada.CreditNotes.U_TIMFC,
                 Comments = primeraEntrada.CreditNotes.Comments,
+                Resumido = primeraEntrada.CreditNotes.U_RESUMIDO,
                 dSerieNum = primeraEntrada.CreditNotes.U_STIM,
 
                 BusinessPartner = new BusinessPartner
@@ -199,22 +201,120 @@ public class NotaCreditoService
                 {
                     var lineasResponse = JsonConvert.DeserializeObject<List<DocumentLineData>>(responseObj["DocumentLines"].ToString());
 
+                    decimal porcentajeDescuentoCabecera = notaCredito.dPorcDesIt ?? 0m;
+                    bool tieneDescuentoCabecera = porcentajeDescuentoCabecera > 0m;
+
                     if (lineasResponse != null)
                     {
+
+                        if (notaCredito.Resumido == "SI")
+                        {
+                            decimal totalPriceAfterVat = 0m;
+                            foreach (var linea in lineasResponse)
+                            {
+                                decimal cantidad = notaCredito.DocType == "S" ? 1m : (linea.Quantity <= 0 ? 1m : linea.Quantity);
+                                totalPriceAfterVat += linea.PriceAfterVAT * cantidad;
+                            }
+
+                            decimal descuentoGlobalResumen = tieneDescuentoCabecera
+                                ? Math.Round(totalPriceAfterVat * porcentajeDescuentoCabecera / 100m, 8, MidpointRounding.AwayFromZero) : 0m;
+
+                            decimal totalBrutoResumen = totalPriceAfterVat;
+                            decimal totalNetoResumen = totalBrutoResumen - descuentoGlobalResumen;
+
+                            notaCredito.Items.Add(new Item
+                            {
+                                dCodInt = lineasResponse.First().ItemCode,
+                                dDesProSer = notaCredito.Comments,
+                                dCantProSer = 1,
+                                dPUniProSer = totalPriceAfterVat,
+                                dDescItem = 0m,
+                                dPorcDesIt = 0m,
+                                dDescGloItem = descuentoGlobalResumen,
+                                dAntPreUniIt = 0m,
+                                dAntGloPreUniIt = 0m,
+                                dTotBruOpeItem = totalBrutoResumen,
+                                dTotOpeItem = totalNetoResumen,
+                                dTiCamIt = lineasResponse.First().Rate,
+                                taxCode = lineasResponse.First().TaxCode,
+                                dTasaIVA = lineasResponse.First().TaxPercentagePerRow
+                            });
+                        }
+                        else
+                        {
+                            var lineasPreparadas = lineasResponse
+                                .Select(l => new
+                                {
+                                    Linea = l,
+                                    Cantidad = notaCredito.DocType == "S" ? 1m : (l.Quantity <= 0 ? 1m : l.Quantity),
+                                    PrecioUnitario = l.PriceAfterVAT
+                                })
+                                .ToList();
+
+                            decimal totalBrutoDocumento = lineasPreparadas.Sum(x => x.PrecioUnitario * x.Cantidad);
+
+                            decimal descuentoTotalDocumento = tieneDescuentoCabecera
+                                ? Math.Round(totalBrutoDocumento * porcentajeDescuentoCabecera / 100m, 8, MidpointRounding.AwayFromZero) : 0m;
+
+                            decimal descuentoAcumulado = 0m;
+
+                            for (int i = 0; i < lineasPreparadas.Count; i++)
+                            {
+                                var x = lineasPreparadas[i];
+                                decimal totalBrutoLinea = x.PrecioUnitario * x.Cantidad;
+                                decimal descuentoTotalLinea = 0m;
+
+                                if (tieneDescuentoCabecera)
+                                {
+                                    if (i < lineasPreparadas.Count - 1)
+                                    {
+                                        descuentoTotalLinea = Math.Round(totalBrutoLinea * porcentajeDescuentoCabecera / 100m, 8, MidpointRounding.AwayFromZero);
+                                        descuentoAcumulado += descuentoTotalLinea;
+                                    }
+                                    else
+                                    {
+                                        descuentoTotalLinea = descuentoTotalDocumento - descuentoAcumulado;
+                                    }
+                                }
+
+                                decimal descuentoUnitarioLinea = x.Cantidad == 0 ? 0m : descuentoTotalLinea / x.Cantidad;
+
+                                decimal totalNetoLinea = (x.PrecioUnitario - 0m - descuentoUnitarioLinea - 0m - 0m) * x.Cantidad;
+                                
+                                notaCredito.Items.Add(new Item
+                                {
+                                    dCodInt = x.Linea.ItemCode,
+                                    dDesProSer = x.Linea.ItemDescription,
+                                    dCantProSer = x.Cantidad,
+                                    dPUniProSer = x.PrecioUnitario,
+                                    dDescItem = 0m,
+                                    dPorcDesIt = 0m,
+                                    dDescGloItem = descuentoUnitarioLinea,
+                                    dAntPreUniIt = 0m,
+                                    dAntGloPreUniIt = 0m,
+                                    dTotBruOpeItem = totalBrutoLinea,
+                                    dTotOpeItem = totalNetoLinea,
+                                    dTiCamIt = x.Linea.Rate,
+                                    taxCode = x.Linea.TaxCode,
+                                    dTasaIVA = x.Linea.TaxPercentagePerRow
+                                });
+                            }
+                        }
+
+                    /*
                         foreach (var linea in lineasResponse)
                         {
                             notaCredito.Items.Add(new Item
                             {
                                 dCodInt = notaCredito.DocType == "S" ? "1" : linea.ItemCode,
                                 dDesProSer = notaCredito.Comments,
-                            //    dDesProSer = notaCredito.DocType == "S" ? notaCredito.Comments : linea.ItemDetails,
                                 dCantProSer = notaCredito.DocType == "S" ? 1 : linea.Quantity,
                                 dPUniProSer = linea.PriceAfterVAT,
                                 dTiCamIt = linea.Rate,
                                 taxCode = linea.TaxCode,
                                 dTasaIVA = linea.TaxPercentagePerRow
                             });
-                        }
+                        }*/
                     }
                     else
                     {
@@ -387,7 +487,7 @@ public class NotaCreditoService
     public async Task<List<NotaCredito>> GetNotaCreditoSinAutorizar()
     {
         string queryDocumento = "$crossjoin(CreditNotes,BusinessPartners,Currencies) " +
-            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,FolioNumber,DocDate,U_EXX_FE_Estado,U_EXX_FE_CODERR,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision,Comments,U_STIM)," +
+            "?$expand=CreditNotes($select=DocEntry,DocType,DocRate,DocCurrency,U_EXX_FE_CDC,U_CDOC,CardCode,U_EST,U_PDE,U_TIM,U_FITE,U_RESUMIDO,FolioNumber,DocDate,U_EXX_FE_Estado,U_EXX_FE_CODERR,U_EXX_FE_IndPresencia,PaymentGroupCode,NumberOfInstallments,U_NUMFC,U_TIMFC,U_DASO,U_EXX_FE_MotEmision,Comments,U_STIM,DiscountPercent)," +
             "BusinessPartners($select=CardCode,CardName,FederalTaxID,U_TIPCONT,U_CRSI,U_EXX_FE_TipoOperacion), " +
             "Currencies($select=Code,Name,DocumentsCode) " +
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
@@ -478,6 +578,7 @@ public class NotaCreditoService
             {
                 DocEntry = primeraEntrada.CreditNotes.DocEntry,
                 DocType = primeraEntrada.CreditNotes.DocType,
+                dPorcDesIt = primeraEntrada.CreditNotes.DiscountPercent ?? 0m,
                 U_EXX_FE_CDC = primeraEntrada.CreditNotes.U_EXX_FE_CDC ?? "",
                 U_EXX_FE_Estado = primeraEntrada.CreditNotes.U_EXX_FE_Estado,
                 U_EXX_FE_CODERR = primeraEntrada.CreditNotes.U_EXX_FE_CODERR,
@@ -496,6 +597,7 @@ public class NotaCreditoService
                 U_NUMFC = primeraEntrada.CreditNotes.U_NUMFC,
                 timbradoSAP = primeraEntrada.CreditNotes.U_TIMFC,
                 Comments = primeraEntrada.CreditNotes.Comments,
+                Resumido = primeraEntrada.CreditNotes.U_RESUMIDO,
                 dSerieNum = primeraEntrada.CreditNotes.U_STIM,
 
                 BusinessPartner = new BusinessPartner
