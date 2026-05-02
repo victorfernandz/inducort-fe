@@ -15,7 +15,7 @@ public class NotaCredito
     public int U_TIM { get; set; }
     public string U_FITE { get; set; }
     public decimal dTiCam { get; set; }
-    public int iMotEmi { get; set; }
+    public int? iMotEmi { get; set; }
     public int iTipDocAso { get; set; }
     public string dCdCDERef { get; set; }
     public int dNTimDI { get; set; } 

@@ -697,7 +697,7 @@ public class SAPCDCService : BackgroundService
                 int dNumTim = notaCredito.U_TIM;
                 int iTipEmi = 1; // Siempre fijo en 1
 
-                int iMotEmi = notaCredito.iMotEmi;
+                int? iMotEmi = notaCredito.iMotEmi;
                 int iTipDocAso = notaCredito.iTipDocAso;
                 string? dEstDocAso = null;
                 string? dPExpDocAso = null;
@@ -843,11 +843,17 @@ public class SAPCDCService : BackgroundService
                         {
                             dCodInt = notaCredito.DocType == "S" ? "1" : item.dCodInt,
                             dDesProSer = item.dDesProSer,
-                            dCantProSer = item.dCantProSer,
+                            dCantProSer = notaCredito.DocType == "S" ? 1 : item.dCantProSer,
                             dPUniProSer = item.dPUniProSer,
                             cUniMed = item.cUniMed,
                             dDesUniMed = item.dDesUniMed,
                             dTiCamIt = item.dTiCamIt,
+
+                            dDescItem = item.dDescItem,
+                            dPorcDesIt = item.dPorcDesIt,
+                            dDescGloItem = item.dDescGloItem,
+                            dAntPreUniIt = item.dAntPreUniIt,
+                            dAntGloPreUniIt = item.dAntGloPreUniIt,
 
                             dTotBruOpeItem = totalBruto,
                             dTotOpeItem = totalNeto,
@@ -1516,7 +1522,7 @@ public class SAPCDCService : BackgroundService
             iTiDE = "5";
         }
 
-        int iMotEmi = notaCredito.iMotEmi;
+        int? iMotEmi = notaCredito.iMotEmi;
         int iTipDocAso = notaCredito.iTipDocAso;
         string? dEstDocAso = null;
         string? dPExpDocAso = null;

@@ -22,7 +22,7 @@ public class NotaCreditoService
             "Currencies($select=Code,Name,DocumentsCode) " +
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
             "CreditNotes/DocCurrency eq Currencies/Code and (CreditNotes/U_EXX_FE_CDC eq null or CreditNotes/U_EXX_FE_CDC eq '') and CreditNotes/U_EXX_FE_Estado eq 'NEN' and CreditNotes/Cancelled eq 'tNO' and " +
-            "CreditNotes/DocDate ge '20260413' and CreditNotes/FolioNumber ne null and CreditNotes/U_DOCD eq 'S'";
+            "CreditNotes/DocDate ge '20260413' and (CreditNotes/FolioNumber ne null and CreditNotes/FolioNumber gt 0) and CreditNotes/U_DOCD eq 'S'";
             //and CreditNotes/DocTime ge '12:30:00'
 
         var jsonResponse = await HttpHelper.GetStringAsync(_httpClient, queryDocumento, _logger, "Error en la consulta a SAP");
@@ -116,7 +116,7 @@ public class NotaCreditoService
                 U_TIM = primeraEntrada.CreditNotes.U_TIM,
                 U_FITE = primeraEntrada.CreditNotes.U_FITE,
                 dTiCam = primeraEntrada.CreditNotes.DocRate,
-                iMotEmi = primeraEntrada.CreditNotes.U_EXX_FE_MotEmision,
+                iMotEmi = primeraEntrada.CreditNotes.U_EXX_FE_MotEmision ?? 0,
                 iTipDocAso = primeraEntrada.CreditNotes.U_DASO,
                 U_NUMFC = primeraEntrada.CreditNotes.U_NUMFC,
                 timbradoSAP = primeraEntrada.CreditNotes.U_TIMFC,
@@ -392,7 +392,7 @@ public class NotaCreditoService
             "Currencies($select=Code,Name,DocumentsCode) " +
             "&$filter=CreditNotes/CardCode eq BusinessPartners/CardCode and " +
             "CreditNotes/DocCurrency eq Currencies/Code and " +
-            "CreditNotes/FolioNumber ne null and " +
+            "(CreditNotes/FolioNumber ne null and CreditNotes/FolioNumber gt 0) and " +
             "CreditNotes/DocDate ge '202604013' and " +
             "CreditNotes/U_EXX_FE_Estado ne 'AUT' and CreditNotes/Cancelled eq 'tNO' and " +
             "CreditNotes/U_EXX_FE_CDC ne null and CreditNotes/U_EXX_FE_CDC ne '' and CreditNotes/U_DOCD eq 'S' ";
@@ -491,7 +491,7 @@ public class NotaCreditoService
                 U_TIM = primeraEntrada.CreditNotes.U_TIM,
                 U_FITE = primeraEntrada.CreditNotes.U_FITE,
                 dTiCam = primeraEntrada.CreditNotes.DocRate,
-                iMotEmi = primeraEntrada.CreditNotes.U_EXX_FE_MotEmision,
+                iMotEmi = primeraEntrada.CreditNotes.U_EXX_FE_MotEmision ?? 0,
                 iTipDocAso = primeraEntrada.CreditNotes.U_DASO,
                 U_NUMFC = primeraEntrada.CreditNotes.U_NUMFC,
                 timbradoSAP = primeraEntrada.CreditNotes.U_TIMFC,

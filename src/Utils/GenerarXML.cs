@@ -16,7 +16,7 @@ public class GenerarXML
         List<ActividadEconomica> actividades, List<ObligacionAfectada>? obligaciones = null, List<GCuotas>? cuotas = null, List<Item> items = null, string plazoCredito = null, GTotSub totales = null,
         byte[]? certificadoBytes = null, string? contraseñaCertificado = null,
         // campos opcionales solo para NC
-        int? iMotEmi = null, string? dCdCDERef = null, DateTime? dFecEmiDI = null, int? dNTimDI = null, string? dEstDocAso = null, string? dPExpDocAso = null, string? dNumDocAso = null, int? iTipDocAso = null, int? iTipoDocAso = null)
+        int? iMotEmi = 0, string? dCdCDERef = null, DateTime? dFecEmiDI = null, int? dNTimDI = null, string? dEstDocAso = null, string? dPExpDocAso = null, string? dNumDocAso = null, int? iTipDocAso = null, int? iTipoDocAso = null)
 
     {
         try
